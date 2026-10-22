@@ -8,7 +8,7 @@ async function returnBike(bikeId) {
         !Number.isSafeInteger(Number(bikeId)) || 
         Number(bikeId) <= 0
     ) {
-        const error = new error("A valid bikeId is Required");
+        const error = new Error("A valid bikeId is Required");
         error.statusCode = 400;
         throw error;
     }
