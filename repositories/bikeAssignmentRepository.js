@@ -1,3 +1,4 @@
+const AppError = require("../errors/AppError");
 
 async function findBikeForUpdate(client, bikeId) {
     const result = await client.query(
@@ -20,6 +21,18 @@ async function createAssignment(client, bikeId, riderId) {
     );
 
     return result.rows[0];
+}
+
+async function findActiveAssignmentByRider(client, riderId) {
+    const result = await client.query(
+        `SELECT assignment_id, bike_id
+         FROM bike_assignments
+         WHERE rider_id = $1
+           AND returned_at IS NULL`,
+        [riderId]
+    );
+
+    return result.rows[0] ?? null;
 }
 
 async function markBikeAssigned(client, bikeId) {
@@ -48,15 +61,11 @@ async function returnBike(client, bikeId) {
     const bike = bikeResult.rows[0];
 
     if (!bike) {
-        const error = new Error("Bike not found");
-        error.statusCode = 404;
-        throw error;
+        throw new AppError("Bike not found", 404);
     }
 
     if (bike.status !== "Assigned") {
-        const error = new Error("Bike is not currently assigned");
-        error.statusCode = 409;
-        throw error;
+        throw new AppError("Bike is not currently assigned", 409);
     }
 
     // Close the active assignment record.
@@ -122,6 +131,7 @@ async function countAssignmentHistory(client, bikeId) {
 module.exports = {
     findBikeForUpdate,
     createAssignment,
+    findActiveAssignmentByRider,
     markBikeAssigned,
     returnBike,
     findAssignmentHistory,

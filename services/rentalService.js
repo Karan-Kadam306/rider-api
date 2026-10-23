@@ -1,5 +1,5 @@
-
 const { pool } = require('../db');
+const AppError = require('../errors/AppError');
 const rentalRepository = require('../repositories/rentalRepository');
 const {
     calculateWeeklyRental
@@ -13,25 +13,26 @@ async function calculateRiderWeeklyRental({
 
     try {
         const riderResult = await client.query(
-            `SELECT rider_id, status, terminated_on
+            `SELECT rider_id,
+                    status,
+                    TO_CHAR(terminated_on, 'YYYY-MM-DD') AS terminated_on
              FROM riders
              WHERE rider_id = $1`,
             [riderId]
         );
 
         if (riderResult.rows.length === 0) {
-            throw new Error(`Rider not found: ${riderId}`);
+            throw new AppError(`Rider not found: ${riderId}`, 404);
         }
 
         const rider = riderResult.rows[0];
 
-        const terminatedOn = rider.terminated_on
-            ? rider.terminated_on.toISOString().slice(0, 10)
-            : null;
+        const terminatedOn = rider.terminated_on;
 
         if (rider.status === 'Terminated' && !terminatedOn) {
-            throw new Error(
-                `Cannot calculate rental: terminated date is missing for rider ${riderId}`
+            throw new AppError(
+                `Cannot calculate rental: terminated date is missing for rider ${riderId}`,
+                409
             );
         }
 
@@ -41,31 +42,18 @@ async function calculateRiderWeeklyRental({
                 { riderId, weekStart }
             );
 
+        // Any assignment on a date makes it a rental day.
+        // Bike changes on the same day are still charged only once.
         const eligibleDates = dates
-            .filter(date => date.assignmentCount === 1)
+            .filter(date => date.assignmentCount >= 1)
             .map(date => date.date);
 
-        const invalidDates = dates
-            .filter(date => date.assignmentCount > 1)
-            .map(date => date.date);
-
-        const result = calculateWeeklyRental({
+        return calculateWeeklyRental({
             weekStart,
             riderStatus: rider.status,
             terminatedOn,
             eligibleDates
         });
-
-        const reviewDates = invalidDates.map(date => ({
-            date,
-            reason: 'Multiple assignments overlap this date'
-        }));
-
-        return {
-            ...result,
-            reviewDates,
-            requiresReview: reviewDates.length > 0
-        };
     } finally {
         client.release();
     }

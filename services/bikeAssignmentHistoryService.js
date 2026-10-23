@@ -1,4 +1,5 @@
 const { pool } = require("../db");
+const AppError = require("../errors/AppError");
 const bikeAssignmentRepository = require("../repositories/bikeAssignmentRepository");
 
 async function getBikeAssignmentHistory(bikeId, page = 1, limit = 10) {
@@ -8,9 +9,7 @@ async function getBikeAssignmentHistory(bikeId, page = 1, limit = 10) {
         !Number.isSafeInteger(Number(bikeId)) ||
         Number(bikeId) <= 0
     ) {
-        const error = new Error("A valid bikeID is required");
-        error.statusCode = 400;
-        throw error;
+        throw new AppError("A valid bikeID is required", 400);
     }
 
     if(
@@ -20,11 +19,10 @@ async function getBikeAssignmentHistory(bikeId, page = 1, limit = 10) {
         Number(limit) < 1 ||
         Number(limit) > 100
     ) {
-        const error = new Error(
-            "Page must be a positive integer and the page limit must be less than 100"
+        throw new AppError(
+            "Page must be a positive integer and the page limit must be less than 100",
+            400
         );
-        error.statusCode = 400;
-        throw error;
     }
 
     page = Number(page);
@@ -42,9 +40,7 @@ async function getBikeAssignmentHistory(bikeId, page = 1, limit = 10) {
     const bike = result.rows[0];
 
     if(!bike) {
-        const error = new Error("Bike Not Found");
-        error.statusCode = 404;
-        throw error;
+        throw new AppError("Bike Not Found", 404);
     }
 
     const historyRows = await bikeAssignmentRepository.findAssignmentHistory(

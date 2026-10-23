@@ -7,14 +7,12 @@ function calculateRentalCharge({
     terminatedOn,
     usageDate
 }) {
-    if (assignmentCount !== 1) {
+    // One or more assignments on a date is charged as one rental day.
+    if (!(assignmentCount >= 1)) {
         return {
             eligible: false,
             rentalCharge: 0,
-            reason:
-                assignmentCount === 0
-                    ? 'No assignment found for usage date'
-                    : 'Multiple assignments overlap usage date'
+            reason: 'No assignment found for usage date'
         };
     }
 

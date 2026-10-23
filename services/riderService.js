@@ -1,5 +1,7 @@
 
+const { pool } = require('../db');
 const riderRepository = require('../repositories/riderRepository');
+const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
 
 // Fetch one rider by ID.
 async function getRiderById(riderId) {
@@ -90,20 +92,51 @@ async function terminateRider(riderId) {
         };
     }
 
-    // Terminate an Active or Inactive rider.
-    const rider = await riderRepository.terminateRider(riderId);
+    // Terminate the rider and return their bike in one transaction.
+    const client = await pool.connect();
 
-    if (!rider) {
+    try {
+        await client.query('BEGIN');
+
+        // Terminate an Active or Inactive rider.
+        const rider = await riderRepository.terminateRider(client, riderId);
+
+        if (!rider) {
+            await client.query('ROLLBACK');
+
+            return {
+                type: 'conflict',
+                rider: null
+            };
+        }
+
+        const activeAssignment =
+            await bikeAssignmentRepository.findActiveAssignmentByRider(
+                client,
+                riderId
+            );
+
+        // Close the assignment and make the bike Available for a new rider.
+        const returnedAssignment = activeAssignment
+            ? await bikeAssignmentRepository.returnBike(
+                client,
+                activeAssignment.bike_id
+            )
+            : null;
+
+        await client.query('COMMIT');
+
         return {
-            type: 'conflict',
-            rider: null
+            type: 'terminated',
+            rider,
+            returnedAssignment
         };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
     }
-
-    return {
-        type: 'terminated',
-        rider
-    };
 }
 
 async function getRiderStatusSummary() {

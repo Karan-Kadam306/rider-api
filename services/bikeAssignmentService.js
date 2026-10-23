@@ -1,14 +1,13 @@
 
 const crypto = require("crypto");
 const { pool } = require("../db");
+const AppError = require("../errors/AppError");
 
 const bikeRepository = require("../repositories/bikeAssignmentRepository");
 const idempotencyRepository = require("../repositories/idempotencyRepository");
 
 function createError(message, statusCode) {
-    const error = new Error(message);
-    error.statusCode = statusCode;
-    return error;
+    return new AppError(message, statusCode);
 }
 
 function createRequestHash(bikeId, riderId) {
@@ -116,15 +115,35 @@ async function assignBike({
             throw createError("Bike is not available", 409);
         }
 
+        // Lock the rider so two bikes cannot be assigned at the same time.
         const riderResult = await client.query(
-            `SELECT rider_id
+            `SELECT rider_id, status
              FROM riders
-             WHERE rider_id = $1`,
+             WHERE rider_id = $1
+             FOR UPDATE`,
             [riderId]
         );
 
         if (riderResult.rowCount === 0) {
             throw createError("Rider not found", 404);
+        }
+
+        if (riderResult.rows[0].status === "Terminated") {
+            throw createError("Cannot assign a bike to a terminated rider", 409);
+        }
+
+        // A rider can hold only one bike at a time.
+        const activeAssignment =
+            await bikeRepository.findActiveAssignmentByRider(
+                client,
+                riderId
+            );
+
+        if (activeAssignment) {
+            throw createError(
+                "Rider already has an active bike. Return it before assigning a new one",
+                409
+            );
         }
 
         const assignment = await bikeRepository.createAssignment(

@@ -22,7 +22,7 @@ async function runTests() {
                 item => item.status === status &&
                     (status !== 'Terminated' || item.terminated_on)
             );
-
+            
             if (!rider) {
                 console.log(`SKIP: No suitable ${status} rider found.`);
                 continue;
@@ -50,7 +50,7 @@ async function runTests() {
             console.log(`PASS: ${status} rider rental calculation`);
         }
 
-        // Find a rider with overlapping assignments during this week.
+        // Find a rider who changed bikes on the same day during this week.
         const overlapResult = await pool.query(
             `SELECT ba.rider_id
              FROM bike_assignments ba
@@ -73,6 +73,7 @@ async function runTests() {
             [WEEK_START]
         );
 
+        // Check if any overlapping assignments were found
         if (overlapResult.rows.length === 0) {
             console.log(
                 '\nSKIP: No overlapping assignments found for this week.'
@@ -88,13 +89,17 @@ async function runTests() {
             console.log(`\nOverlap test rider: ${riderId}`);
             console.log(JSON.stringify(result, null, 2));
 
-            if (!result.requiresReview || result.reviewDates.length === 0) {
+            // A bike change day is still charged once at ₹59.
+            if (
+                result.rentalDays === 0 ||
+                result.totalRental !== result.rentalDays * 59
+            ) {
                 throw new Error(
-                    'Expected overlapping assignments to require review.'
+                    'Expected bike change day to be charged once at ₹59.'
                 );
             }
 
-            console.log('PASS: Overlapping assignments flagged for review');
+            console.log('PASS: Bike change day charged once');
         }
     } catch (error) {
         console.error('\nTEST FAILED:', error.message);

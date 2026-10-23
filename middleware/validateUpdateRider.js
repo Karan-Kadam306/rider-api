@@ -47,17 +47,16 @@ function validateUpdateRider(req, res, next) {
         );
     }
 
-    // Validate allowed rider statuses.
+    // Termination must go through DELETE so terminated_on is recorded.
     const allowedStatuses = [
         'Active',
-        'Inactive',
-        'Terminated'
+        'Inactive'
     ];
 
     if (!allowedStatuses.includes(status.trim())) {
         return next(
             new AppError(
-                'Invalid rider status',
+                'Invalid rider status. Use DELETE /api/riders/:riderId to terminate a rider',
                 400
             )
         );

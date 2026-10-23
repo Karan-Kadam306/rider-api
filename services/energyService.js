@@ -4,14 +4,15 @@ const {
     calculateEnergyCharge
 } = require('../utils/calculateEnergyCharge');
 
-async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = false }) {
+async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = false, riderId = null }) {
     const client = await pool.connect();
     // The following try-finally block ensures that the database client is released back to the pool after the operation, regardless of success or failure.
     try {
         const records =
             await energyRepository.findValidatedDailyKmRecords(client, {
                 weekStart,
-                includeAllStatuses
+                includeAllStatuses,
+                riderId
             });
         // The results object is initialized to keep track of the processing outcomes, including counts of processed, charged, and skipped records, as well as the total energy charge and detailed information for each record.
         const results = {

@@ -75,13 +75,16 @@ async function updateRider({ riderId, name, phone, status }) {
     return result.rows[0] ?? null;
 }
 
-async function terminateRider(riderId) {
-    const result = await pool.query(
+// Runs inside the termination transaction.
+async function terminateRider(client, riderId) {
+    const result = await client.query(
         `UPDATE riders
-         SET status = 'Terminated'
+         SET status = 'Terminated',
+             terminated_on = CURRENT_DATE
          WHERE rider_id = $1
            AND status IN ('Active', 'Inactive')
-         RETURNING rider_id, name, phone, status, created_at`,
+         RETURNING rider_id, name, phone, status, created_at,
+                   TO_CHAR(terminated_on, 'YYYY-MM-DD') AS terminated_on`,
         [riderId]
     );
 

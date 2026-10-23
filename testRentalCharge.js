@@ -65,14 +65,14 @@ const tests = [
         expected: false
     },
     {
-        name: 'Overlapping assignments',
+        name: 'Bike change - two assignments on same day',
         input: {
             assignmentCount: 2,
             riderStatus: 'Active',
             terminatedOn: null,
             usageDate: '2026-10-12'
         },
-        expected: false
+        expected: true
     }
 ];
 

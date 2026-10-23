@@ -1,16 +1,15 @@
 const { pool } = require('../db');
+const AppError = require('../errors/AppError');
 const bikeRepository = require("../repositories/bikeAssignmentRepository");
 
 async function returnBike(bikeId) {
     if(
-        bikeId == null || 
+        bikeId == null ||
         !String(bikeId).trim() ||
-        !Number.isSafeInteger(Number(bikeId)) || 
+        !Number.isSafeInteger(Number(bikeId)) ||
         Number(bikeId) <= 0
     ) {
-        const error = new Error("A valid bikeId is Required");
-        error.statusCode = 400;
-        throw error;
+        throw new AppError("A valid bikeId is Required", 400);
     }
 
     const client = await pool.connect();

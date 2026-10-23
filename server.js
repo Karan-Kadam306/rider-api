@@ -7,6 +7,7 @@ const bikeReturnRoutes = require('./routes/bikeReturnRoutes');
 const bikeAssignmentHistoryRoutes = require("./routes/bikeAssignmentHistoryRoutes");
 const riderController = require('./controllers/riderController');
 const dailyKmRoutes = require('./routes/dailyKmRoutes');
+const billingRoutes = require('./routes/billingRoutes');
 const AppError = require('./errors/AppError');
 const mapDatabaseError = require('./errors/mapDatabaseError');
 const { validateRiderQuery } = require('./middleware/validateRiderQuery');
@@ -21,6 +22,7 @@ app.use('/api/bike-assignments', bikeAssignmentRoutes);
 app.use('/api/bikes', bikeReturnRoutes);
 app.use('/api/bikes', bikeAssignmentHistoryRoutes);
 app.use('/api/daily-km', dailyKmRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.get('/health', (req, res) => {
     res.json({message: 'Rider API is Running' });

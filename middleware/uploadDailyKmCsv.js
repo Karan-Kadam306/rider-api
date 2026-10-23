@@ -1,4 +1,5 @@
 const multer = require('multer');
+const AppError = require('../errors/AppError');
 
 const uploadDailyKmCsv = multer({
     storage: multer.memoryStorage(),
@@ -7,9 +8,10 @@ const uploadDailyKmCsv = multer({
         files: 1
     },
     fileFilter: (req, file, callback) => {
-        if (!file.originalname.toLowerCase().endsWith('.csv' || '.excel')) {
+        // Only CSV is parsed by the upload route.
+        if (!file.originalname.toLowerCase().endsWith('.csv')) {
             return callback(
-                new Error('Only CSV And Excel files are allowed')
+                new AppError('Only CSV files are allowed', 400)
             );
         }
 

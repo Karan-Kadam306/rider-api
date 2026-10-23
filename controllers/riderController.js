@@ -174,7 +174,8 @@ async function terminateRider(req, res, next) {
 
         return res.status(200).json({
             message: 'Rider terminated successfully',
-            rider: result.rider
+            rider: result.rider,
+            returnedAssignment: result.returnedAssignment
         });
     } catch (error) {
         return next(error);

@@ -121,6 +121,20 @@ async function processDailyKmUpload({
     }
 }
 
+// Validate all matched Pending records for a usage date.
+async function validateDailyKmRecords({ usageDate }) {
+    const records = await dailyKmRepository.validatePendingRecords(
+        pool,
+        usageDate
+    );
+
+    return {
+        validated: records.length,
+        kmRecordIds: records.map(record => record.km_record_id)
+    };
+}
+
 module.exports = {
-    processDailyKmUpload
+    processDailyKmUpload,
+    validateDailyKmRecords
 };

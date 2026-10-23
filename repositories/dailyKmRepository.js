@@ -135,6 +135,7 @@ async function createAuditEntry(client, {
     return result.rows[0];
 }
 
+// Find all assignments for a bike on a given usage date.
 async function findAssignmentsForUsageDate(client, bikeId, usageDate) {
     const result = await client.query(
         `SELECT
@@ -160,11 +161,29 @@ async function findAssignmentsForUsageDate(client, bikeId, usageDate) {
     return result.rows;
 }
 
+// Mark matched Pending records for a usage date as Validated.
+// Needs Review records are left untouched.
+async function validatePendingRecords(client, usageDate) {
+    const result = await client.query(
+        `UPDATE daily_km_records
+         SET status = 'Validated'
+         WHERE usage_date = $1
+           AND status = 'Pending'
+           AND bike_id IS NOT NULL
+           AND rider_id IS NOT NULL
+         RETURNING km_record_id`,
+        [usageDate]
+    );
+
+    return result.rows;
+}
+
 module.exports = {
     findBikeByVin,
     findRecordByVinAndDate,
     createRecord,
     updateRecord,
     createAuditEntry,
-    findAssignmentsForUsageDate
+    findAssignmentsForUsageDate,
+    validatePendingRecords
 };

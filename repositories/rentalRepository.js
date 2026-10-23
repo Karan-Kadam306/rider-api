@@ -30,6 +30,24 @@ async function findRentalDatesWithAssignmentCounts(client, {
     }));
 }
 
+// Riders who held a bike on at least one day of the week.
+async function findRiderIdsWithAssignmentsInWeek(client, { weekStart }) {
+    const result = await client.query(
+        `SELECT DISTINCT rider_id
+         FROM bike_assignments
+         WHERE assigned_at < $1::date + INTERVAL '7 days'
+           AND (
+                returned_at IS NULL
+                OR returned_at > $1::date
+           )
+         ORDER BY rider_id`,
+        [weekStart]
+    );
+
+    return result.rows.map(row => row.rider_id);
+}
+
 module.exports = {
-    findRentalDatesWithAssignmentCounts
+    findRentalDatesWithAssignmentCounts,
+    findRiderIdsWithAssignmentsInWeek
 };

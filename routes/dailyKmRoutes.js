@@ -103,4 +103,32 @@ router.post(
     }
 );
 
+router.post('/validate', async (req, res) => {
+    const { usageDate } = req.body ?? {};
+
+    if (!validateUsageDate(usageDate)) {
+        return res.status(400).json({
+            error: 'usageDate must be a valid date in YYYY-MM-DD format'
+        });
+    }
+
+    try {
+        const result = await dailyKmService.validateDailyKmRecords({
+            usageDate
+        });
+
+        return res.status(200).json({
+            message: 'Daily KM records validated successfully',
+            usageDate,
+            ...result
+        });
+    } catch (error) {
+        console.error('Daily KM validation failed:', error);
+
+        return res.status(500).json({
+            error: 'Failed to validate daily KM records'
+        });
+    }
+});
+
 module.exports = router;
