@@ -16,6 +16,20 @@ function mapDatabaseError(error) {
             };
         }
 
+        if (error.constraint === 'bikes_chassis_number_key') {
+            return {
+                statusCode: 409,
+                message: 'Chassis number already registered'
+            };
+        }
+
+        if (error.constraint === 'bikes_registration_number_key') {
+            return {
+                statusCode: 409,
+                message: 'Registration number already registered'
+            };
+        }
+
         // A different unique constraint was violated.
         return {
             statusCode: 409,

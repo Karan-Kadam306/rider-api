@@ -178,6 +178,66 @@ async function validatePendingRecords(client, usageDate) {
     return result.rows;
 }
 
+// List daily KM records; both filters are optional.
+async function findRecords(client, { usageDate = null, status = null }) {
+    const result = await client.query(
+        `SELECT
+            km_record_id,
+            reported_vin,
+            bike_id,
+            TO_CHAR(usage_date, 'YYYY-MM-DD') AS usage_date,
+            daily_km,
+            rider_id,
+            status,
+            source_file_name,
+            uploaded_at
+         FROM daily_km_records
+         WHERE ($1::date IS NULL OR usage_date = $1::date)
+           AND ($2::text IS NULL OR status = $2)
+         ORDER BY usage_date DESC, km_record_id`,
+        [usageDate, status]
+    );
+
+    return result.rows;
+}
+
+// Lock one record while it is being resolved.
+async function findRecordByIdForUpdate(client, recordId) {
+    const result = await client.query(
+        `SELECT
+            km_record_id,
+            bike_id,
+            TO_CHAR(usage_date, 'YYYY-MM-DD') AS usage_date,
+            daily_km,
+            rider_id,
+            status,
+            source_file_name
+         FROM daily_km_records
+         WHERE km_record_id = $1
+         FOR UPDATE`,
+        [recordId]
+    );
+
+    return result.rows[0] ?? null;
+}
+
+// Save the reviewer's bike/rider decision and validate the record.
+async function resolveRecord(client, { recordId, bikeId, riderId }) {
+    const result = await client.query(
+        `UPDATE daily_km_records
+         SET bike_id = $1,
+             rider_id = $2,
+             status = 'Validated'
+         WHERE km_record_id = $3
+         RETURNING km_record_id, reported_vin, bike_id,
+                   TO_CHAR(usage_date, 'YYYY-MM-DD') AS usage_date,
+                   daily_km, rider_id, status`,
+        [bikeId, riderId, recordId]
+    );
+
+    return result.rows[0] ?? null;
+}
+
 module.exports = {
     findBikeByVin,
     findRecordByVinAndDate,
@@ -185,5 +245,8 @@ module.exports = {
     updateRecord,
     createAuditEntry,
     findAssignmentsForUsageDate,
-    validatePendingRecords
+    validatePendingRecords,
+    findRecords,
+    findRecordByIdForUpdate,
+    resolveRecord
 };

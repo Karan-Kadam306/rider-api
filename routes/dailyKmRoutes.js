@@ -4,9 +4,88 @@ const { parse } = require('csv-parse/sync');
 
 const router = express.Router();
 
+const AppError = require('../errors/AppError');
 const uploadDailyKmCsv = require('../middleware/uploadDailyKmCsv');
 const validateUsageDate = require('../utils/validateUsageDate');
 const dailyKmService = require('../services/dailyKmService');
+
+const allowedStatuses = ['Pending', 'Validated', 'Needs Review'];
+
+function isPositiveInteger(value) {
+    return Number.isSafeInteger(Number(value)) && Number(value) > 0;
+}
+
+// List daily KM records, e.g. ?usageDate=2026-10-13&status=Needs Review
+router.get('/', async (req, res, next) => {
+    const { usageDate, status } = req.query;
+
+    if (usageDate !== undefined && !validateUsageDate(usageDate)) {
+        return next(
+            new AppError('usageDate must be a valid date in YYYY-MM-DD format', 400)
+        );
+    }
+
+    if (status !== undefined && !allowedStatuses.includes(status)) {
+        return next(
+            new AppError('Invalid status. Allowed values: Pending, Validated, Needs Review', 400)
+        );
+    }
+
+    try {
+        const records = await dailyKmService.findDailyKmRecords({
+            usageDate,
+            status
+        });
+
+        return res.status(200).json({
+            count: records.length,
+            records
+        });
+    } catch (error) {
+        return next(error);
+    }
+});
+
+// Resolve a Needs Review record.
+router.patch('/:recordId/resolve', async (req, res, next) => {
+    const { recordId } = req.params;
+    const { bikeId, riderId, reason } = req.body ?? {};
+
+    if (!isPositiveInteger(recordId)) {
+        return next(new AppError('A valid recordId is required', 400));
+    }
+
+    if (
+        typeof riderId !== 'string' ||
+        !riderId.trim() ||
+        typeof reason !== 'string' ||
+        !reason.trim()
+    ) {
+        return next(
+            new AppError('riderId and reason are required and must be non-empty strings', 400)
+        );
+    }
+
+    if (bikeId !== undefined && !isPositiveInteger(bikeId)) {
+        return next(new AppError('bikeId must be a positive integer', 400));
+    }
+
+    try {
+        const record = await dailyKmService.resolveNeedsReviewRecord({
+            recordId,
+            bikeId,
+            riderId: riderId.trim(),
+            reason: reason.trim()
+        });
+
+        return res.status(200).json({
+            message: 'Daily KM record resolved and validated',
+            record
+        });
+    } catch (error) {
+        return next(error);
+    }
+});
 
 router.post(
     '/upload',

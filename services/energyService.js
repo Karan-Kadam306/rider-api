@@ -60,21 +60,20 @@ async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = fa
                     usageDate: record.usage_date
                 });
 
-            // 4. Check if there is exactly one assignment for the bike on the usage date. If not, skip the record.
-            if (assignments.length !== 1) {
-                skip(
-                    assignments.length === 0
-                        ? 'No assignment found for usage date'
-                        : 'Multiple assignments overlap usage date'
-                );
+            // 4. Check if there is any assignment for the bike on the usage date. If not, skip the record.
+            if (assignments.length === 0) {
+                skip('No assignment found for usage date');
                 continue;
             }
 
-            // 5. Check if the assigned rider matches the rider in the record. If not, skip the record.
-            const assignment = assignments[0];
+            // 5. Check if the record's rider held this bike on the usage date. If not, skip the record.
+            // When two riders shared the bike, the reviewed record names the rider to charge.
+            const assignment = assignments.find(
+                item => item.rider_id === record.rider_id
+            );
 
             // 6. Check if the rider exists in the database. If not, skip the record.
-            if (assignment.rider_id !== record.rider_id) {
+            if (!assignment) {
                 skip('Assigned rider does not match Daily KM rider');
                 continue;
             }

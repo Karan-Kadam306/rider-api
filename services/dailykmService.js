@@ -1,5 +1,6 @@
 
 const { pool } = require('../db');
+const AppError = require('../errors/AppError');
 const dailyKmRepository = require('../repositories/dailyKmRepository');
 
 // Process validated daily KM records in one database transaction.
@@ -134,7 +135,105 @@ async function validateDailyKmRecords({ usageDate }) {
     };
 }
 
+async function findDailyKmRecords({ usageDate, status }) {
+    return dailyKmRepository.findRecords(pool, { usageDate, status });
+}
+
+// Resolve a Needs Review record by choosing the rider (and bike if the VIN was not matched).
+async function resolveNeedsReviewRecord({
+    recordId,
+    bikeId,
+    riderId,
+    reason
+}) {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        const record = await dailyKmRepository.findRecordByIdForUpdate(
+            client,
+            recordId
+        );
+
+        if (!record) {
+            throw new AppError('Daily KM record not found', 404);
+        }
+
+        if (record.status !== 'Needs Review') {
+            throw new AppError(
+                `Only Needs Review records can be resolved; this record is ${record.status}`,
+                409
+            );
+        }
+
+        // A matched VIN already tells us the bike; bikeId is only for unmatched VINs.
+        if (
+            record.bike_id != null &&
+            bikeId != null &&
+            String(bikeId) !== String(record.bike_id)
+        ) {
+            throw new AppError(
+                `Record is already matched to bike ${record.bike_id}`,
+                409
+            );
+        }
+
+        const resolvedBikeId = record.bike_id ?? bikeId;
+
+        if (resolvedBikeId == null) {
+            throw new AppError(
+                'bikeId is required because the VIN is not matched to a bike',
+                400
+            );
+        }
+
+        const assignments =
+            await dailyKmRepository.findAssignmentsForUsageDate(
+                client,
+                resolvedBikeId,
+                record.usage_date
+            );
+
+        // The chosen rider must have held this bike on the usage date.
+        if (!assignments.some(assignment => assignment.rider_id === riderId)) {
+            throw new AppError(
+                'Rider was not assigned this bike on the usage date. Fix the assignment history first',
+                409
+            );
+        }
+
+        const resolvedRecord = await dailyKmRepository.resolveRecord(client, {
+            recordId,
+            bikeId: resolvedBikeId,
+            riderId
+        });
+
+        // Keep a trail of the manual billing decision.
+        await dailyKmRepository.createAuditEntry(client, {
+            recordId,
+            previousKm: record.daily_km,
+            correctedKm: record.daily_km,
+            previousFile: record.source_file_name,
+            correctedFile: record.source_file_name,
+            correctionReason:
+                `Needs Review resolved to bike ${resolvedBikeId}, rider ${riderId}: ${reason}`
+        });
+
+        await client.query('COMMIT');
+
+        return resolvedRecord;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 module.exports = {
     processDailyKmUpload,
-    validateDailyKmRecords
+    validateDailyKmRecords,
+    findDailyKmRecords,
+    resolveNeedsReviewRecord
 };
