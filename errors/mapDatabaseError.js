@@ -1,4 +1,4 @@
-
+// This function maps database errors to user-friendly error messages and HTTP status codes.
 function mapDatabaseError(error) {
     // Duplicate key violation.
     if (error.code === '23505') {
