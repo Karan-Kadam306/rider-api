@@ -115,3 +115,129 @@ describe('Weekly billing summary', () => {
         assert.equal((await h.api('GET', '/api/billing/summary?weekStart=2026-10-18')).status, 400);
     });
 });
+
+describe('Closing a billing week', () => {
+    function closeWeek(weekStart = WEEK) {
+        return h.api('POST', `/api/billing/weeks/${weekStart}/close`);
+    }
+
+    function summary(weekStart = WEEK) {
+        return h.api('GET', `/api/billing/summary?weekStart=${weekStart}`);
+    }
+
+    // Monday of the current IST week, which has not ended yet.
+    function currentMonday() {
+        const today = new Date(`${h.todayInIst()}T00:00:00.000Z`);
+        today.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+        return today.toISOString().slice(0, 10);
+    }
+
+    it('saves the bills; an unchanged week shows no differences', async () => {
+        await h.createRider('YS-001');
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-01 09:00');
+        await h.createKmRecord({ vin: 'VIN-1', bikeId, riderId: 'YS-001', usageDate: '2026-10-13', dailyKm: 20, status: 'Validated' });
+
+        const close = await closeWeek();
+
+        assert.equal(close.status, 201);
+        assert.equal(close.body.closure.riderCount, 1);
+        assert.equal(close.body.closure.totalAmount, 443);
+
+        const { body } = await summary();
+        const rider = body.summary.riders[0];
+
+        assert.equal(body.summary.closed, true);
+        assert.equal(body.summary.billedTotalAmount, 443);
+        assert.equal(body.summary.changedCount, 0);
+        assert.equal(rider.changedSinceClose, false);
+        assert.equal(rider.difference, 0);
+        assert.equal(rider.billed.totalKm, 20);
+    });
+
+    it('a correction after closing is allowed and flagged with the difference', async () => {
+        await h.createRider('YS-001');
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-01 09:00');
+        const recordId = await h.createKmRecord({ vin: 'VIN-1', bikeId, usageDate: '2026-10-13', dailyKm: 20, status: 'Needs Review' });
+
+        assert.equal((await closeWeek()).status, 201);
+
+        const resolve = await h.api('PATCH', `/api/daily-km/${recordId}/resolve`, {
+            riderId: 'YS-001', reason: 'Late review'
+        });
+        assert.equal(resolve.status, 200);
+
+        const { body } = await summary();
+        const rider = body.summary.riders[0];
+
+        assert.equal(body.summary.billedTotalAmount, 413);
+        assert.equal(body.summary.totalAmount, 443);
+        assert.equal(body.summary.changedCount, 1);
+        assert.equal(rider.changedSinceClose, true);
+        assert.equal(rider.difference, 30);
+
+        const bill = (await riderBill('YS-001')).body.bill;
+
+        assert.equal(bill.closed, true);
+        assert.equal(bill.closure.billed.totalAmount, 413);
+        assert.equal(bill.closure.changedSinceClose, true);
+        assert.equal(bill.closure.difference, 30);
+    });
+
+    it('a rider added after closing is flagged as not billed', async () => {
+        await h.createRider('YS-001');
+        await h.createRider('YS-002');
+        const bike1 = await h.createBike('VIN-1');
+        const bike2 = await h.createBike('VIN-2');
+        await h.createAssignment(bike1, 'YS-001', '2026-10-01 09:00');
+
+        assert.equal((await closeWeek()).status, 201);
+
+        // A missed assignment is entered after the week was billed.
+        await h.createAssignment(bike2, 'YS-002', '2026-10-15 09:00', '2026-10-16 18:00');
+
+        const late = (await summary()).body.summary.riders.find(r => r.riderId === 'YS-002');
+
+        assert.equal(late.billed, null);
+        assert.equal(late.changedSinceClose, true);
+        assert.equal(late.difference, 118);
+    });
+
+    it('a rider bill for an open week is not marked closed', async () => {
+        await h.createRider('YS-001');
+
+        const bill = (await riderBill('YS-001')).body.bill;
+
+        assert.equal(bill.closed, false);
+        assert.equal(bill.closure, null);
+    });
+
+    it('cannot close the same week twice', async () => {
+        assert.equal((await closeWeek()).status, 201);
+        assert.equal((await closeWeek()).status, 409);
+    });
+
+    it('cannot close a week that has not ended', async () => {
+        const res = await closeWeek(currentMonday());
+
+        assert.equal(res.status, 409);
+        assert.match(res.body.error, /has not ended/);
+    });
+
+    it('cannot close while a rider requires review, and saves nothing', async () => {
+        await h.createRider('YS-BAD', { status: 'Terminated' });
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-BAD', '2026-10-01 09:00');
+
+        const res = await closeWeek();
+
+        assert.equal(res.status, 409);
+        assert.match(res.body.error, /require review/);
+        assert.equal((await summary()).body.summary.closed, false);
+    });
+
+    it('rejects a weekStart that is not a Monday', async () => {
+        assert.equal((await closeWeek('2026-10-13')).status, 400);
+    });
+});

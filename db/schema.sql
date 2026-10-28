@@ -79,6 +79,33 @@ ALTER TABLE public.bikes ALTER COLUMN bike_id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: billing_week_closures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_week_closures (
+    week_start date NOT NULL,
+    total_amount numeric(12,2) NOT NULL,
+    closed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_week_closures_monday_check CHECK ((EXTRACT(isodow FROM week_start) = (1)::numeric))
+);
+
+
+--
+-- Name: billing_week_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_week_snapshots (
+    week_start date NOT NULL,
+    rider_id character varying(30) NOT NULL,
+    rental_days integer NOT NULL,
+    total_rental numeric(10,2) NOT NULL,
+    total_km numeric(10,2) NOT NULL,
+    total_energy_charge numeric(10,2) NOT NULL,
+    total_amount numeric(10,2) NOT NULL
+);
+
+
+--
 -- Name: daily_km_audit; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -233,6 +260,22 @@ ALTER TABLE ONLY public.bikes
 
 
 --
+-- Name: billing_week_closures billing_week_closures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_week_closures
+    ADD CONSTRAINT billing_week_closures_pkey PRIMARY KEY (week_start);
+
+
+--
+-- Name: billing_week_snapshots billing_week_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_week_snapshots
+    ADD CONSTRAINT billing_week_snapshots_pkey PRIMARY KEY (week_start, rider_id);
+
+
+--
 -- Name: daily_km_audit daily_km_audit_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -337,6 +380,22 @@ ALTER TABLE ONLY public.bike_assignments
 
 ALTER TABLE ONLY public.bike_assignments
     ADD CONSTRAINT bike_assignments_rider_id_fkey FOREIGN KEY (rider_id) REFERENCES public.riders(rider_id);
+
+
+--
+-- Name: billing_week_snapshots billing_week_snapshots_rider_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_week_snapshots
+    ADD CONSTRAINT billing_week_snapshots_rider_id_fkey FOREIGN KEY (rider_id) REFERENCES public.riders(rider_id);
+
+
+--
+-- Name: billing_week_snapshots billing_week_snapshots_week_start_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_week_snapshots
+    ADD CONSTRAINT billing_week_snapshots_week_start_fkey FOREIGN KEY (week_start) REFERENCES public.billing_week_closures(week_start);
 
 
 --

@@ -27,7 +27,24 @@ async function getWeeklyBillingSummary(req, res, next) {
     }
 }
 
+// POST /api/billing/weeks/:weekStart/close
+async function closeWeek(req, res, next) {
+    try {
+        const closure = await billingService.closeWeek({
+            weekStart: req.params.weekStart
+        });
+
+        return res.status(201).json({
+            message: 'Week closed successfully',
+            closure
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     getRiderBill,
-    getWeeklyBillingSummary
+    getWeeklyBillingSummary,
+    closeWeek
 };

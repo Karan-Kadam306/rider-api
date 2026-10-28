@@ -34,6 +34,13 @@ describe('validateWeekStart', () => {
         assert.equal(run(validateWeekStart, { query: { weekStart: '2026-10-12' } }), undefined);
     });
 
+    it('reads weekStart from the path when present', () => {
+        assert.equal(run(validateWeekStart, { params: { weekStart: '2026-10-12' }, query: {} }), undefined);
+
+        const error = run(validateWeekStart, { params: { weekStart: '2026-10-13' }, query: {} });
+        assert.equal(error.statusCode, 400);
+    });
+
     for (const weekStart of ['2026-10-13', '2026-10-18', '2026-13-01', 'monday', undefined]) {
         it(`rejects ${JSON.stringify(weekStart)} with 400`, () => {
             const error = run(validateWeekStart, { query: { weekStart } });

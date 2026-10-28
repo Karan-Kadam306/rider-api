@@ -14,6 +14,8 @@ if (!testDbName.endsWith('_test')) {
 }
 
 const TABLES = [
+    'billing_week_snapshots',
+    'billing_week_closures',
     'daily_km_audit',
     'daily_km_records',
     'bike_assignments',

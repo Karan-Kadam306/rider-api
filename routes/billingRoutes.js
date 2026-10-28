@@ -10,4 +10,7 @@ router.get('/summary', validateWeekStart, billingController.getWeeklyBillingSumm
 // Weekly bill for one rider.
 router.get('/riders/:riderId', validateWeekStart, billingController.getRiderBill);
 
+// Close a finished week and save its bills.
+router.post('/weeks/:weekStart/close', validateWeekStart, billingController.closeWeek);
+
 module.exports = router;

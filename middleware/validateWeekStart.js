@@ -2,7 +2,8 @@ const AppError = require('../errors/AppError');
 const validateUsageDate = require('../utils/validateUsageDate');
 
 function validateWeekStart(req, res, next) {
-    const { weekStart } = req.query;
+    // From the path (/weeks/:weekStart) or the query string (?weekStart=).
+    const weekStart = req.params?.weekStart ?? req.query?.weekStart;
 
     // Billing weeks run Monday to Sunday.
     if (
