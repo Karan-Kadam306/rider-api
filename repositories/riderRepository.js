@@ -1,6 +1,6 @@
 const { pool } = require('../db');
 
-// Fetch one rider by ID.
+// Find a rider by their ID. Returns null if the rider does not exist.
 async function findById(riderId) {
     const result = await pool.query(
         `SELECT rider_id, name, phone, status
@@ -12,7 +12,7 @@ async function findById(riderId) {
     return result.rows[0] ?? null;
 }
 
-// Fetch a page of riders.
+// Find riders based on optional filters.
 async function findRiders({
     whereClause,
     values,
@@ -36,7 +36,7 @@ async function findRiders({
     return result.rows;
 }
 
-// Count all riders matching the filters.
+// Count the total number of riders matching the optional filters.
 async function countRiders({ whereClause, values }) {
     const result = await pool.query(
         `SELECT COUNT(*) AS total
@@ -48,7 +48,7 @@ async function countRiders({ whereClause, values }) {
     return Number(result.rows[0].total);
 }
 
-// Create Rider Function
+// Create a new rider.
 async function createRider({ rider_id, name, phone }) {
     const result = await pool.query(
         `INSERT INTO riders (rider_id, name, phone)
@@ -60,7 +60,7 @@ async function createRider({ rider_id, name, phone }) {
     return result.rows[0];
 }
 
-// Update Rider 
+// Update an existing rider.
 async function updateRider({ riderId, name, phone, status }) {
     const result = await pool.query(
         `UPDATE riders
@@ -75,7 +75,7 @@ async function updateRider({ riderId, name, phone, status }) {
     return result.rows[0] ?? null;
 }
 
-// Runs inside the termination transaction.
+// Terminate a rider by setting their status to 'Terminated' and recording the termination date.
 async function terminateRider(client, riderId) {
     const result = await client.query(
         `UPDATE riders
@@ -91,6 +91,7 @@ async function terminateRider(client, riderId) {
     return result.rows[0] ?? null;
 }
 
+// Get a summary of the number of riders in each status.
 async function getRiderStatusSummary() {
     const result = await pool.query(
         `SELECT status, COUNT(*) AS total

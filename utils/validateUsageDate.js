@@ -1,4 +1,4 @@
-
+// Validates that a usageDate is in the correct YYYY-MM-DD format.
 function validateUsageDate(value) {
     if (typeof value !== 'string') {
         return false;

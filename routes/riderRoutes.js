@@ -13,22 +13,22 @@ const { validateRiderQuery } = require('../middleware/validateRiderQuery');
 const { validateCreateRider } = require('../middleware/validateCreateRider');
 const { validateUpdateRider } = require('../middleware/validateUpdateRider');
 
-// Get all riders.
+// Define the route for fetching a list of riders with optional query parameters for filtering and pagination.
 router.get('/', validateRiderQuery, getRiders);
 
-// Create a new rider.
+// Define the route for creating a new rider with validation of the request body.
 router.post('/', validateCreateRider, createRider);
 
-// Get rider status summary.
+// Define the route for fetching a summary of riders, which may include statistics or aggregated data.
 router.get('/summary', getRiderSummary);
 
-// Get a specific rider.
+// Define the route for fetching details of a specific rider by their ID.
 router.get('/:riderId', getRider);
 
-// Update a rider.
+// Define the route for updating an existing rider's information with validation of the request body.
 router.put('/:riderId', validateUpdateRider, updateRider);
 
-// Terminate a rider.
+// Define the route for terminating a rider, which may involve deactivating their account or marking them as inactive in the system.
 router.delete('/:riderId', terminateRider);
 
 module.exports = router;

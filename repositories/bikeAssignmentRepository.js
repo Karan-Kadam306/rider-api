@@ -1,5 +1,6 @@
 const AppError = require("../errors/AppError");
 
+// Repository functions for managing bike assignments in the database.
 async function findBikeForUpdate(client, bikeId) {
     const result = await client.query(
         `SELECT bike_id, registration_number, status
@@ -12,6 +13,7 @@ async function findBikeForUpdate(client, bikeId) {
     return result.rows[0] ?? null;
 }
 
+// Create a new bike assignment record in the database.
 async function createAssignment(client, bikeId, riderId) {
     const result = await client.query(
         `INSERT INTO bike_assignments (bike_id, rider_id)
@@ -23,6 +25,7 @@ async function createAssignment(client, bikeId, riderId) {
     return result.rows[0];
 }
 
+// Find the active assignment for a specific rider. Returns null if no active assignment exists.
 async function findActiveAssignmentByRider(client, riderId) {
     const result = await client.query(
         `SELECT assignment_id, bike_id
@@ -35,6 +38,7 @@ async function findActiveAssignmentByRider(client, riderId) {
     return result.rows[0] ?? null;
 }
 
+// Mark a bike as assigned in the database. Throws an error if the update fails.
 async function markBikeAssigned(client, bikeId) {
     const result = await client.query(
         `UPDATE bikes
@@ -48,6 +52,7 @@ async function markBikeAssigned(client, bikeId) {
     }
 }
 
+// Return a bike that is currently assigned to a rider. This function updates the bike's status and closes the active assignment record.
 async function returnBike(client, bikeId) {
     // Lock the bike row before changing its status.
     const bikeResult = await client.query(
@@ -93,6 +98,7 @@ async function returnBike(client, bikeId) {
     return assignmentResult.rows[0];
 }
 
+// Get the assignment history of a specific bike, with pagination support.
 async function findAssignmentHistory(client, bikeId, limit, offset) {
     const result = await client.query(
         `SELECT
@@ -117,6 +123,7 @@ async function findAssignmentHistory(client, bikeId, limit, offset) {
     return result.rows;
 }
 
+// Count the total number of assignment history records for a specific bike.
 async function countAssignmentHistory(client, bikeId) {
     const result = await client.query(
         `SELECT COUNT(*) AS total

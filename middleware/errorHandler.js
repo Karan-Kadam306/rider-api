@@ -1,7 +1,8 @@
 const AppError = require('../errors/AppError');
 const mapDatabaseError = require('../errors/mapDatabaseError');
 
-// Centralized Error Handler
+// Error-handling middleware for Express.js applications.
+// This middleware captures errors thrown in the application and sends appropriate HTTP responses.
 function errorHandler(error, req, res, next) {
     // Expected errors are asserted by tests, so keep test output clean.
     if (process.env.NODE_ENV !== 'test') {

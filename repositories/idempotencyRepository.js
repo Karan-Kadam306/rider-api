@@ -1,3 +1,4 @@
+// Repository functions for managing idempotency keys in the database. These functions help ensure that repeated requests with the same idempotency key return the same result, preventing duplicate processing.
 async function insertKey(client, clientId, key, requestHash) {
     await client.query(
         `INSERT INTO idempotency_keys
@@ -7,6 +8,7 @@ async function insertKey(client, clientId, key, requestHash) {
     );
 }
 
+// Find an idempotency key record by client ID and key. Returns null if not found.
 async function findByKey(client, clientId, key) {
     const result = await client.query(
         `SELECT
@@ -23,7 +25,7 @@ async function findByKey(client, clientId, key) {
     return result.rows[0] ?? null;
 }
 
-
+// Save the response of a completed request to the idempotency key record. This allows future requests with the same key to return the same response.
 async function saveResult(
     client,
     clientId,
@@ -50,7 +52,6 @@ async function saveResult(
         throw new Error("Failed to save idempotency response");
     }
 }
-
 
 module.exports = {
     findByKey,

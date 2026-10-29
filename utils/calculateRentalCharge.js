@@ -1,6 +1,6 @@
-
 const RENTAL_RATE_PER_DAY = 59;
 
+// Calculates the rental charge for a given record based on assignment count, rider status, termination date, and usage date.
 function calculateRentalCharge({
     assignmentCount,
     riderStatus,

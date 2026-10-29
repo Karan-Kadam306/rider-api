@@ -1,6 +1,7 @@
 const AppError = require('../errors/AppError');
 
 // Validate the request body for creating a new rider.
+// This middleware checks for the presence and validity of rider_id, name, and phone fields.
 function validateCreateRider(req, res, next) {
     const { rider_id, name, phone } = req.body ?? {};
 

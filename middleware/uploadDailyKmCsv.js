@@ -2,6 +2,7 @@ const multer = require('multer');
 const AppError = require('../errors/AppError');
 
 // Multer configuration for handling CSV file uploads.
+// This middleware is used to handle the upload of daily kilometers CSV files.
 const uploadDailyKmCsv = multer({
     storage: multer.memoryStorage(),
     limits: {

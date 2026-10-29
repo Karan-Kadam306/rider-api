@@ -1,6 +1,5 @@
-
 const bikeAssignmentHistoryService = require("../services/bikeAssignmentHistoryService");
-
+// GET /api/bikes/:bikeId/assignment-history
 // Get the assignment history of a specific bike.
 async function getBikeAssignmentHistory(req, res, next) {
     try {

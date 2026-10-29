@@ -26,6 +26,7 @@ async function findValidatedDailyKmRecords(client, {
     return result.rows;
 }
 
+// Find all assignments for a bike on a given usage date.
 async function findAssignmentsForUsageDate(client, {
     bikeId,
     usageDate
@@ -51,6 +52,7 @@ async function findAssignmentsForUsageDate(client, {
     return result.rows;
 }
 
+// Find a rider by their ID. Returns null if the rider does not exist.
 async function findRiderById(client, riderId) {
     const result = await client.query(
         `SELECT rider_id, 

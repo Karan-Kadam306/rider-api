@@ -1,6 +1,6 @@
-
 const DAILY_RENTAL_RATE = 59;
 
+// Calculates the weekly rental for a specific rider, considering their status and any termination date.
 function calculateWeeklyRental({
     weekStart,
     riderStatus,

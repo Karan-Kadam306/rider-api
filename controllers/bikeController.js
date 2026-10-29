@@ -1,6 +1,7 @@
 const bikeService = require('../services/bikeService');
 
 // POST /api/bikes
+// Create a new bike.
 async function createBike(req, res, next) {
     try {
         const bike = await bikeService.createBike({
@@ -15,6 +16,7 @@ async function createBike(req, res, next) {
 }
 
 // GET /api/bikes
+// Get a list of bikes with optional filters for status and search, and pagination support.
 async function getBikes(req, res, next) {
     try {
         const result = await bikeService.getBikes({
@@ -31,6 +33,7 @@ async function getBikes(req, res, next) {
 }
 
 // GET /api/bikes/summary
+// Get a summary of bikes by status.
 async function getBikeSummary(req, res, next) {
     try {
         const summary = await bikeService.getBikeStatusSummary();
@@ -42,6 +45,7 @@ async function getBikeSummary(req, res, next) {
 }
 
 // GET /api/bikes/:bikeId
+// Get details of a specific bike by its ID.
 async function getBike(req, res, next) {
     try {
         const bike = await bikeService.getBikeById(req.params.bikeId);
@@ -53,6 +57,7 @@ async function getBike(req, res, next) {
 }
 
 // PATCH /api/bikes/:bikeId/status
+// Update the status of a specific bike.
 async function updateBikeStatus(req, res, next) {
     try {
         const bike = await bikeService.updateBikeStatus(

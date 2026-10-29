@@ -1,6 +1,5 @@
-
 const bikeAssignmentService = require("../services/bikeAssignmentService");
-
+// POST /api/bikes/assign
 // Assign a bike to a rider.
 async function assignBike(req, res, next) {
     try {

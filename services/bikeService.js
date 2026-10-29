@@ -5,16 +5,19 @@ const bikeAssignmentRepository = require('../repositories/bikeAssignmentReposito
 
 const allowedStatuses = ['Available', 'Assigned', 'Maintenance'];
 
+// Validates that a value is a positive integer.
 function isPositiveInteger(value) {
     return Number.isSafeInteger(Number(value)) && Number(value) > 0;
 }
 
+// Validates that a bikeId is provided and is a positive integer.
 function validateBikeId(bikeId) {
     if (bikeId == null || !String(bikeId).trim() || !isPositiveInteger(bikeId)) {
         throw new AppError('A valid bikeId is required', 400);
     }
 }
 
+// Validates that a usageDate is in the correct YYYY-MM-DD format.
 function mapBike(row) {
     return {
         bikeId: row.bike_id,

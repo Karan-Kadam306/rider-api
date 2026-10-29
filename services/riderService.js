@@ -73,6 +73,7 @@ async function getRiders({
     };
 }
 
+// Terminate a rider and return their bike if they have one assigned.
 async function terminateRider(riderId) {
     // Check whether the rider exists.
     const existingRider = await riderRepository.findById(riderId);
@@ -139,6 +140,7 @@ async function terminateRider(riderId) {
     }
 }
 
+// Get a summary of rider statuses, including counts of Active, Inactive, and Terminated riders.
 async function getRiderStatusSummary() {
     const rows = await riderRepository.getRiderStatusSummary();
 

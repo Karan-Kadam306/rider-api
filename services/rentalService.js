@@ -5,6 +5,7 @@ const {
     calculateWeeklyRental
 } = require('../utils/calculateWeeklyRental');
 
+// Calculates the weekly rental for a specific rider, considering their status and any termination date.
 async function calculateRiderWeeklyRental({
     riderId,
     weekStart

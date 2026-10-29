@@ -2,6 +2,7 @@ const { pool } = require("../db");
 const AppError = require("../errors/AppError");
 const bikeAssignmentRepository = require("../repositories/bikeAssignmentRepository");
 
+// Retrieves the assignment history of a specific bike, including pagination details.
 async function getBikeAssignmentHistory(bikeId, page = 1, limit = 10) {
     if(
         bikeId == null ||

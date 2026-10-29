@@ -1,5 +1,6 @@
 const ENERGY_RATE_PER_KM = 1.50;
 
+// Calculates the energy charge for a given record based on daily kilometers, record status, bike ID, and rider ID.
 function calculateEnergyCharge({
     dailyKm,
     recordStatus,

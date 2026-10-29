@@ -1,4 +1,4 @@
-// Bike columns plus the rider currently holding the bike, if any.
+// Repository functions for managing bikes in the database.
 const BIKE_SELECT = `
     SELECT
         b.bike_id,
@@ -45,6 +45,7 @@ async function findBikes(client, { status, search, limit, offset }) {
     return result.rows;
 }
 
+// Count the total number of bikes matching the optional filters.
 async function countBikes(client, { status, search }) {
     const result = await client.query(
         `SELECT COUNT(*) AS total
@@ -61,6 +62,7 @@ async function countBikes(client, { status, search }) {
     return Number(result.rows[0].total);
 }
 
+// Find a bike by its ID, including its current assignment and rider information if assigned.
 async function findBikeById(client, bikeId) {
     const result = await client.query(
         `${BIKE_SELECT}
@@ -71,6 +73,7 @@ async function findBikeById(client, bikeId) {
     return result.rows[0] ?? null;
 }
 
+// Update the status of a bike. Returns the updated bike record.
 async function updateBikeStatus(client, bikeId, status) {
     const result = await client.query(
         `UPDATE bikes

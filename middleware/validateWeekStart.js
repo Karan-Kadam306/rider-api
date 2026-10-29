@@ -1,6 +1,8 @@
 const AppError = require('../errors/AppError');
 const validateUsageDate = require('../utils/validateUsageDate');
 
+// Validate the weekStart parameter in the request.
+// This middleware checks that weekStart is a valid date and falls on a Monday.
 function validateWeekStart(req, res, next) {
     // From the path (/weeks/:weekStart) or the query string (?weekStart=).
     const weekStart = req.params?.weekStart ?? req.query?.weekStart;

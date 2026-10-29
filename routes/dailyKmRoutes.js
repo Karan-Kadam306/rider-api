@@ -1,4 +1,3 @@
-
 const express = require('express');
 const { parse } = require('csv-parse/sync');
 
@@ -15,7 +14,8 @@ function isPositiveInteger(value) {
     return Number.isSafeInteger(Number(value)) && Number(value) > 0;
 }
 
-// List daily KM records, e.g. ?usageDate=2026-10-13&status=Needs Review
+// Define the route for listing daily KM records with optional filters for usageDate and status.
+// e.g. ?usageDate=2026-10-13&status=Needs Review
 router.get('/', async (req, res, next) => {
     const { usageDate, status } = req.query;
 
@@ -46,7 +46,7 @@ router.get('/', async (req, res, next) => {
     }
 });
 
-// Resolve a Needs Review record.
+// Define the route for resolving a Needs Review daily KM record by providing the correct bikeId and riderId.
 router.patch('/:recordId/resolve', async (req, res, next) => {
     const { recordId } = req.params;
     const { bikeId, riderId, reason } = req.body ?? {};
@@ -87,6 +87,7 @@ router.patch('/:recordId/resolve', async (req, res, next) => {
     }
 });
 
+// Define the route for uploading a CSV file containing daily KM records for a specific usage date.
 router.post(
     '/upload',
     uploadDailyKmCsv.single('file'),
@@ -182,6 +183,7 @@ router.post(
     }
 );
 
+// Define the route for validating daily KM records for a specific usage date.
 router.post('/validate', async (req, res) => {
     const { usageDate } = req.body ?? {};
 

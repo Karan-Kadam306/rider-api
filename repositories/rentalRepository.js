@@ -1,4 +1,4 @@
-
+// Repository functions for managing rentals in the database. These functions help retrieve rental information, including rental dates and assignment counts for riders.
 async function findRentalDatesWithAssignmentCounts(client, {
     riderId,
     weekStart

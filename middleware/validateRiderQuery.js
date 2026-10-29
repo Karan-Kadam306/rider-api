@@ -1,5 +1,7 @@
 const AppError = require('../errors/AppError');
 
+// Validate the request query parameters for retrieving riders.
+// This middleware checks for valid pagination, sorting, and status filters.
 function validateRiderQuery(req, res, next) {
     const rawPage = req.query.page;
     const rawLimit = req.query.limit;

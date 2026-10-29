@@ -1,6 +1,7 @@
 // This function maps database errors to user-friendly error messages and HTTP status codes.
 function mapDatabaseError(error) {
-    // Duplicate key violation.
+    // Unique constraint violation.
+    // PostgreSQL error code 23505 indicates a unique constraint violation.
     if (error.code === '23505') {
         if (error.constraint === 'riders_phone_key') {
             return {
@@ -38,6 +39,7 @@ function mapDatabaseError(error) {
     }
 
     // Foreign-key violation.
+    // PostgreSQL error code 23503 indicates a foreign key violation.
     if (error.code === '23503') {
         return {
             statusCode: 409,

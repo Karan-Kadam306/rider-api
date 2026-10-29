@@ -1,6 +1,7 @@
 const billingService = require('../services/billingService');
 
 // GET /api/billing/riders/:riderId?weekStart=YYYY-MM-DD
+// Get the billing information for a specific rider for a given week.
 async function getRiderBill(req, res, next) {
     try {
         const bill = await billingService.getRiderBill({
@@ -15,6 +16,7 @@ async function getRiderBill(req, res, next) {
 }
 
 // GET /api/billing/summary?weekStart=YYYY-MM-DD
+// Get a summary of billing information for all riders for a given week.
 async function getWeeklyBillingSummary(req, res, next) {
     try {
         const summary = await billingService.getWeeklyBillingSummary({
@@ -28,6 +30,7 @@ async function getWeeklyBillingSummary(req, res, next) {
 }
 
 // POST /api/billing/weeks/:weekStart/close
+// Close the billing for a specific week, marking it as finalized.
 async function closeWeek(req, res, next) {
     try {
         const closure = await billingService.closeWeek({

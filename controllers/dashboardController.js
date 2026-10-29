@@ -1,6 +1,7 @@
 const dashboardService = require('../services/dashboardService');
 
 // GET /api/dashboard?weekStart=YYYY-MM-DD
+// Get the dashboard data for a specific week, including summaries of bikes, riders, and billing.
 async function getDashboard(req, res, next) {
     try {
         const dashboard = await dashboardService.getDashboard({

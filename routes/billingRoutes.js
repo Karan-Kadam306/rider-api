@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
+// Import the billingController to handle requests related to billing.
 const billingController = require('../controllers/billingController');
 const { validateWeekStart } = require('../middleware/validateWeekStart');
 

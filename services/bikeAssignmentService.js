@@ -1,4 +1,3 @@
-
 const crypto = require("crypto");
 const { pool } = require("../db");
 const AppError = require("../errors/AppError");
@@ -6,10 +5,12 @@ const AppError = require("../errors/AppError");
 const bikeRepository = require("../repositories/bikeAssignmentRepository");
 const idempotencyRepository = require("../repositories/idempotencyRepository");
 
+// Assigns a bike to a rider with idempotency support to prevent duplicate assignments.
 function createError(message, statusCode) {
     return new AppError(message, statusCode);
 }
 
+// Generates a unique hash for the request based on bikeId and riderId to ensure idempotency.
 function createRequestHash(bikeId, riderId) {
     const request = JSON.stringify({
         bikeId: String(bikeId),
@@ -21,6 +22,7 @@ function createRequestHash(bikeId, riderId) {
         .digest("hex");
 }
 
+// Replays a saved result for a previously processed request, ensuring that the same idempotency key is not reused with different request data.
 function replaySavedResult(saved, requestHash) {
     if (saved.request_hash !== requestHash) {
         throw createError(
@@ -40,6 +42,7 @@ function replaySavedResult(saved, requestHash) {
     };
 }
 
+// Finds a saved result for a given clientId and idempotency key, allowing the service to return the same response for repeated requests with the same key.
 async function findSavedResult(clientId, key) {
     const result = await pool.query(
         `SELECT request_hash, status, response_status, response_body
@@ -51,6 +54,7 @@ async function findSavedResult(clientId, key) {
     return result.rows[0] ?? null;
 }
 
+// Assigns a bike to a rider with idempotency support to prevent duplicate assignments.
 async function assignBike({
     bikeId,
     riderId,
@@ -77,6 +81,7 @@ async function assignBike({
     let transactionStarted = false;
     let connectionReleased = false;
 
+    // Start a database transaction to ensure that the bike assignment operation is atomic and can be rolled back in case of errors.
     try {
         await client.query("BEGIN");
         transactionStarted = true;

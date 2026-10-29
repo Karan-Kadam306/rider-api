@@ -1,5 +1,7 @@
 const AppError = require('../errors/AppError');
 
+// Validate the request body for updating a rider's information.
+// This middleware checks for the presence and validity of name, phone, and status fields.
 function validateUpdateRider(req, res, next) {
     const { name, phone, status } = req.body ?? {};
 

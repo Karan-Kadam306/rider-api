@@ -2,6 +2,7 @@ const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const bikeRepository = require("../repositories/bikeAssignmentRepository");
 
+// Returns a bike to the system, ensuring that the bikeId is valid and handling database transactions safely.
 async function returnBike(bikeId) {
     if(
         bikeId == null ||
@@ -16,6 +17,7 @@ async function returnBike(bikeId) {
     let transactionStarted = false;
     let connectionReleased = false;
 
+    // Start a database transaction to ensure that the bike return operation is atomic and can be rolled back in case of errors.
     try {
         await client.query("BEGIN");
         transactionStarted = true;
