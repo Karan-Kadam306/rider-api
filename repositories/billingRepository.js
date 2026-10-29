@@ -1,4 +1,3 @@
-
 // Closure row for a week, or null if the week is still open.
 async function findWeekClosure(client, { weekStart }) {
     const result = await client.query(
@@ -47,6 +46,7 @@ async function insertWeekClosure(client, { weekStart, totalAmount }) {
     return result.rows[0] ?? null;
 }
 
+// Inserts a snapshot of the billing data for a rider for a week. This is called when the week is closed, and the data is saved for future reference.
 async function insertWeekSnapshot(client, { weekStart, rider }) {
     await client.query(
         `INSERT INTO billing_week_snapshots

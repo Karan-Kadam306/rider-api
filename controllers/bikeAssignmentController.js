@@ -1,6 +1,7 @@
 
 const bikeAssignmentService = require("../services/bikeAssignmentService");
 
+// Assign a bike to a rider.
 async function assignBike(req, res, next) {
     try {
         const result = await bikeAssignmentService.assignBike({

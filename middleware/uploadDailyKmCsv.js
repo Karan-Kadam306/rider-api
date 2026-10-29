@@ -1,6 +1,7 @@
 const multer = require('multer');
 const AppError = require('../errors/AppError');
 
+// Multer configuration for handling CSV file uploads.
 const uploadDailyKmCsv = multer({
     storage: multer.memoryStorage(),
     limits: {

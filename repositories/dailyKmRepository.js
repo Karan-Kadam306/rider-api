@@ -201,6 +201,19 @@ async function findRecords(client, { usageDate = null, status = null }) {
     return result.rows;
 }
 
+// Number of records in each status for usage dates in [fromDate, toDate].
+async function countRecordsByStatus(client, { fromDate, toDate }) {
+    const result = await client.query(
+        `SELECT status, COUNT(*) AS total
+         FROM daily_km_records
+         WHERE usage_date BETWEEN $1::date AND $2::date
+         GROUP BY status`,
+        [fromDate, toDate]
+    );
+
+    return result.rows;
+}
+
 // Lock one record while it is being resolved.
 async function findRecordByIdForUpdate(client, recordId) {
     const result = await client.query(
@@ -247,6 +260,7 @@ module.exports = {
     findAssignmentsForUsageDate,
     validatePendingRecords,
     findRecords,
+    countRecordsByStatus,
     findRecordByIdForUpdate,
     resolveRecord
 };

@@ -91,6 +91,37 @@ describe('Bike management', () => {
     });
 });
 
+describe('Bike summary', () => {
+    it('counts bikes by status, with zero for empty statuses', async () => {
+        await h.createRider('YS-001');
+        await h.createBike('VIN-1');
+        await h.createBike('VIN-2', { status: 'Maintenance' });
+        const bikeId = await h.createBike('VIN-3');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-12 09:00');
+
+        const res = await h.api('GET', '/api/bikes/summary');
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.body.summary, {
+            Available: 1,
+            Assigned: 1,
+            Maintenance: 1,
+            total: 3
+        });
+    });
+
+    it('returns zeros when there are no bikes', async () => {
+        const res = await h.api('GET', '/api/bikes/summary');
+
+        assert.deepEqual(res.body.summary, {
+            Available: 0,
+            Assigned: 0,
+            Maintenance: 0,
+            total: 0
+        });
+    });
+});
+
 describe('Bike assignment', () => {
     it('assigns an Available bike to an Active rider', async () => {
         await h.createRider('YS-001');

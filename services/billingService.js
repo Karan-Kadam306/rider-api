@@ -129,6 +129,7 @@ async function calculateWeeklyBills({ weekStart }) {
     const riders = [];
     const totals = {
         totalRental: 0,
+        totalKm: 0,
         totalEnergyCharge: 0,
         totalAmount: 0
     };
@@ -177,6 +178,7 @@ async function calculateWeeklyBills({ weekStart }) {
         });
 
         totals.totalRental += rental.totalRental;
+        totals.totalKm += totalKm;
         totals.totalEnergyCharge += totalEnergyCharge;
         totals.totalAmount += totalAmount;
     }
@@ -186,6 +188,7 @@ async function calculateWeeklyBills({ weekStart }) {
         riderCount: riders.length,
         reviewCount: riders.filter(rider => rider.requiresReview).length,
         totalRental: roundAmount(totals.totalRental),
+        totalKm: roundAmount(totals.totalKm),
         totalEnergyCharge: roundAmount(totals.totalEnergyCharge),
         totalAmount: roundAmount(totals.totalAmount),
         riders

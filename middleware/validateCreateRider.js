@@ -1,5 +1,6 @@
 const AppError = require('../errors/AppError');
 
+// Validate the request body for creating a new rider.
 function validateCreateRider(req, res, next) {
     const { rider_id, name, phone } = req.body ?? {};
 

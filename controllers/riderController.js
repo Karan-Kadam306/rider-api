@@ -1,6 +1,7 @@
 const riderService = require('../services/riderService');
 
 // GET /api/riders/:riderId
+// Get the details of a specific rider by their ID.
 async function getRider(req, res, next) {
     try {
         const { riderId } = req.params;
@@ -20,6 +21,7 @@ async function getRider(req, res, next) {
 }
 
 // GET /api/riders
+// Get a paginated list of riders with optional search and status filters.
 async function getRiders(req, res, next) {
     try {
         const page = Number(req.query.page ?? 1);
@@ -90,6 +92,7 @@ async function getRiders(req, res, next) {
 }
 
 // Create Rider 
+// POST /api/riders
 async function createRider(req, res, next) {
     try {
         const { rider_id, name, phone } = req.body;
@@ -106,6 +109,8 @@ async function createRider(req, res, next) {
     }
 }
 
+// Update Rider
+// PATCH /api/riders/:riderId
 async function updateRider(req, res, next) {
     try {
         const { riderId } = req.params;
@@ -147,6 +152,7 @@ async function updateRider(req, res, next) {
 }
 
 // Terminate a rider
+// DELETE /api/riders/:riderId
 async function terminateRider(req, res, next) {
     try {
         const { riderId } = req.params;
@@ -182,6 +188,8 @@ async function terminateRider(req, res, next) {
     }
 }
 
+// GET /api/riders/summary
+// Get a summary of riders grouped by their status.
 async function getRiderSummary(req, res, next) {
     try {
         const summary = await riderService.getRiderStatusSummary();

@@ -175,7 +175,30 @@ async function updateBikeStatus(bikeId, status) {
     }
 }
 
+// Bike counts by status, with zero for statuses that have no bikes.
+async function getBikeStatusSummary() {
+    const rows = await bikeRepository.getBikeStatusSummary(pool);
+
+    const summary = {
+        Available: 0,
+        Assigned: 0,
+        Maintenance: 0
+    };
+
+    for (const row of rows) {
+        summary[row.status] = Number(row.total);
+    }
+
+    summary.total =
+        summary.Available +
+        summary.Assigned +
+        summary.Maintenance;
+
+    return summary;
+}
+
 module.exports = {
+    getBikeStatusSummary,
     createBike,
     getBikes,
     getBikeById,

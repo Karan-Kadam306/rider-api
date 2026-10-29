@@ -108,6 +108,7 @@ describe('Weekly billing summary', () => {
         assert.equal(bad.requiresReview, true);
         assert.match(bad.reason, /terminated date is missing/);
         assert.equal(summary.reviewCount, 1);
+        assert.equal(summary.totalKm, 20);
         assert.equal(summary.totalAmount, 443);
     });
 

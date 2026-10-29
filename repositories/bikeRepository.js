@@ -83,7 +83,19 @@ async function updateBikeStatus(client, bikeId, status) {
     return result.rows[0] ?? null;
 }
 
+// Number of bikes in each status.
+async function getBikeStatusSummary(client) {
+    const result = await client.query(
+        `SELECT status, COUNT(*) AS total
+         FROM bikes
+         GROUP BY status`
+    );
+
+    return result.rows;
+}
+
 module.exports = {
+    getBikeStatusSummary,
     createBike,
     findBikes,
     countBikes,

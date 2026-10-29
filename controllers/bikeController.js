@@ -30,6 +30,17 @@ async function getBikes(req, res, next) {
     }
 }
 
+// GET /api/bikes/summary
+async function getBikeSummary(req, res, next) {
+    try {
+        const summary = await bikeService.getBikeStatusSummary();
+
+        return res.status(200).json({ summary });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 // GET /api/bikes/:bikeId
 async function getBike(req, res, next) {
     try {
@@ -61,6 +72,7 @@ async function updateBikeStatus(req, res, next) {
 module.exports = {
     createBike,
     getBikes,
+    getBikeSummary,
     getBike,
     updateBikeStatus
 };

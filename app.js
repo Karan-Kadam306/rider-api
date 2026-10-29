@@ -6,6 +6,7 @@ const bikeRoutes = require('./routes/bikeRoutes');
 const bikeAssignmentHistoryRoutes = require("./routes/bikeAssignmentHistoryRoutes");
 const dailyKmRoutes = require('./routes/dailyKmRoutes');
 const billingRoutes = require('./routes/billingRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const app  = express();
 
@@ -17,6 +18,7 @@ app.use('/api/bikes', bikeReturnRoutes);
 app.use('/api/bikes', bikeAssignmentHistoryRoutes);
 app.use('/api/daily-km', dailyKmRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/health', (req, res) => {
     res.json({message: 'Rider API is Running' });
