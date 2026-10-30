@@ -1,19 +1,25 @@
 import { NavLink } from 'react-router-dom';
 
-// Also used by TopBar to show the current page title.
+import Icon from '../ui/Icon';
+
+// Also used by TopBar for the page title and whether to show the week picker.
 export const NAV_ITEMS = [
-    { to: '/', label: 'Dashboard', end: true },
-    { to: '/riders', label: 'Riders' },
-    { to: '/bikes', label: 'Bikes' },
-    { to: '/daily-km', label: 'Daily KM' },
-    { to: '/billing', label: 'Billing' }
+    { to: '/', label: 'Dashboard', icon: 'dashboard', end: true, usesWeek: true },
+    { to: '/riders', label: 'Rider Management', icon: 'users' },
+    { to: '/bikes', label: 'Bike Management', icon: 'bike' },
+    { to: '/daily-km', label: 'Daily KM', icon: 'gauge', usesWeek: true },
+    { to: '/billing', label: 'Billing', icon: 'rupee', usesWeek: true }
 ];
 
 export default function Sidebar() {
     return (
         <aside className="sidebar">
-            <div className="sidebar__brand">Rider Admin</div>
+            <div className="sidebar__brand">
+                <span className="sidebar__logo">R</span>
+                Rider Admin
+            </div>
             <nav className="sidebar__nav" aria-label="Main">
+                <p className="sidebar__section">Management</p>
                 {NAV_ITEMS.map(item => (
                     <NavLink
                         key={item.to}
@@ -23,7 +29,8 @@ export default function Sidebar() {
                             `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
                         }
                     >
-                        {item.label}
+                        <Icon name={item.icon} />
+                        <span>{item.label}</span>
                     </NavLink>
                 ))}
             </nav>
