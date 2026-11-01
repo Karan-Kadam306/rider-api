@@ -838,6 +838,138 @@ a:hover {
     background: var(--danger-soft);
 }
 
+.cell-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ---------- Picker (assign dialog) ---------- */
+.search-box--compact {
+    padding: 0 12px;
+    box-shadow: none;
+    border-radius: 10px;
+}
+
+.search-box--compact input {
+    padding: 9px 0;
+}
+
+.picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 300px;
+    min-height: 120px;
+    overflow-y: auto;
+    margin: 12px 0 6px;
+}
+
+.picker-list__note {
+    padding: 10px 2px;
+    font-size: 0.88rem;
+}
+
+.picker-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 9px 12px;
+    font: inherit;
+    text-align: left;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.picker-option:hover {
+    border-color: var(--primary);
+}
+
+.picker-option--selected {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* ---------- Drawer (side panel) ---------- */
+.drawer {
+    margin: 0 0 0 auto;
+    height: 100vh;
+    max-height: 100vh;
+    width: min(420px, 100vw);
+    padding: 0;
+    border: none;
+    display: none;
+    flex-direction: column;
+    box-shadow: -10px 0 40px rgba(16, 24, 40, 0.2);
+}
+
+.drawer[open] {
+    display: flex;
+}
+
+.drawer::backdrop {
+    background: rgba(16, 24, 40, 0.35);
+}
+
+.drawer__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.drawer__header .dialog__title {
+    margin-bottom: 2px;
+}
+
+.drawer__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 16px;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.timeline__item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.timeline__item::before {
+    content: '';
+    position: absolute;
+    left: -22px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--surface);
+}
+
+.timeline__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
 /* ---------- Pagination ---------- */
 .pagination {
     display: flex;

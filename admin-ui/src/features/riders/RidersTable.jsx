@@ -1,7 +1,6 @@
 import Icon from '../../components/ui/Icon';
 import StatusBadge from '../../components/ui/StatusBadge';
-
-const createdFormat = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+import { formatDate } from '../../utils/formatDate';
 
 function initials(name) {
     const parts = name.trim().split(/\s+/);
@@ -35,7 +34,7 @@ export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminat
                             <td className="mono">{rider.rider_id}</td>
                             <td className="mono">{rider.phone}</td>
                             <td><StatusBadge status={rider.status} /></td>
-                            <td className="muted">{createdFormat.format(new Date(rider.created_at))}</td>
+                            <td className="muted">{formatDate(rider.created_at)}</td>
                             <td className="actions-col">
                                 {rider.status === 'Terminated' ? (
                                     <span className="muted">No actions</span>

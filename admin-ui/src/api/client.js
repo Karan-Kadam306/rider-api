@@ -11,7 +11,7 @@ export class ApiError extends Error {
 }
 
 // Single entry point for every backend call.
-export async function request(path, { method = 'GET', params, body, signal } = {}) {
+export async function request(path, { method = 'GET', params, body, headers, signal } = {}) {
     const url = new URL(`${BASE_URL}${path}`, window.location.origin);
 
     for (const [key, value] of Object.entries(params ?? {})) {
@@ -26,7 +26,10 @@ export async function request(path, { method = 'GET', params, body, signal } = {
         response = await fetch(url, {
             method,
             signal,
-            headers: body ? { 'Content-Type': 'application/json' } : undefined,
+            headers: {
+                ...(body ? { 'Content-Type': 'application/json' } : {}),
+                ...headers
+            },
             body: body ? JSON.stringify(body) : undefined
         });
     } catch (error) {

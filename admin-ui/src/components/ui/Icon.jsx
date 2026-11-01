@@ -78,6 +78,26 @@ const PATHS = {
             <path d="M5 9.5V21h14V9.5" />
         </>
     ),
+    circleCheck: (
+        <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="m8.5 12 2.5 2.5 4.5-5" />
+        </>
+    ),
+    wrench: <path d="M14.7 6.3a4 4 0 0 0 5 5L21 13a6 6 0 0 1-7.8 1.8L6 22l-4-4 7.2-7.2A6 6 0 0 1 11 3l1.7 1.3a4 4 0 0 0 2 2Z" />,
+    clock: (
+        <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+        </>
+    ),
+    undo: (
+        <>
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+        </>
+    ),
+    close: <path d="M6 6l12 12M18 6 6 18" />,
     chevronRight: <path d="m9 6 6 6-6 6" />,
     chevronLeft: <path d="m15 6-6 6 6 6" />,
     refresh: (

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import Field from '../../components/ui/Field';
 import { validateRiderForm } from './validateRiderForm';
 
 // Add or edit a rider. Mounted only while open, so each opening starts fresh.
@@ -110,15 +111,5 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
                 </div>
             </form>
         </dialog>
-    );
-}
-
-function Field({ label, error, children }) {
-    return (
-        <label className={`field${error ? ' field--invalid' : ''}`}>
-            <span className="field__label">{label}</span>
-            {children}
-            {error && <span className="field__error">{error}</span>}
-        </label>
     );
 }

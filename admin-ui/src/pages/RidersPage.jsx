@@ -12,10 +12,15 @@ import LoadingSkeleton from '../components/feedback/LoadingSkeleton';
 import ConfirmDialog from '../components/feedback/ConfirmDialog';
 import Icon from '../components/ui/Icon';
 import Pagination from '../components/ui/Pagination';
-import RiderStatusTabs, { RIDER_STATUSES } from '../features/riders/RiderStatusTabs';
+import StatusTabs from '../components/ui/StatusTabs';
 import RidersTable from '../features/riders/RidersTable';
 import RiderFormDialog from '../features/riders/RiderFormDialog';
 
+const RIDER_STATUSES = [
+    { status: 'Active', icon: 'userCheck' },
+    { status: 'Inactive', icon: 'userPause' },
+    { status: 'Terminated', icon: 'userX' }
+];
 const PAGE_SIZE = 20;
 const SEARCH_DELAY_MS = 300;
 
@@ -150,9 +155,15 @@ export default function RidersPage() {
                 />
             </div>
 
-            <RiderStatusTabs
+            <StatusTabs
+                label="Rider status"
+                tabs={RIDER_STATUSES.map(item => ({
+                    value: item.status,
+                    label: item.status,
+                    icon: item.icon,
+                    count: summary.data?.[item.status]
+                }))}
                 value={status}
-                counts={summary.data}
                 onChange={next => updateParams({ status: next === 'Active' ? undefined : next, page: undefined })}
             />
 
