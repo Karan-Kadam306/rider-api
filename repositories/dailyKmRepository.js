@@ -144,6 +144,7 @@ async function findAssignmentsForUsageDate(client, bikeId, usageDate) {
             ba.rider_id,
             ba.assigned_at,
             ba.returned_at,
+            r.name AS rider_name,
             r.status AS rider_status
          FROM bike_assignments ba
          JOIN riders r
@@ -161,41 +162,71 @@ async function findAssignmentsForUsageDate(client, bikeId, usageDate) {
     return result.rows;
 }
 
-// Mark matched Pending records for a usage date as Validated.
+// Mark matched Pending records with usage dates in [fromDate, toDate] as Validated.
 // Needs Review records are left untouched.
-async function validatePendingRecords(client, usageDate) {
+async function validatePendingRecords(client, { fromDate, toDate }) {
     const result = await client.query(
         `UPDATE daily_km_records
          SET status = 'Validated'
-         WHERE usage_date = $1
+         WHERE usage_date BETWEEN $1::date AND $2::date
            AND status = 'Pending'
            AND bike_id IS NOT NULL
            AND rider_id IS NOT NULL
          RETURNING km_record_id`,
-        [usageDate]
+        [fromDate, toDate]
     );
 
     return result.rows;
 }
 
-// List daily KM records; both filters are optional.
-async function findRecords(client, { usageDate = null, status = null }) {
+// Shared filters for the Daily KM list: $1 fromDate, $2 toDate, $3 search pattern.
+// Search matches the VIN, rider ID or rider name.
+const LIST_FROM_WHERE = `
+    FROM daily_km_records d
+    LEFT JOIN bikes b ON b.bike_id = d.bike_id
+    LEFT JOIN riders r ON r.rider_id = d.rider_id
+    WHERE ($1::date IS NULL OR d.usage_date >= $1::date)
+      AND ($2::date IS NULL OR d.usage_date <= $2::date)
+      AND (
+           $3::text IS NULL
+           OR d.reported_vin ILIKE $3
+           OR d.rider_id ILIKE $3
+           OR r.name ILIKE $3
+      )`;
+
+// One page of daily KM records with the bike's chassis number and the rider's name.
+async function findRecords(client, { fromDate, toDate, search, status, limit, offset }) {
     const result = await client.query(
         `SELECT
-            km_record_id,
-            reported_vin,
-            bike_id,
-            TO_CHAR(usage_date, 'YYYY-MM-DD') AS usage_date,
-            daily_km,
-            rider_id,
-            status,
-            source_file_name,
-            uploaded_at
-         FROM daily_km_records
-         WHERE ($1::date IS NULL OR usage_date = $1::date)
-           AND ($2::text IS NULL OR status = $2)
-         ORDER BY usage_date DESC, km_record_id`,
-        [usageDate, status]
+            d.km_record_id,
+            d.reported_vin,
+            d.bike_id,
+            b.chassis_number,
+            TO_CHAR(d.usage_date, 'YYYY-MM-DD') AS usage_date,
+            d.daily_km,
+            d.rider_id,
+            r.name AS rider_name,
+            d.status,
+            d.source_file_name,
+            d.uploaded_at
+         ${LIST_FROM_WHERE}
+           AND ($4::text IS NULL OR d.status = $4)
+         ORDER BY d.usage_date DESC, d.km_record_id
+         LIMIT $5 OFFSET $6`,
+        [fromDate, toDate, search, status, limit, offset]
+    );
+
+    return result.rows;
+}
+
+// Records per status for the same filters (without the status filter),
+// used for the status tab counts and the page total.
+async function countListByStatus(client, { fromDate, toDate, search }) {
+    const result = await client.query(
+        `SELECT d.status, COUNT(*)::int AS total
+         ${LIST_FROM_WHERE}
+         GROUP BY d.status`,
+        [fromDate, toDate, search]
     );
 
     return result.rows;
@@ -261,6 +292,7 @@ module.exports = {
     validatePendingRecords,
     findRecords,
     countRecordsByStatus,
+    countListByStatus,
     findRecordByIdForUpdate,
     resolveRecord
 };

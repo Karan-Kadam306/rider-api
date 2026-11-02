@@ -185,6 +185,72 @@ CREATE TABLE public.idempotency_keys (
 
 
 --
+-- Name: import_batches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.import_batches (
+    import_id bigint NOT NULL,
+    import_type text NOT NULL,
+    file_name text NOT NULL,
+    file_size_bytes integer NOT NULL,
+    work_date date,
+    status text NOT NULL,
+    total_rows integer DEFAULT 0 NOT NULL,
+    success_rows integer DEFAULT 0 NOT NULL,
+    failed_rows integer DEFAULT 0 NOT NULL,
+    result_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    error_message text,
+    uploaded_by text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT import_batches_status_check CHECK ((status = ANY (ARRAY['Completed'::text, 'Partial'::text, 'Failed'::text]))),
+    CONSTRAINT import_batches_counts_check CHECK (((file_size_bytes >= 0) AND (success_rows >= 0) AND (failed_rows >= 0) AND ((success_rows + failed_rows) = total_rows))),
+    CONSTRAINT import_batches_status_counts_check CHECK ((((status = 'Completed'::text) AND (failed_rows = 0)) OR ((status = 'Partial'::text) AND (success_rows > 0) AND (failed_rows > 0)) OR ((status = 'Failed'::text) AND (success_rows = 0))))
+);
+
+
+--
+-- Name: import_batches_import_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.import_batches ALTER COLUMN import_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.import_batches_import_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: import_row_errors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.import_row_errors (
+    error_id bigint NOT NULL,
+    import_id bigint NOT NULL,
+    row_number integer NOT NULL,
+    row_data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    error_message text NOT NULL,
+    CONSTRAINT import_row_errors_row_number_check CHECK ((row_number > 1))
+);
+
+
+--
+-- Name: import_row_errors_error_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.import_row_errors ALTER COLUMN error_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.import_row_errors_error_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: rider_inactive_periods; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -300,6 +366,30 @@ ALTER TABLE ONLY public.idempotency_keys
 
 
 --
+-- Name: import_batches import_batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_batches
+    ADD CONSTRAINT import_batches_pkey PRIMARY KEY (import_id);
+
+
+--
+-- Name: import_row_errors import_row_errors_import_row_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_row_errors
+    ADD CONSTRAINT import_row_errors_import_row_key UNIQUE (import_id, row_number);
+
+
+--
+-- Name: import_row_errors import_row_errors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_row_errors
+    ADD CONSTRAINT import_row_errors_pkey PRIMARY KEY (error_id);
+
+
+--
 -- Name: rider_inactive_periods rider_inactive_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -339,10 +429,17 @@ CREATE INDEX idx_daily_km_audit_record ON public.daily_km_audit USING btree (km_
 
 
 --
--- Name: idx_daily_km_status; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_bikes_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_daily_km_status ON public.daily_km_records USING btree (status);
+CREATE INDEX idx_bikes_status ON public.bikes USING btree (status, bike_id);
+
+
+--
+-- Name: idx_daily_km_status_usage_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_daily_km_status_usage_date ON public.daily_km_records USING btree (status, usage_date);
 
 
 --
@@ -353,10 +450,31 @@ CREATE INDEX idx_daily_km_usage_date ON public.daily_km_records USING btree (usa
 
 
 --
+-- Name: idx_import_batches_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_import_batches_created ON public.import_batches USING btree (created_at DESC);
+
+
+--
+-- Name: idx_import_batches_type_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_import_batches_type_created ON public.import_batches USING btree (import_type, created_at DESC);
+
+
+--
 -- Name: idx_rider_inactive_periods_rider_dates; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_rider_inactive_periods_rider_dates ON public.rider_inactive_periods USING btree (rider_id, start_date, end_date);
+
+
+--
+-- Name: idx_riders_status_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_riders_status_created ON public.riders USING btree (status, created_at DESC);
 
 
 --
@@ -420,6 +538,14 @@ ALTER TABLE ONLY public.daily_km_records
 
 ALTER TABLE ONLY public.daily_km_records
     ADD CONSTRAINT daily_km_records_rider_id_fkey FOREIGN KEY (rider_id) REFERENCES public.riders(rider_id);
+
+
+--
+-- Name: import_row_errors import_row_errors_import_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.import_row_errors
+    ADD CONSTRAINT import_row_errors_import_id_fkey FOREIGN KEY (import_id) REFERENCES public.import_batches(import_id) ON DELETE CASCADE;
 
 
 --

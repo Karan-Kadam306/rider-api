@@ -6,6 +6,7 @@ import AppLayout from './components/layout/AppLayout';
 import DashboardPage from './pages/DashboardPage';
 import RidersPage from './pages/RidersPage';
 import BikesPage from './pages/BikesPage';
+import DocumentHubPage from './pages/DocumentHubPage';
 import DailyKmPage from './pages/DailyKmPage';
 import BillingPage from './pages/BillingPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -20,6 +21,7 @@ export default function App() {
                             <Route index element={<DashboardPage />} />
                             <Route path="riders" element={<RidersPage />} />
                             <Route path="bikes" element={<BikesPage />} />
+                            <Route path="documents" element={<DocumentHubPage />} />
                             <Route path="daily-km" element={<DailyKmPage />} />
                             <Route path="billing" element={<BillingPage />} />
                             <Route path="*" element={<NotFoundPage />} />

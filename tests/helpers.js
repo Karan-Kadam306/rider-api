@@ -14,6 +14,8 @@ if (!testDbName.endsWith('_test')) {
 }
 
 const TABLES = [
+    'import_row_errors',
+    'import_batches',
     'billing_week_snapshots',
     'billing_week_closures',
     'daily_km_audit',

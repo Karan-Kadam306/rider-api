@@ -20,6 +20,8 @@ export async function request(path, { method = 'GET', params, body, headers, sig
         }
     }
 
+    // File uploads send FormData as-is; the browser sets the multipart Content-Type.
+    const isForm = body instanceof FormData;
     let response;
 
     try {
@@ -27,10 +29,10 @@ export async function request(path, { method = 'GET', params, body, headers, sig
             method,
             signal,
             headers: {
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
+                ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}),
                 ...headers
             },
-            body: body ? JSON.stringify(body) : undefined
+            body: body && !isForm ? JSON.stringify(body) : body
         });
     } catch (error) {
         if (error.name === 'AbortError') {

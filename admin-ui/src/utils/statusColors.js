@@ -10,7 +10,10 @@ const STATUS_TONES = {
     Pending: 'warning',
     'Needs Review': 'danger',
     Terminated: 'danger',
-    Closed: 'neutral'
+    Closed: 'neutral',
+    Completed: 'success',
+    Partial: 'warning',
+    Failed: 'danger'
 };
 
 export function getStatusTone(status) {

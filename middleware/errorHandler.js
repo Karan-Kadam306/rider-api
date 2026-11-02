@@ -1,3 +1,4 @@
+const multer = require('multer');
 const AppError = require('../errors/AppError');
 const mapDatabaseError = require('../errors/mapDatabaseError');
 
@@ -20,7 +21,16 @@ function errorHandler(error, req, res, next) {
         });
     }
 
-    // 2. Handle recognized PostgreSQL errors.
+    // 2. Handle upload errors (file too large, wrong form field, ...).
+    if (error instanceof multer.MulterError) {
+        return res.status(400).json({
+            error: error.code === 'LIMIT_FILE_SIZE'
+                ? 'File is too large. Maximum size is 5 MB'
+                : error.message
+        });
+    }
+
+    // 3. Handle recognized PostgreSQL errors.
     const databaseError = mapDatabaseError(error);
 
     if (databaseError) {
@@ -29,7 +39,7 @@ function errorHandler(error, req, res, next) {
         });
     }
 
-    // 3. Handle unexpected errors safely.
+    // 4. Handle unexpected errors safely.
     return res.status(500).json({
         error: 'Internal server error'
     });

@@ -1,16 +1,16 @@
 const multer = require('multer');
 const AppError = require('../errors/AppError');
 
-// Multer configuration for handling CSV file uploads.
-// This middleware is used to handle the upload of daily kilometers CSV files.
-const uploadDailyKmCsv = multer({
+// Multer configuration for CSV imports.
+// The file is kept in memory only; it is parsed and never stored.
+const uploadCsv = multer({
     storage: multer.memoryStorage(),
     limits: {
         fileSize: 5 * 1024 * 1024, // 5 MB
         files: 1
     },
     fileFilter: (req, file, callback) => {
-        // Only CSV is parsed by the upload route.
+        // Only CSV is parsed by the import service.
         if (!file.originalname.toLowerCase().endsWith('.csv')) {
             return callback(
                 new AppError('Only CSV files are allowed', 400)
@@ -21,4 +21,4 @@ const uploadDailyKmCsv = multer({
     }
 });
 
-module.exports = uploadDailyKmCsv;
+module.exports = uploadCsv;

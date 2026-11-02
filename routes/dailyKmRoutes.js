@@ -1,46 +1,30 @@
 const express = require('express');
-const { parse } = require('csv-parse/sync');
 
 const router = express.Router();
 
 const AppError = require('../errors/AppError');
-const uploadDailyKmCsv = require('../middleware/uploadDailyKmCsv');
-const validateUsageDate = require('../utils/validateUsageDate');
 const dailyKmService = require('../services/dailyKmService');
-
-const allowedStatuses = ['Pending', 'Validated', 'Needs Review'];
 
 function isPositiveInteger(value) {
     return Number.isSafeInteger(Number(value)) && Number(value) > 0;
 }
 
-// Define the route for listing daily KM records with optional filters for usageDate and status.
-// e.g. ?usageDate=2026-10-13&status=Needs Review
+// Define the route for listing daily KM records, one page at a time.
+// e.g. ?fromDate=2026-10-12&toDate=2026-10-18&status=Needs Review&search=YS-001&page=1&limit=20
 router.get('/', async (req, res, next) => {
-    const { usageDate, status } = req.query;
-
-    if (usageDate !== undefined && !validateUsageDate(usageDate)) {
-        return next(
-            new AppError('usageDate must be a valid date in YYYY-MM-DD format', 400)
-        );
-    }
-
-    if (status !== undefined && !allowedStatuses.includes(status)) {
-        return next(
-            new AppError('Invalid status. Allowed values: Pending, Validated, Needs Review', 400)
-        );
-    }
+    const { fromDate, toDate, status, search, page, limit } = req.query;
 
     try {
-        const records = await dailyKmService.findDailyKmRecords({
-            usageDate,
-            status
-        });
-
-        return res.status(200).json({
-            count: records.length,
-            records
-        });
+        return res.status(200).json(
+            await dailyKmService.findDailyKmRecords({
+                fromDate,
+                toDate,
+                status,
+                search,
+                page: page ?? 1,
+                limit: limit ?? 20
+            })
+        );
     } catch (error) {
         return next(error);
     }
@@ -87,128 +71,36 @@ router.patch('/:recordId/resolve', async (req, res, next) => {
     }
 });
 
-// Define the route for uploading a CSV file containing daily KM records for a specific usage date.
-router.post(
-    '/upload',
-    uploadDailyKmCsv.single('file'),
-    async (req, res) => {
-        const { usageDate } = req.body;
-
-        if (!validateUsageDate(usageDate)) {
-            return res.status(400).json({
-                error: 'usageDate must be a valid date in YYYY-MM-DD format'
-            });
-        }
-
-        if (!req.file) {
-            return res.status(400).json({
-                error: 'CSV file is required'
-            });
-        }
-
-        let records;
-
-        try {
-            records = parse(req.file.buffer, {
-                columns: true,
-                skip_empty_lines: true,
-                trim: true,
-                bom: true
-            });
-        } catch (error) {
-            return res.status(400).json({
-                error: 'Unable to parse CSV file. Please check its format.'
-            });
-        }
-
-        if (records.length === 0) {
-            return res.status(400).json({
-                error: 'CSV file contains no data rows'
-            });
-        }
-
-        const headers = Object.keys(records[0]);
-
-        if (!headers.includes('VIN') || !headers.includes('KM')) {
-            return res.status(400).json({
-                error: 'CSV must contain VIN and KM columns'
-            });
-        }
-
-        const invalidRows = [];
-
-        records.forEach((record, index) => {
-            const vin = record.VIN;
-            const kmText = record.KM;
-            const km = Number(kmText);
-
-            if (
-                !vin ||
-                !kmText ||
-                !Number.isFinite(km) ||
-                km < 0
-            ) {
-                invalidRows.push(index + 2);
-            }
-        });
-
-        if (invalidRows.length > 0) {
-            return res.status(400).json({
-                error: 'Some CSV rows contain invalid VIN or KM values',
-                invalidRows
-            });
-        }
-
-        try {
-            const result = await dailyKmService.processDailyKmUpload({
-                records,
-                usageDate,
-                fileName: req.file.originalname
-            });
-
-            return res.status(200).json({
-                message: 'Daily KM upload processed successfully',
-                usageDate,
-                fileName: req.file.originalname,
-                totalRows: records.length,
-                results: result
-            });
-        } catch (error) {
-            console.error('Daily KM upload failed:', error);
-
-            return res.status(500).json({
-                error: 'Failed to process daily KM upload'
-            });
-        }
-    }
-);
-
-// Define the route for validating daily KM records for a specific usage date.
-router.post('/validate', async (req, res) => {
-    const { usageDate } = req.body ?? {};
-
-    if (!validateUsageDate(usageDate)) {
-        return res.status(400).json({
-            error: 'usageDate must be a valid date in YYYY-MM-DD format'
-        });
-    }
+// Define the route for validating every matched Pending record in a date range.
+// Body: { fromDate, toDate }; a single day is fromDate = toDate.
+router.post('/validate', async (req, res, next) => {
+    const { fromDate, toDate } = req.body ?? {};
 
     try {
-        const result = await dailyKmService.validateDailyKmRecords({
-            usageDate
-        });
+        const result = await dailyKmService.validateDailyKmRecords({ fromDate, toDate });
 
         return res.status(200).json({
             message: 'Daily KM records validated successfully',
-            usageDate,
+            fromDate,
+            toDate,
             ...result
         });
     } catch (error) {
-        console.error('Daily KM validation failed:', error);
+        return next(error);
+    }
+});
 
-        return res.status(500).json({
-            error: 'Failed to validate daily KM records'
-        });
+// Define the route for the riders who held a bike on a date, for resolving Needs Review records.
+// e.g. ?bikeId=12&usageDate=2026-10-13
+router.get('/candidates', async (req, res, next) => {
+    const { bikeId, usageDate } = req.query;
+
+    try {
+        const riders = await dailyKmService.findRiderCandidates({ bikeId, usageDate });
+
+        return res.status(200).json({ count: riders.length, riders });
+    } catch (error) {
+        return next(error);
     }
 });
 
