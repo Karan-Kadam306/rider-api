@@ -75,6 +75,21 @@ describe('Rider weekly bill', () => {
         assert.equal((await riderBill('YS-001')).body.bill.energy.totalEnergyCharge, 0);
     });
 
+    it('a bike still assigned is charged only up to today, not the rest of the week', async () => {
+        const today = new Date(`${h.todayInIst()}T00:00:00.000Z`);
+        const daysSinceMonday = (today.getUTCDay() + 6) % 7;
+        today.setUTCDate(today.getUTCDate() - daysSinceMonday);
+        const monday = today.toISOString().slice(0, 10);
+
+        await h.createRider('YS-001');
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', `${monday} 09:00`);
+
+        const res = await riderBill('YS-001', monday);
+
+        assert.equal(res.body.bill.rental.rentalDays, daysSinceMonday + 1);
+    });
+
     it('rejects a weekStart that is not a Monday', async () => {
         assert.equal((await riderBill('YS-001', '2026-10-13')).status, 400);
     });
@@ -240,5 +255,141 @@ describe('Closing a billing week', () => {
 
     it('rejects a weekStart that is not a Monday', async () => {
         assert.equal((await closeWeek('2026-10-13')).status, 400);
+    });
+});
+
+describe('Weekly bills list', () => {
+    function bills(query = '') {
+        return h.api('GET', `/api/billing/bills?weekStart=${WEEK}${query}`);
+    }
+
+    // Three riders on bikes all week; YS-BAD is Terminated without a date, so it needs review.
+    async function seedRiders() {
+        for (const riderId of ['YS-001', 'YS-002', 'YS-BAD']) {
+            await h.createRider(riderId, riderId === 'YS-BAD' ? { status: 'Terminated' } : {});
+            const bikeId = await h.createBike(`VIN-${riderId}`);
+            await h.createAssignment(bikeId, riderId, '2026-10-01 09:00');
+        }
+    }
+
+    it('returns the week totals, view counts and one page of riders with names', async () => {
+        await seedRiders();
+
+        const res = await bills('&limit=2');
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.riderCount, 3);
+        assert.equal(res.body.totalAmount, 826);
+        assert.deepEqual(res.body.viewCounts, { all: 3, needsReview: 1, changed: 0, payoutPending: 0 });
+        assert.deepEqual(res.body.pagination, { page: 1, limit: 2, offset: 0, totalRecords: 3, totalPages: 2 });
+        assert.equal(res.body.count, 2);
+        assert.equal(res.body.riders[0].riderName, 'Rider YS-001');
+
+        const page2 = await bills('&limit=2&page=2');
+
+        assert.equal(page2.body.count, 1);
+        assert.equal(page2.body.riders[0].riderId, 'YS-BAD');
+        assert.equal(page2.body.riders[0].riderStatus, 'Terminated');
+    });
+
+    it('filters by view and searches rider ID or name', async () => {
+        await seedRiders();
+
+        const review = await bills('&view=needsReview');
+
+        assert.deepEqual(review.body.riders.map(r => r.riderId), ['YS-BAD']);
+        assert.equal(review.body.pagination.totalRecords, 1);
+
+        // Counts follow the search, so tabs show matching riders only.
+        const search = await bills('&search=rider ys-00');
+
+        assert.deepEqual(search.body.riders.map(r => r.riderId), ['YS-001', 'YS-002']);
+        assert.deepEqual(search.body.viewCounts, { all: 2, needsReview: 0, changed: 0, payoutPending: 0 });
+    });
+
+    it('shows riders changed since the week closed', async () => {
+        await h.createRider('YS-001');
+        await h.createRider('YS-002');
+        const bike1 = await h.createBike('VIN-1');
+        const bike2 = await h.createBike('VIN-2');
+        await h.createAssignment(bike1, 'YS-001', '2026-10-01 09:00');
+
+        assert.equal((await h.api('POST', `/api/billing/weeks/${WEEK}/close`)).status, 201);
+
+        await h.createAssignment(bike2, 'YS-002', '2026-10-15 09:00', '2026-10-16 18:00');
+
+        const res = await bills('&view=changed');
+
+        assert.equal(res.body.closed, true);
+        assert.equal(res.body.viewCounts.changed, 1);
+        assert.deepEqual(res.body.riders.map(r => r.riderId), ['YS-002']);
+        assert.equal(res.body.riders[0].difference, 118);
+    });
+
+    it('rejects an unknown view and a bad page or limit', async () => {
+        assert.equal((await bills('&view=paid')).status, 400);
+        assert.equal((await bills('&page=0')).status, 400);
+        assert.equal((await bills('&limit=101')).status, 400);
+        assert.equal((await h.api('GET', '/api/billing/bills?weekStart=2026-10-13')).status, 400);
+    });
+});
+
+describe('Weekly bills export', () => {
+    function exportBills(query = '') {
+        return h.api('GET', `/api/billing/bills/export?weekStart=${WEEK}${query}`);
+    }
+
+    it('downloads every rider as CSV with the same amounts as the bills list', async () => {
+        await h.createRider('YS-001');
+        await h.createRider('YS-002');
+        // A name with a comma and a quote must stay in one column.
+        await h.pool.query(`UPDATE riders SET name = 'Shah, "Raj"' WHERE rider_id = 'YS-002'`);
+
+        const bike1 = await h.createBike('VIN-1');
+        const bike2 = await h.createBike('VIN-2');
+        await h.createAssignment(bike1, 'YS-001', '2026-10-01 09:00');
+        await h.createAssignment(bike2, 'YS-002', '2026-10-15 09:00', '2026-10-16 18:00');
+        await h.createKmRecord({ vin: 'VIN-1', bikeId: bike1, riderId: 'YS-001', usageDate: '2026-10-13', dailyKm: 20, status: 'Validated' });
+
+        const res = await exportBills();
+
+        assert.equal(res.status, 200);
+        assert.match(res.headers.get('content-type'), /^text\/csv/);
+        assert.match(res.headers.get('content-disposition'), /attachment; filename="billing-2026-10-12\.csv"/);
+
+        const lines = res.body.replace(/^﻿/, '').trim().split('\r\n');
+
+        assert.equal(lines.length, 3);
+        assert.equal(lines[0], 'Rider ID,Rider Name,Rider Status,Rental Days,Rental (INR),KM,Energy (INR),Total (INR),Needs Review,Review Reason');
+        assert.equal(lines[1], 'YS-001,Rider YS-001,Active,7,413,20,30,443,No,');
+        assert.equal(lines[2], 'YS-002,"Shah, ""Raj""",Active,2,118,0,0,118,No,');
+    });
+
+    it('applies the view and adds billed columns for a closed week', async () => {
+        await h.createRider('YS-001');
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-01 09:00');
+
+        assert.equal((await h.api('POST', `/api/billing/weeks/${WEEK}/close`)).status, 201);
+
+        const lines = (await exportBills()).body.replace(/^﻿/, '').trim().split('\r\n');
+
+        assert.match(lines[0], /,Billed Total \(INR\),Difference \(INR\),Changed Since Close$/);
+        assert.match(lines[1], /,413,0,No$/);
+
+        const changed = (await exportBills('&view=changed')).body.replace(/^﻿/, '').trim().split('\r\n');
+
+        assert.equal(changed.length, 1);
+    });
+
+    it('stops spreadsheet formulas in rider names', async () => {
+        await h.createRider('YS-001');
+        await h.pool.query(`UPDATE riders SET name = '=SUM(A1)' WHERE rider_id = 'YS-001'`);
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-01 09:00');
+
+        const lines = (await exportBills()).body.replace(/^﻿/, '').trim().split('\r\n');
+
+        assert.match(lines[1], /^YS-001,'=SUM\(A1\),/);
     });
 });

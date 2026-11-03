@@ -557,6 +557,41 @@ ALTER TABLE ONLY public.rider_inactive_periods
 
 
 --
+-- Payouts (added by db/migrations/003_payouts.sql)
+--
+
+CREATE TABLE public.payout_runs (
+    run_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    week_start date NOT NULL,
+    run_number integer NOT NULL,
+    rider_count integer NOT NULL,
+    updated_count integer NOT NULL,
+    total_amount numeric(12,2) NOT NULL,
+    triggered_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT payout_runs_monday_check CHECK ((EXTRACT(isodow FROM week_start) = (1)::numeric)),
+    CONSTRAINT payout_runs_counts_check CHECK (((run_number > 0) AND (rider_count >= 0) AND (updated_count >= 0))),
+    CONSTRAINT payout_runs_week_run_key UNIQUE (week_start, run_number)
+);
+
+CREATE TABLE public.payout_items (
+    week_start date NOT NULL,
+    rider_id character varying(30) NOT NULL REFERENCES public.riders(rider_id),
+    rental_days integer NOT NULL,
+    total_rental numeric(10,2) NOT NULL,
+    total_km numeric(10,2) NOT NULL,
+    total_energy_charge numeric(10,2) NOT NULL,
+    total_amount numeric(10,2) NOT NULL,
+    previous_total_amount numeric(10,2),
+    first_run_id bigint NOT NULL REFERENCES public.payout_runs(run_id),
+    updated_run_id bigint NOT NULL REFERENCES public.payout_runs(run_id),
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    PRIMARY KEY (week_start, rider_id)
+);
+
+CREATE INDEX idx_payout_runs_triggered ON public.payout_runs USING btree (triggered_at DESC);
+
+
+--
 -- PostgreSQL database dump complete
 --
 

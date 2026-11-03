@@ -29,6 +29,48 @@ async function getWeeklyBillingSummary(req, res, next) {
     }
 }
 
+// GET /api/billing/bills?weekStart=YYYY-MM-DD&view=needsReview&search=&page=1&limit=20
+// One page of the week's bills, with the week totals and per-view counts.
+async function listWeeklyBills(req, res, next) {
+    const { weekStart, view, search, page, limit } = req.query;
+
+    try {
+        const bills = await billingService.listWeeklyBills({
+            weekStart,
+            view: view ?? 'all',
+            search,
+            page: page ?? 1,
+            limit: limit ?? 20
+        });
+
+        return res.status(200).json(bills);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// GET /api/billing/bills/export?weekStart=YYYY-MM-DD&view=&search=
+// Download the week's bills as a CSV file.
+async function exportWeeklyBills(req, res, next) {
+    const { weekStart, view, search } = req.query;
+
+    try {
+        const { fileName, csv } = await billingService.exportWeeklyBills({
+            weekStart,
+            view: view ?? 'all',
+            search
+        });
+
+        res.attachment(fileName);
+        res.type('text/csv; charset=utf-8');
+
+        // BOM so Excel reads the file as UTF-8.
+        return res.status(200).send(`﻿${csv}`);
+    } catch (error) {
+        return next(error);
+    }
+}
+
 // POST /api/billing/weeks/:weekStart/close
 // Close the billing for a specific week, marking it as finalized.
 async function closeWeek(req, res, next) {
@@ -49,5 +91,7 @@ async function closeWeek(req, res, next) {
 module.exports = {
     getRiderBill,
     getWeeklyBillingSummary,
+    listWeeklyBills,
+    exportWeeklyBills,
     closeWeek
 };

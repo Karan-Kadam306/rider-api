@@ -38,6 +38,12 @@ const PATHS = {
             <path d="M6 13h3a5 5 0 0 0 0-10" />
         </>
     ),
+    wallet: (
+        <>
+            <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+            <path d="M3 7h16a2 2 0 0 1 2 2v7h-5a3 3 0 0 1 0-6h5" />
+        </>
+    ),
     search: (
         <>
             <circle cx="11" cy="11" r="7" />

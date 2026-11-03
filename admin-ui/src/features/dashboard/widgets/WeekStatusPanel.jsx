@@ -6,31 +6,15 @@ import ConfirmDialog from '../../../components/feedback/ConfirmDialog';
 import CurrencyText from '../../../components/ui/CurrencyText';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { toNumber } from '../../../utils/formatCurrency';
-import { formatDateTime, formatWeekRange, hasWeekEnded } from '../../../utils/week';
-
-// Mirrors billingService.closeWeek so the button explains why it is disabled.
-function getCloseBlocker({ weekStart, billing, reviewCount }) {
-    if (billing.closed) {
-        return null;
-    }
-
-    if (!hasWeekEnded(weekStart)) {
-        return 'This week can be closed from next Monday.';
-    }
-
-    if (reviewCount > 0) {
-        return `${reviewCount} rider(s) need review before the week can be closed.`;
-    }
-
-    return null;
-}
+import { formatDateTime, formatWeekRange } from '../../../utils/week';
+import { getCloseBlocker } from '../../billing/getCloseBlocker';
 
 export default function WeekStatusPanel({ weekStart, billing, reviewCount, onClosed }) {
     const showToast = useToast();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [closing, setClosing] = useState(false);
 
-    const blocker = getCloseBlocker({ weekStart, billing, reviewCount });
+    const blocker = getCloseBlocker({ weekStart, closed: billing.closed, reviewCount });
     const difference = billing.closed
         ? toNumber(billing.totalAmount) - toNumber(billing.billedTotalAmount)
         : null;

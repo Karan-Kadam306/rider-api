@@ -10,6 +10,7 @@ import BikeSummaryCard from '../features/dashboard/cards/BikeSummaryCard';
 import WeeklyRentalCard from '../features/dashboard/cards/WeeklyRentalCard';
 import WeeklyEnergyCard from '../features/dashboard/cards/WeeklyEnergyCard';
 import WeeklyTotalCard from '../features/dashboard/cards/WeeklyTotalCard';
+import PayoutCard from '../features/dashboard/cards/PayoutCard';
 import NeedsAttentionCard from '../features/dashboard/cards/NeedsAttentionCard';
 
 import WeekStatusPanel from '../features/dashboard/widgets/WeekStatusPanel';
@@ -58,6 +59,7 @@ export default function DashboardPage() {
                         <WeeklyRentalCard billing={data.billing} />
                         <WeeklyEnergyCard billing={data.billing} />
                         <WeeklyTotalCard billing={data.billing} />
+                        <PayoutCard payout={data.payout} />
                         <NeedsAttentionCard attention={data.attention} />
                     </div>
 

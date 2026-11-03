@@ -10,7 +10,8 @@ export const NAV_ITEMS = [
     { to: '/documents', label: 'Document Hub', icon: 'file' },
     // Daily KM has its own date range (defaulting to the selected week), so no week picker.
     { to: '/daily-km', label: 'Daily KM', icon: 'gauge' },
-    { to: '/billing', label: 'Billing', icon: 'rupee', usesWeek: true }
+    { to: '/billing', label: 'Billing', icon: 'rupee', usesWeek: true },
+    { to: '/payouts', label: 'Payouts', icon: 'wallet', usesWeek: true }
 ];
 
 export default function Sidebar() {

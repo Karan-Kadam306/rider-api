@@ -8,6 +8,7 @@ const dailyKmRoutes = require('./routes/dailyKmRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const importRoutes = require('./routes/importRoutes');
+const payoutRoutes = require('./routes/payoutRoutes');
 const { errorHandler } = require('./middleware/errorHandler');
 const app  = express();
 
@@ -21,6 +22,7 @@ app.use('/api/daily-km', dailyKmRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/imports', importRoutes);
+app.use('/api/payouts', payoutRoutes);
 
 app.get('/health', (req, res) => {
     res.json({message: 'Rider API is Running' });

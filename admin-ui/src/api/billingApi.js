@@ -1,4 +1,17 @@
-import { request } from './client';
+import { download, request } from './client';
+
+// GET /api/billing/bills?weekStart=YYYY-MM-DD&view=needsReview&search=&page=1&limit=20
+export function getBills({ weekStart, view, search, page, limit }, { signal } = {}) {
+    return request('/api/billing/bills', { params: { weekStart, view, search, page, limit }, signal });
+}
+
+// GET /api/billing/bills/export — saves the CSV; same view and search as the table.
+export function exportBills({ weekStart, view, search }) {
+    return download('/api/billing/bills/export', {
+        params: { weekStart, view, search },
+        fallbackName: `billing-${weekStart}.csv`
+    });
+}
 
 // GET /api/billing/summary?weekStart=YYYY-MM-DD
 export async function getBillingSummary(weekStart, { signal } = {}) {

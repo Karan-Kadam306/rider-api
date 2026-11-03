@@ -31,6 +31,18 @@ async function findWeekSnapshots(client, { weekStart, riderId = null }) {
     return result.rows;
 }
 
+// Name and status of each billed rider, for the bills table and export.
+async function findRidersByIds(client, { riderIds }) {
+    const result = await client.query(
+        `SELECT rider_id, name, status
+         FROM riders
+         WHERE rider_id = ANY($1::varchar[])`,
+        [riderIds]
+    );
+
+    return result.rows;
+}
+
 // Returns null if another request closed the week first.
 async function insertWeekClosure(client, { weekStart, totalAmount }) {
     const result = await client.query(
@@ -68,6 +80,7 @@ async function insertWeekSnapshot(client, { weekStart, rider }) {
 module.exports = {
     findWeekClosure,
     findWeekSnapshots,
+    findRidersByIds,
     insertWeekClosure,
     insertWeekSnapshot
 };

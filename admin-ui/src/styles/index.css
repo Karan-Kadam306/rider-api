@@ -1273,3 +1273,30 @@ a:hover {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ---------- Payouts ---------- */
+.payout-section__header {
+    padding: 16px 20px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+}
+
+.payout-week-link {
+    padding: 0;
+}
+
+.payout-cell__note {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.payout-cell__note--pending {
+    color: var(--warning);
+}
+
+/* Five stat cards fit on one row on a laptop screen. */
+.card-grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}

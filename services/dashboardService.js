@@ -48,6 +48,12 @@ async function getDashboard({ weekStart }) {
         getDailyKmSummary({ weekStart, weekEnd })
     ]);
 
+    const { payout } = await billingService.addPayouts({
+        weekStart,
+        closed: billing.closed,
+        riders: billing.riders
+    });
+
     const billedRiders = billing.riders.filter(rider => !rider.requiresReview);
 
     const changedSinceClose = billing.closed
@@ -76,12 +82,14 @@ async function getDashboard({ weekStart }) {
             totalEnergyCharge: billing.totalEnergyCharge,
             totalAmount: billing.totalAmount
         },
+        payout,
         dailyKm,
         attention: {
             ridersNeedingReview: billing.reviewCount,
             kmNeedsReview: dailyKm['Needs Review'],
             kmPending: dailyKm.Pending,
-            changedSinceClose: changedSinceClose.length
+            changedSinceClose: changedSinceClose.length,
+            payoutChanges: payout.pendingCount
         },
         topRiders: [...billedRiders]
             .sort((a, b) => b.totalAmount - a.totalAmount)

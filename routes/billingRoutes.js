@@ -8,6 +8,12 @@ const { validateWeekStart } = require('../middleware/validateWeekStart');
 // Weekly bill summary for all riders.
 router.get('/summary', validateWeekStart, billingController.getWeeklyBillingSummary);
 
+// One page of the week's bills, filtered by view and search.
+router.get('/bills', validateWeekStart, billingController.listWeeklyBills);
+
+// The week's bills as a CSV download.
+router.get('/bills/export', validateWeekStart, billingController.exportWeeklyBills);
+
 // Weekly bill for one rider.
 router.get('/riders/:riderId', validateWeekStart, billingController.getRiderBill);
 

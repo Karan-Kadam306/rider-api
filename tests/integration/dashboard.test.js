@@ -62,8 +62,11 @@ describe('Dashboard', () => {
             ridersNeedingReview: 1,
             kmNeedsReview: 1,
             kmPending: 1,
-            changedSinceClose: 0
+            changedSinceClose: 0,
+            payoutChanges: 0
         });
+        assert.equal(d.payout.paid, false);
+        assert.equal(d.payout.totalAmount, null);
 
         assert.deepEqual(d.topRiders.map(r => r.riderId), ['YS-001', 'YS-002']);
         assert.equal(d.topRiders[0].totalAmount, 443);

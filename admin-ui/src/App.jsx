@@ -9,6 +9,7 @@ import BikesPage from './pages/BikesPage';
 import DocumentHubPage from './pages/DocumentHubPage';
 import DailyKmPage from './pages/DailyKmPage';
 import BillingPage from './pages/BillingPage';
+import PayoutsPage from './pages/PayoutsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
                             <Route path="documents" element={<DocumentHubPage />} />
                             <Route path="daily-km" element={<DailyKmPage />} />
                             <Route path="billing" element={<BillingPage />} />
+                            <Route path="payouts" element={<PayoutsPage />} />
                             <Route path="*" element={<NotFoundPage />} />
                         </Route>
                     </Routes>
