@@ -1,27 +1,33 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // Runs fetcher({ signal }) whenever deps change; stale responses are aborted.
+// deps must be plain values (strings, numbers): together they identify the request.
 export function useApi(fetcher, deps) {
-    const [state, setState] = useState({ data: null, loading: true, error: null });
     const [attempt, setAttempt] = useState(0);
+    const requestKey = JSON.stringify([...deps, attempt]);
+    const [result, setResult] = useState({ key: null, data: null, error: null });
 
     useEffect(() => {
         const controller = new AbortController();
-        setState({ data: null, loading: true, error: null });
 
         fetcher({ signal: controller.signal })
-            .then(data => setState({ data, loading: false, error: null }))
+            .then(data => setResult({ key: requestKey, data, error: null }))
             .catch(error => {
                 if (error.name !== 'AbortError') {
-                    setState({ data: null, loading: false, error });
+                    setResult({ key: requestKey, data: null, error });
                 }
             });
 
         return () => controller.abort();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [...deps, attempt]);
+    }, [requestKey]);
 
     const retry = useCallback(() => setAttempt(count => count + 1), []);
 
-    return { ...state, retry };
+    // Until the current request answers, report loading instead of the previous result.
+    if (result.key !== requestKey) {
+        return { data: null, loading: true, error: null, retry };
+    }
+
+    return { data: result.data, loading: false, error: result.error, retry };
 }

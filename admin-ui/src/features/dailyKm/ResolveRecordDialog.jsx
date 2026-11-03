@@ -7,12 +7,10 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import Field from '../../components/ui/Field';
 import Icon from '../../components/ui/Icon';
 import { formatDate, formatDateTime } from '../../utils/formatDate';
+import { bikeLabel } from '../../utils/bikeLabel';
 
 const BIKE_RESULT_LIMIT = 8;
 
-function bikeLabel(bike) {
-    return bike.registrationNumber ?? `Bike #${bike.bikeId}`;
-}
 
 // Choose who is billed for a Needs Review record. Mounted only while open.
 // A matched VIN already fixes the bike; an unmatched one needs a bike picked first.
@@ -131,7 +129,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
                                         onClick={() => selectBike(bike)}
                                     >
                                         <span className="person__name">{bikeLabel(bike)}</span>
-                                        <span className="cell-sub mono">{bike.chassisNumber}</span>
+                                        {bike.registrationNumber && <span className="cell-sub mono">{bike.chassisNumber}</span>}
                                     </button>
                                 ))}
                             </div>

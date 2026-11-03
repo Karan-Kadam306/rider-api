@@ -9,7 +9,10 @@
     "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:integration": "node --test --test-concurrency=1 \"tests/integration/*.test.js\"",
     "test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-exclude=\"tests/**\" \"tests/**/*.test.js\"",
-    "db:test:setup": "node tests/setupTestDb.js"
+    "db:test:setup": "node tests/setupTestDb.js",
+    "db:check": "node db/checkData.js",
+    "db:migrate": "node db/migrate.js",
+    "demo:setup": "node demo/setupDemoDb.js"
   },
   "keywords": [],
   "author": "",

@@ -32,6 +32,37 @@ export async function updateRider(riderId, { name, phone, status }) {
     return data.rider;
 }
 
+// GET /api/riders/:riderId/inactive-periods
+export async function getInactivePeriods(riderId, { signal } = {}) {
+    const data = await request(`/api/riders/${encodeURIComponent(riderId)}/inactive-periods`, { signal });
+    return data.periods;
+}
+
+// POST /api/riders/:riderId/inactive-periods — starts as Pending (still charged).
+export async function addInactivePeriod(riderId, { startDate, endDate }) {
+    const data = await request(`/api/riders/${encodeURIComponent(riderId)}/inactive-periods`, {
+        method: 'POST',
+        body: { startDate, endDate }
+    });
+    return data.period;
+}
+
+// PATCH /api/riders/:riderId/inactive-periods/:periodId/approve — its days stop being charged.
+export async function approveInactivePeriod(riderId, periodId) {
+    const data = await request(
+        `/api/riders/${encodeURIComponent(riderId)}/inactive-periods/${periodId}/approve`,
+        { method: 'PATCH' }
+    );
+    return data.period;
+}
+
+// DELETE /api/riders/:riderId/inactive-periods/:periodId
+export function removeInactivePeriod(riderId, periodId) {
+    return request(`/api/riders/${encodeURIComponent(riderId)}/inactive-periods/${periodId}`, {
+        method: 'DELETE'
+    });
+}
+
 // DELETE /api/riders/:riderId — terminates the rider and returns their bike, if any.
 export function terminateRider(riderId) {
     return request(`/api/riders/${encodeURIComponent(riderId)}`, { method: 'DELETE' });

@@ -220,7 +220,13 @@ a:hover {
 .week-picker {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
+}
+
+/* "This week" moves to the next line on a phone instead of splitting in two. */
+.week-picker .button--link {
+    white-space: nowrap;
 }
 
 .week-picker__label {
@@ -1299,4 +1305,12 @@ a:hover {
 /* Five stat cards fit on one row on a laptop screen. */
 .card-grid--compact {
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+/* ---------- Inactive periods ---------- */
+.inactive-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: end;
+    gap: 12px;
 }

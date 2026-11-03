@@ -15,6 +15,7 @@ import Pagination from '../components/ui/Pagination';
 import StatusTabs from '../components/ui/StatusTabs';
 import RidersTable from '../features/riders/RidersTable';
 import RiderFormDialog from '../features/riders/RiderFormDialog';
+import InactivePeriodsPanel from '../features/riders/InactivePeriodsPanel';
 
 const RIDER_STATUSES = [
     { status: 'Active', icon: 'userCheck' },
@@ -41,6 +42,7 @@ export default function RidersPage() {
     const [formState, setFormState] = useState(null);
     const [terminating, setTerminating] = useState(null);
     const [terminateBusy, setTerminateBusy] = useState(false);
+    const [inactiveRider, setInactiveRider] = useState(null);
 
     const list = useApi(
         options => getRiders({ status, search, page, limit: PAGE_SIZE }, options),
@@ -118,7 +120,7 @@ export default function RidersPage() {
         try {
             const result = await terminateRider(terminating.rider_id);
             const bikeNote = result.returnedAssignment
-                ? ` Bike ${result.returnedAssignment.bike_id} was returned.`
+                ? ` Bike ${result.returnedAssignment.registration_number ?? result.returnedAssignment.chassis_number} was returned.`
                 : '';
             showToast({ message: `${terminating.name} terminated.${bikeNote}` });
             setTerminating(null);
@@ -180,6 +182,7 @@ export default function RidersPage() {
                                 onEdit={rider => setFormState({ rider })}
                                 onToggleStatus={handleToggleStatus}
                                 onTerminate={setTerminating}
+                                onInactiveDays={setInactiveRider}
                             />
                             <Pagination
                                 {...list.data.pagination}
@@ -201,6 +204,8 @@ export default function RidersPage() {
             {formState && (
                 <RiderFormDialog rider={formState.rider} onSubmit={handleSave} onClose={() => setFormState(null)} />
             )}
+
+            {inactiveRider && <InactivePeriodsPanel rider={inactiveRider} onClose={() => setInactiveRider(null)} />}
 
             <ConfirmDialog
                 open={Boolean(terminating)}

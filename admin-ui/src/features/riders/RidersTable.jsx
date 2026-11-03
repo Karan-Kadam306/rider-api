@@ -8,7 +8,7 @@ function initials(name) {
 }
 
 // Riders for one status tab. Terminated riders are read-only.
-export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminate }) {
+export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminate, onInactiveDays }) {
     return (
         <div className="table-wrap">
             <table className="table table--roomy">
@@ -51,6 +51,10 @@ export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminat
                                         >
                                             <Icon name={rider.status === 'Active' ? 'userPause' : 'userCheck'} size={15} />
                                             {rider.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button type="button" className="pill-button" onClick={() => onInactiveDays(rider)}>
+                                            <Icon name="clock" size={15} />
+                                            Inactive days
                                         </button>
                                         <button
                                             type="button"

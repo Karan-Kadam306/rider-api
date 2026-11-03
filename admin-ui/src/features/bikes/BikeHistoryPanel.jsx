@@ -46,7 +46,7 @@ export default function BikeHistoryPanel({ bike, onClose }) {
                 <div>
                     <h3 id="bike-history-title" className="dialog__title">Assignment history</h3>
                     <p className="cell-sub">
-                        {bike.registrationNumber ?? `Bike #${bike.bikeId}`} · {bike.chassisNumber}
+                        {bike.registrationNumber ? `${bike.registrationNumber} · ${bike.chassisNumber}` : bike.chassisNumber}
                     </p>
                 </div>
                 <button type="button" className="button button--icon" aria-label="Close" onClick={onClose}>

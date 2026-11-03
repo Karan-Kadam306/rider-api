@@ -34,8 +34,26 @@ async function setupTestDb() {
 
     const client = new Client({ connectionString: testUrl.toString() });
     await client.connect();
-    await client.query(schema);
-    await client.end();
+
+    try {
+        await client.query(schema);
+
+        // schema.sql already includes every migration, so record them all as applied.
+        // pg_dump empties the search_path, so the table name is schema-qualified.
+        const migrations = fs
+            .readdirSync(path.join(__dirname, '..', 'db', 'migrations'))
+            .filter(name => name.endsWith('.sql'));
+
+        await client.query(
+            `CREATE TABLE public.schema_migrations (
+                name text PRIMARY KEY,
+                applied_at timestamp with time zone DEFAULT now() NOT NULL
+            )`
+        );
+        await client.query('INSERT INTO public.schema_migrations (name) SELECT unnest($1::text[])', [migrations]);
+    } finally {
+        await client.end();
+    }
 
     console.log(`Test database "${testDbName}" is ready.`);
 }

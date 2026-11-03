@@ -4,6 +4,7 @@ import { getRiders } from '../../api/ridersApi';
 import { useApi } from '../../hooks/useApi';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import Icon from '../../components/ui/Icon';
+import { bikeLabel } from '../../utils/bikeLabel';
 
 const RESULT_LIMIT = 8;
 
@@ -63,12 +64,11 @@ export default function AssignBikeDialog({ bike, onSubmit, onClose }) {
         }
     }
 
-    const bikeLabel = bike.registrationNumber ?? `Bike #${bike.bikeId}`;
 
     return (
         <dialog ref={dialogRef} className="dialog" onCancel={handleCancel}>
             <form onSubmit={handleSubmit}>
-                <h3 className="dialog__title">Assign {bikeLabel}</h3>
+                <h3 className="dialog__title">Assign {bikeLabel(bike)}</h3>
 
                 {serverError && <p className="form-alert" role="alert">{serverError}</p>}
 

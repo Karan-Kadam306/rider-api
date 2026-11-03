@@ -56,7 +56,7 @@ async function markBikeAssigned(client, bikeId) {
 async function returnBike(client, bikeId) {
     // Lock the bike row before changing its status.
     const bikeResult = await client.query(
-        `SELECT bike_id, status
+        `SELECT bike_id, status, chassis_number, registration_number
          FROM bikes
          WHERE bike_id = $1
          FOR UPDATE`,
@@ -95,7 +95,12 @@ async function returnBike(client, bikeId) {
         [bikeId]
     );
 
-    return assignmentResult.rows[0];
+    // The bike's numbers let callers name it the way admins know it.
+    return {
+        ...assignmentResult.rows[0],
+        chassis_number: bike.chassis_number,
+        registration_number: bike.registration_number
+    };
 }
 
 // Get the assignment history of a specific bike, with pagination support.

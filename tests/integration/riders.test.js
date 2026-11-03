@@ -63,6 +63,73 @@ describe('Riders', () => {
     });
 });
 
+describe('Rider details, updates and lists', () => {
+    it('returns one rider', async () => {
+        await h.createRider('YS-001');
+
+        const res = await h.api('GET', '/api/riders/YS-001');
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.rider.name, 'Rider YS-001');
+    });
+
+    it('updates name, phone and status', async () => {
+        await h.createRider('YS-001');
+
+        const res = await h.api('PUT', '/api/riders/YS-001', {
+            name: '  Karan Kadam ', phone: '9876543210', status: 'Inactive'
+        });
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.rider.name, 'Karan Kadam');
+        assert.equal(res.body.rider.status, 'Inactive');
+    });
+
+    it('returns 404 when updating or terminating an unknown rider', async () => {
+        const update = await h.api('PUT', '/api/riders/NOPE', {
+            name: 'Karan Kadam', phone: '9876543210', status: 'Active'
+        });
+
+        assert.equal(update.status, 404);
+        assert.equal((await h.api('DELETE', '/api/riders/NOPE')).status, 404);
+    });
+
+    it('rejects a duplicate rider ID with 409', async () => {
+        await h.createRider('YS-001');
+
+        const res = await h.api('POST', '/api/riders', {
+            rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543299'
+        });
+
+        assert.equal(res.status, 409);
+        assert.equal(res.body.error, 'Rider ID Already Exists');
+    });
+
+    it('searches by name, ID or phone, sorts and pages', async () => {
+        for (const id of ['YS-001', 'YS-002', 'YS-003']) {
+            await h.createRider(id);
+        }
+
+        const search = await h.api('GET', '/api/riders?search=ys-002');
+        assert.deepEqual(search.body.riders.map(r => r.rider_id), ['YS-002']);
+
+        const sorted = await h.api('GET', '/api/riders?sortBy=name&order=asc&limit=2&page=2');
+        assert.deepEqual(sorted.body.riders.map(r => r.rider_id), ['YS-003']);
+        assert.deepEqual(sorted.body.pagination, { page: 2, limit: 2, offset: 2, totalRecords: 3, totalPages: 2 });
+    });
+
+    it('counts riders by status', async () => {
+        await h.createRider('YS-001');
+        await h.createRider('YS-002', { status: 'Inactive' });
+
+        const res = await h.api('GET', '/api/riders/summary');
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.summary.Active, 1);
+        assert.equal(res.body.summary.Inactive, 1);
+    });
+});
+
 describe('Rider termination', () => {
     it('sets status Terminated and terminated_on to today (IST)', async () => {
         await h.createRider('YS-001');

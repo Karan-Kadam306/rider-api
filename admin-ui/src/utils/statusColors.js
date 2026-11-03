@@ -12,6 +12,7 @@ const STATUS_TONES = {
     Terminated: 'danger',
     Closed: 'neutral',
     Paid: 'success',
+    Approved: 'success',
     'Not paid': 'neutral',
     'Changes pending': 'warning',
     Completed: 'success',

@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom';
 
 import { useWeek } from '../../context/WeekContext';
-import { NAV_ITEMS } from './Sidebar';
+import { NAV_ITEMS } from './navItems';
 import WeekPicker from './WeekPicker';
 import Icon from '../ui/Icon';
 

@@ -94,6 +94,16 @@ describe('validateUpdateRider', () => {
     it('rejects an invalid phone', () => {
         assert.equal(run(validateUpdateRider, { body: { ...valid, phone: '123' } }).statusCode, 400);
     });
+
+    it('rejects missing or blank fields', () => {
+        assert.equal(run(validateUpdateRider, { body: { name: 'Karan Kadam', phone: '9876543210' } }).statusCode, 400);
+        assert.equal(run(validateUpdateRider, { body: { ...valid, name: '   ' } }).statusCode, 400);
+    });
+
+    it('rejects a name with numbers or no letters', () => {
+        assert.equal(run(validateUpdateRider, { body: { ...valid, name: 'Karan 2' } }).statusCode, 400);
+        assert.equal(run(validateUpdateRider, { body: { ...valid, name: '---' } }).statusCode, 400);
+    });
 });
 
 describe('validateRiderQuery', () => {
@@ -129,6 +139,21 @@ describe('mapDatabaseError', () => {
         assert.equal(
             mapDatabaseError({ code: '23505', constraint: 'riders_phone_key' }).message,
             'Phone number already registered'
+        );
+    });
+
+    it('maps duplicate rider ID and registration number to 409', () => {
+        assert.equal(mapDatabaseError({ code: '23505', constraint: 'riders_pkey' }).message, 'Rider ID Already Exists');
+        assert.equal(
+            mapDatabaseError({ code: '23505', constraint: 'bikes_registration_number_key' }).message,
+            'Registration number already registered'
+        );
+    });
+
+    it('maps any other unique violation to a general 409', () => {
+        assert.deepEqual(
+            mapDatabaseError({ code: '23505', constraint: 'something_else_key' }),
+            { statusCode: 409, message: 'A record with these details already exists' }
         );
     });
 

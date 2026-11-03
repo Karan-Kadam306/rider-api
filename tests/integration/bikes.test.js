@@ -173,6 +173,33 @@ describe('Bike assignment', () => {
         assert.equal((await assign(999, 'YS-001')).status, 404);
     });
 
+    it('returns 404 for an unknown rider', async () => {
+        const bikeId = await h.createBike('VIN-1');
+
+        assert.equal((await assign(bikeId, 'NOPE')).status, 404);
+    });
+
+    it('requires bikeId, riderId, clientId and an idempotency key', async () => {
+        const bikeId = await h.createBike('VIN-1');
+        await h.createRider('YS-001');
+
+        assert.equal((await assign(bikeId, '')).status, 400);
+        assert.equal(
+            (await h.api('POST', '/api/bike-assignments', { bikeId, riderId: 'YS-001', clientId: 'admin-panel' })).status,
+            400
+        );
+        assert.equal(
+            (await h.api('POST', '/api/bike-assignments', { bikeId, riderId: 'YS-001' }, { 'Idempotency-Key': 'k-x' })).status,
+            400
+        );
+    });
+
+    it('history rejects a bad bike ID or page and 404s an unknown bike', async () => {
+        assert.equal((await h.api('GET', '/api/bikes/abc/assignments')).status, 400);
+        assert.equal((await h.api('GET', '/api/bikes/1/assignments?limit=500')).status, 400);
+        assert.equal((await h.api('GET', '/api/bikes/999/assignments')).status, 404);
+    });
+
     it('two requests at the same moment: one 201, one 409', async () => {
         await h.createRider('YS-001');
         const bike1 = await h.createBike('VIN-1');

@@ -25,6 +25,7 @@ import BikesTable from '../features/bikes/BikesTable';
 import BikeFormDialog from '../features/bikes/BikeFormDialog';
 import AssignBikeDialog from '../features/bikes/AssignBikeDialog';
 import BikeHistoryPanel from '../features/bikes/BikeHistoryPanel';
+import { bikeLabel } from '../utils/bikeLabel';
 
 // "All" is a UI-only tab: the API returns every status when no status is sent.
 const BIKE_TABS = [
@@ -35,9 +36,6 @@ const BIKE_TABS = [
 ];
 const PAGE_SIZE = 20;
 
-function bikeLabel(bike) {
-    return bike.registrationNumber ?? `Bike #${bike.bikeId}`;
-}
 
 // Status, search and page live in the URL so a filtered view can be linked or reloaded.
 export default function BikesPage() {

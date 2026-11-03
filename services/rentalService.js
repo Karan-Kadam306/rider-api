@@ -1,6 +1,7 @@
 const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const rentalRepository = require('../repositories/rentalRepository');
+const inactivePeriodRepository = require('../repositories/inactivePeriodRepository');
 const {
     calculateWeeklyRental
 } = require('../utils/calculateWeeklyRental');
@@ -49,10 +50,20 @@ async function calculateRiderWeeklyRental({
             .filter(date => date.assignmentCount >= 1)
             .map(date => date.date);
 
+        // Approved inactive days are not charged, even if a bike was assigned.
+        const inactivePeriods = (
+            await inactivePeriodRepository.findApprovedInWeek(client, { riderId, weekStart })
+        ).map(period => ({
+            startDate: period.start_date,
+            endDate: period.end_date,
+            approved: true
+        }));
+
         return calculateWeeklyRental({
             weekStart,
             riderStatus: rider.status,
             terminatedOn,
+            inactivePeriods,
             eligibleDates
         });
     } finally {

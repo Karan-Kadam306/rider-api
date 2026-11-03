@@ -9,6 +9,7 @@ const {
     terminateRider,
     getRiderSummary
 } = require('../controllers/riderController');
+const inactivePeriodController = require('../controllers/inactivePeriodController');
 const { validateRiderQuery } = require('../middleware/validateRiderQuery');
 const { validateCreateRider } = require('../middleware/validateCreateRider');
 const { validateUpdateRider } = require('../middleware/validateUpdateRider');
@@ -27,6 +28,12 @@ router.get('/:riderId', getRider);
 
 // Define the route for updating an existing rider's information with validation of the request body.
 router.put('/:riderId', validateUpdateRider, updateRider);
+
+// Inactive periods: approved days are not charged rental, even if a bike was assigned.
+router.get('/:riderId/inactive-periods', inactivePeriodController.listPeriods);
+router.post('/:riderId/inactive-periods', inactivePeriodController.createPeriod);
+router.patch('/:riderId/inactive-periods/:periodId/approve', inactivePeriodController.approvePeriod);
+router.delete('/:riderId/inactive-periods/:periodId', inactivePeriodController.deletePeriod);
 
 // Define the route for terminating a rider, which may involve deactivating their account or marking them as inactive in the system.
 router.delete('/:riderId', terminateRider);
