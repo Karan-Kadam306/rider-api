@@ -14,6 +14,9 @@ async function findRentalDatesWithAssignmentCounts(client, {
          ) AS dates(charge_date)
          LEFT JOIN bike_assignments ba
             ON ba.rider_id = $1
+           -- Days after today are not charged yet, even for a bike still assigned.
+           -- The session timezone is Asia/Kolkata, so CURRENT_DATE is today in IST.
+           AND dates.charge_date <= CURRENT_DATE
            AND ba.assigned_at < dates.charge_date + INTERVAL '1 day'
            AND (
                 ba.returned_at IS NULL
