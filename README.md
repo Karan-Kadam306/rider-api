@@ -52,6 +52,12 @@ a rider's net payout will be: **Earnings − Deductions**.
    Already have a database that was migrated by hand (001–003)? Run
    `npm run db:migrate -- --baseline` once to record them, then use `npm run db:migrate` from then on.
 
+5. Create the first admin (there is no public sign-up):
+
+   ```bash
+   npm run user:create
+   ```
+
 ## Running
 
 Start the API and the admin panel in two terminals:
@@ -64,6 +70,17 @@ cd admin-ui && npm run dev # Admin panel on http://127.0.0.1:5173
 In development the admin panel sends `/api` calls to the API through Vite's proxy, so no
 CORS setup is needed. See [`admin-ui/.env.example`](admin-ui/.env.example) for production.
 
+## Sign-in and roles
+
+Every `/api` route except `/api/auth/*` needs a signed-in user; `/health` stays public.
+Signing in sets an `httpOnly`, `SameSite=Strict` session cookie (`Secure` when `NODE_ENV=production`).
+Sessions are stored in the `sessions` table and last `SESSION_TTL_HOURS` (default 12).
+
+| Role | Can do |
+|---|---|
+| `admin` | Everything, including closing a billing week and triggering payouts |
+| `staff` | Everything else: riders, bikes, assignments, imports, Daily KM, viewing billing and payouts |
+
 ## Commands
 
 | Command | What it does |
@@ -74,6 +91,7 @@ CORS setup is needed. See [`admin-ui/.env.example`](admin-ui/.env.example) for p
 | `npm run db:test:setup` | Drop and recreate `rider_test` from `db/schema.sql` |
 | `npm run db:migrate` | Apply new files in `db/migrations` (prefix `NODE_ENV=test` for `rider_test`) |
 | `npm run db:check` | Read-only data consistency check; reports problems, changes nothing |
+| `npm run user:create` | Create an admin panel user (prompts for the password) |
 | `npm run lint` (in `admin-ui`) | Lint the admin panel |
 | `npm run build` (in `admin-ui`) | Production build of the admin panel |
 
@@ -90,7 +108,7 @@ routes/        URL → controller
 controllers/   HTTP in/out
 services/      business rules
 repositories/  SQL
-middleware/    request validation, uploads, error handling
+middleware/    sign-in and role checks, request validation, uploads, error handling
 utils/         pure calculations (rental, energy, payout diff)
 db/            schema, migrations, migrate and check scripts
 tests/         unit and integration tests (node:test)
@@ -101,11 +119,12 @@ admin-ui/      React admin panel
 
 | Area | Endpoints |
 |---|---|
+| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Riders | `GET/POST /api/riders`, `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |
 | Daily KM | `GET /api/daily-km`, `GET /api/daily-km/candidates`, `POST /api/daily-km/validate`, `PATCH /api/daily-km/:recordId/resolve` |
-| Billing | `GET /api/billing/bills`, `GET /api/billing/bills/export`, `GET /api/billing/riders/:riderId`, `POST /api/billing/weeks/:weekStart/close` |
-| Payouts | `GET /api/payouts/weeks/:weekStart`, `POST /api/payouts/weeks/:weekStart/run`, `GET /api/payouts/recent` |
+| Billing | `GET /api/billing/bills`, `GET /api/billing/bills/export`, `GET /api/billing/riders/:riderId`, `POST /api/billing/weeks/:weekStart/close` (admin) |
+| Payouts | `GET /api/payouts/weeks/:weekStart`, `POST /api/payouts/weeks/:weekStart/run` (admin), `GET /api/payouts/recent` |
 | Dashboard | `GET /api/dashboard?weekStart=YYYY-MM-DD` |

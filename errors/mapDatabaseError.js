@@ -31,6 +31,13 @@ function mapDatabaseError(error) {
             };
         }
 
+        if (error.constraint === 'users_email_key') {
+            return {
+                statusCode: 409,
+                message: 'Email already registered'
+            };
+        }
+
         // A different unique constraint was violated.
         return {
             statusCode: 409,

@@ -9,10 +9,17 @@ const billingRoutes = require('./routes/billingRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const importRoutes = require('./routes/importRoutes');
 const payoutRoutes = require('./routes/payoutRoutes');
+const authRoutes = require('./routes/authRoutes');
+const { requireAuth } = require('./middleware/requireAuth');
 const { errorHandler } = require('./middleware/errorHandler');
 const app  = express();
 
 app.use(express.json());
+
+// Sign-in routes are public; every other /api route needs a session.
+app.use('/api/auth', authRoutes);
+app.use('/api', requireAuth);
+
 app.use('/api/riders', riderRoutes);
 app.use('/api/bike-assignments', bikeAssignmentRoutes);
 app.use('/api/bikes', bikeRoutes);

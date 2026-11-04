@@ -592,6 +592,34 @@ CREATE INDEX idx_payout_runs_triggered ON public.payout_runs USING btree (trigge
 
 
 --
+-- Users and sessions (added by db/migrations/004_auth.sql)
+--
+
+CREATE TABLE public.users (
+    user_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email character varying(254) NOT NULL,
+    name character varying(100) NOT NULL,
+    password_hash text NOT NULL,
+    role character varying(20) NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_login_at timestamp with time zone,
+    CONSTRAINT users_email_key UNIQUE (email),
+    CONSTRAINT users_email_lowercase_check CHECK (((email)::text = lower((email)::text))),
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['admin'::character varying, 'staff'::character varying])::text[])))
+);
+
+CREATE TABLE public.sessions (
+    token_hash character(64) PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
+CREATE INDEX idx_sessions_user ON public.sessions USING btree (user_id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 

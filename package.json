@@ -12,6 +12,7 @@
     "db:test:setup": "node tests/setupTestDb.js",
     "db:check": "node db/checkData.js",
     "db:migrate": "node db/migrate.js",
+    "user:create": "node db/createUser.js",
     "demo:setup": "node demo/setupDemoDb.js"
   },
   "keywords": [],

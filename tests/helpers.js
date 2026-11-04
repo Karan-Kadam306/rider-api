@@ -3,6 +3,9 @@ process.env.NODE_ENV = 'test';
 
 const { pool } = require('../db');
 const app = require('../app');
+const authService = require('../services/authService');
+const { hashPassword } = require('../utils/password');
+const { SESSION_COOKIE } = require('../utils/sessionCookie');
 
 // Safety guard: never run integration tests against a real database.
 const testDbName = new URL(process.env.TEST_DATABASE_URL ?? 'x://none/').pathname.slice(1);
@@ -14,6 +17,8 @@ if (!testDbName.endsWith('_test')) {
 }
 
 const TABLES = [
+    'sessions',
+    'users',
     'payout_items',
     'payout_runs',
     'import_row_errors',
@@ -29,9 +34,15 @@ const TABLES = [
     'riders'
 ];
 
-// Empty every table so each test starts from a known state.
+// Every api() request is signed in as this admin unless it sends its own Cookie header.
+let adminCookie;
+
+// Empty every table so each test starts from a known state, with one signed-in admin.
 async function resetDb() {
     await pool.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`);
+
+    const adminId = await createUser({ email: 'admin@test.local', role: 'admin' });
+    adminCookie = await signIn(adminId);
 }
 
 let server;
@@ -56,7 +67,11 @@ async function api(method, path, body, headers = {}) {
 
     const response = await fetch(baseUrl + path, {
         method,
-        headers: isForm ? headers : { 'Content-Type': 'application/json', ...headers },
+        headers: {
+            ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+            ...(adminCookie ? { Cookie: adminCookie } : {}),
+            ...headers
+        },
         body: body === undefined ? undefined : isForm ? body : JSON.stringify(body)
     });
 
@@ -73,6 +88,29 @@ async function api(method, path, body, headers = {}) {
 }
 
 // ---- Factories: insert rows directly so tests control dates. ----
+
+// Every test user has this password. Hashing is slow, so it is hashed once.
+const TEST_PASSWORD = 'test-password';
+let testPasswordHash;
+
+async function createUser({ email, role = 'staff', isActive = true }) {
+    testPasswordHash ??= await hashPassword(TEST_PASSWORD);
+
+    const result = await pool.query(
+        `INSERT INTO users (email, name, password_hash, role, is_active)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING user_id::int AS user_id`,
+        [email, `User ${email}`, testPasswordHash, role, isActive]
+    );
+
+    return result.rows[0].user_id;
+}
+
+// A Cookie header value signed in as the user, for api(..., { Cookie }).
+async function signIn(userId) {
+    const { token } = await authService.createSession(userId);
+    return `${SESSION_COOKIE}=${token}`;
+}
 
 let phoneCounter = 0;
 
@@ -145,6 +183,9 @@ module.exports = {
     startServer,
     stopServer,
     api,
+    TEST_PASSWORD,
+    createUser,
+    signIn,
     createRider,
     createBike,
     createAssignment,
