@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
+import { useAuth } from '../../context/AuthContext';
 import { useWeek } from '../../context/WeekContext';
 import { NAV_ITEMS } from './navItems';
 import WeekPicker from './WeekPicker';
@@ -14,6 +15,7 @@ function findNavItem(pathname) {
 export default function TopBar() {
     const { pathname } = useLocation();
     const { refresh } = useWeek();
+    const { user, signOut } = useAuth();
     const navItem = findNavItem(pathname);
 
     return (
@@ -24,6 +26,14 @@ export default function TopBar() {
                 <button type="button" className="button button--secondary" onClick={refresh}>
                     <Icon name="refresh" size={16} />
                     Refresh
+                </button>
+                <div className="top-bar__user">
+                    <span className="top-bar__user-name">{user.name}</span>
+                    <span className="top-bar__user-role">{user.role}</span>
+                </div>
+                <button type="button" className="button button--secondary" onClick={signOut}>
+                    <Icon name="logOut" size={16} />
+                    Sign out
                 </button>
             </div>
         </header>

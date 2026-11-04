@@ -10,6 +10,19 @@ export class ApiError extends Error {
     }
 }
 
+// Called when the session has ended (any 401 outside /api/auth), so the app can show the login page.
+let handleUnauthorized = () => {};
+
+export function setUnauthorizedHandler(handler) {
+    handleUnauthorized = handler;
+}
+
+function checkSession(path, response) {
+    if (response.status === 401 && !path.startsWith('/api/auth/')) {
+        handleUnauthorized();
+    }
+}
+
 function buildUrl(path, params) {
     const url = new URL(`${BASE_URL}${path}`, window.location.origin);
 
@@ -51,6 +64,8 @@ export async function request(path, { method = 'GET', params, body, headers, sig
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+        checkSession(path, response);
+
         throw new ApiError(
             data?.error ?? `Request failed with status ${response.status}`,
             response.status,
@@ -72,6 +87,8 @@ export async function download(path, { params, fallbackName = 'download' } = {})
     }
 
     if (!response.ok) {
+        checkSession(path, response);
+
         const data = await response.json().catch(() => null);
         throw new ApiError(data?.error ?? `Download failed with status ${response.status}`, response.status, data);
     }

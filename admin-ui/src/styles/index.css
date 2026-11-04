@@ -180,6 +180,62 @@ a:hover {
     flex-wrap: wrap;
 }
 
+.top-bar__user {
+    display: flex;
+    flex-direction: column;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+    line-height: 1.2;
+}
+
+.top-bar__user-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.top-bar__user-role {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: capitalize;
+}
+
+/* ---------- Sign in ---------- */
+.auth-loading {
+    min-height: 100vh;
+}
+
+.login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+}
+
+.login-card {
+    width: min(400px, 100%);
+    padding: 28px;
+}
+
+.login-card__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+}
+
+.login-card__title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.login-card .login-card__submit {
+    width: 100%;
+    margin-top: 20px;
+}
+
 .page-header {
     display: flex;
     justify-content: space-between;

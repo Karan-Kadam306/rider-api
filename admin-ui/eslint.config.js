@@ -7,8 +7,8 @@ export default [
     { ignores: ['dist'] },
     js.configs.recommended,
     reactHooks.configs.flat.recommended,
-    // Context files export their hook next to the provider (useWeek, useToast).
-    reactRefresh.configs.vite({ allowExportNames: ['useWeek', 'useToast'] }),
+    // Context files export their hook next to the provider (useAuth, useWeek, useToast).
+    reactRefresh.configs.vite({ allowExportNames: ['useAuth', 'useWeek', 'useToast'] }),
     {
         files: ['**/*.{js,jsx}'],
         languageOptions: {

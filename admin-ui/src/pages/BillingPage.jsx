@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { closeWeek, exportBills, getBills } from '../api/billingApi';
 import { useApi } from '../hooks/useApi';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useAuth } from '../context/AuthContext';
 import { useWeek } from '../context/WeekContext';
 import { useToast } from '../context/ToastContext';
 import PageHeader from '../components/layout/PageHeader';
@@ -38,6 +39,7 @@ const PAGE_SIZE = 20;
 export default function BillingPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { weekStart, refreshKey, refresh } = useWeek();
+    const { isAdmin } = useAuth();
     const showToast = useToast();
 
     const requestedView = searchParams.get('view');
@@ -141,7 +143,7 @@ export default function BillingPage() {
                             <Icon name="file" size={16} />
                             {exporting ? 'Exporting…' : 'Export CSV'}
                         </button>
-                        {bills && !bills.closed && (
+                        {isAdmin && bills && !bills.closed && (
                             <button
                                 type="button"
                                 className="button button--danger"

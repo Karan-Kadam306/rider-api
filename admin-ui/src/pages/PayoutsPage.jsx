@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { getRecentPayouts, getWeekPayout, triggerPayout } from '../api/payoutsApi';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 import { useWeek } from '../context/WeekContext';
 import { useToast } from '../context/ToastContext';
 import PageHeader from '../components/layout/PageHeader';
@@ -23,6 +24,7 @@ import { formatDateTime, formatWeekRange } from '../utils/week';
 export default function PayoutsPage() {
     const { weekStart, setWeekStart, refreshKey, refresh } = useWeek();
     const showToast = useToast();
+    const { isAdmin } = useAuth();
     const [confirming, setConfirming] = useState(false);
     const [running, setRunning] = useState(false);
 
@@ -56,7 +58,7 @@ export default function PayoutsPage() {
             <PageHeader
                 title="Payouts"
                 subtitle={`Payout for ${formatWeekRange(weekStart)}`}
-                actions={payout && (
+                actions={isAdmin && payout && (
                     <button
                         type="button"
                         className="button"
