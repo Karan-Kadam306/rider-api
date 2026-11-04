@@ -618,6 +618,18 @@ CREATE TABLE public.sessions (
 
 CREATE INDEX idx_sessions_user ON public.sessions USING btree (user_id);
 
+-- Failed sign-ins (added by db/migrations/005_login_failures.sql)
+
+CREATE TABLE public.login_failures (
+    login_failure_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email character varying(254) NOT NULL,
+    ip_address character varying(45) NOT NULL,
+    failed_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_login_failures_email ON public.login_failures USING btree (email, failed_at);
+CREATE INDEX idx_login_failures_ip ON public.login_failures USING btree (ip_address, failed_at);
+
 
 --
 -- PostgreSQL database dump complete

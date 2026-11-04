@@ -2,6 +2,7 @@ const h = require('../helpers');
 const { describe, it, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 const userService = require('../../services/userService');
+const { MAX_FAILURES_PER_EMAIL, MAX_FAILURES_PER_IP } = require('../../services/authService');
 
 before(h.startServer);
 after(h.stopServer);
@@ -65,6 +66,74 @@ describe('POST /api/auth/login', () => {
 
         assert.equal(response.status, 400);
         assert.equal(response.body.error, 'email and password are required');
+    });
+});
+
+describe('Sign-in attempt limits', () => {
+    async function failTimes(count, email = 'staff@test.local') {
+        for (let i = 0; i < count; i++) {
+            assert.equal((await login(email, 'wrong-password')).status, 401);
+        }
+    }
+
+    it('blocks an email after too many failures, even with the right password', async () => {
+        await h.createUser({ email: 'staff@test.local' });
+        await failTimes(MAX_FAILURES_PER_EMAIL);
+
+        const response = await login('STAFF@test.local');
+
+        assert.equal(response.status, 429);
+        assert.equal(response.body.error, 'Too many failed sign-in attempts. Try again in 15 minutes');
+        assert.ok(Number(response.headers.get('retry-after')) > 14 * 60);
+        assert.equal(response.headers.get('set-cookie'), null);
+
+        // Blocked attempts are not recorded, so the wait does not keep growing.
+        const { rows: [{ count }] } = await h.pool.query('SELECT count(*)::int AS count FROM login_failures');
+        assert.equal(count, MAX_FAILURES_PER_EMAIL);
+    });
+
+    it('allows sign-in again once the failures are older than the window', async () => {
+        await h.createUser({ email: 'staff@test.local' });
+        await failTimes(MAX_FAILURES_PER_EMAIL);
+        await h.pool.query(`UPDATE login_failures SET failed_at = now() - interval '16 minutes'`);
+
+        assert.equal((await login('staff@test.local')).status, 200);
+    });
+
+    it('clears the failures for that email after a successful sign-in', async () => {
+        await h.createUser({ email: 'staff@test.local' });
+        await failTimes(MAX_FAILURES_PER_EMAIL - 1);
+
+        assert.equal((await login('staff@test.local')).status, 200);
+
+        await failTimes(MAX_FAILURES_PER_EMAIL - 1);
+        assert.equal((await login('staff@test.local')).status, 200);
+    });
+
+    it('does not block other emails because one email is blocked', async () => {
+        await h.createUser({ email: 'staff@test.local' });
+        await failTimes(MAX_FAILURES_PER_EMAIL, 'nobody@test.local');
+
+        assert.equal((await login('staff@test.local')).status, 200);
+    });
+
+    it('blocks an IP address that tries too many emails', async () => {
+        await h.createUser({ email: 'staff@test.local' });
+
+        // One real failure shows the test client's address; the rest are inserted directly
+        // because hashing every attempt is slow.
+        await login('guess1@test.local', 'wrong-password');
+        const { rows: [{ ip }] } = await h.pool.query('SELECT ip_address AS ip FROM login_failures');
+
+        await h.pool.query(
+            `INSERT INTO login_failures (email, ip_address)
+             SELECT 'guess' || n || '@test.local', $1 FROM generate_series(2, $2) AS n`,
+            [ip, MAX_FAILURES_PER_IP]
+        );
+
+        const response = await login('staff@test.local');
+
+        assert.equal(response.status, 429);
     });
 });
 
@@ -153,7 +222,15 @@ describe('userService.createUser', () => {
     it('stores the email in lowercase and never returns the hash', async () => {
         const user = await userService.createUser(valid);
 
-        assert.deepEqual(user, { userId: 2, email: 'new@test.local', name: 'New User', role: 'staff' });
+        assert.deepEqual(user, {
+            userId: 2,
+            email: 'new@test.local',
+            name: 'New User',
+            role: 'staff',
+            isActive: true,
+            createdAt: user.createdAt,
+            lastLoginAt: null
+        });
 
         const { rows: [row] } = await h.pool.query('SELECT password_hash FROM users WHERE user_id = 2');
         assert.match(row.password_hash, /^scrypt:/);

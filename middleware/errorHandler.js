@@ -16,6 +16,10 @@ function errorHandler(error, req, res, next) {
 
     // 1. Handle known application errors.
     if (error instanceof AppError) {
+        if (error.retryAfterSeconds) {
+            res.set('Retry-After', String(error.retryAfterSeconds));
+        }
+
         return res.status(error.statusCode).json({
             error: error.message
         });
@@ -30,7 +34,20 @@ function errorHandler(error, req, res, next) {
         });
     }
 
-    // 3. Handle recognized PostgreSQL errors.
+    // 3. Handle request bodies express.json() could not read.
+    if (error.type === 'entity.parse.failed') {
+        return res.status(400).json({
+            error: 'Request body is not valid JSON'
+        });
+    }
+
+    if (error.type === 'entity.too.large') {
+        return res.status(413).json({
+            error: 'Request body is too large'
+        });
+    }
+
+    // 4. Handle recognized PostgreSQL errors.
     const databaseError = mapDatabaseError(error);
 
     if (databaseError) {
@@ -39,7 +56,7 @@ function errorHandler(error, req, res, next) {
         });
     }
 
-    // 4. Handle unexpected errors safely.
+    // 5. Handle unexpected errors safely.
     return res.status(500).json({
         error: 'Internal server error'
     });

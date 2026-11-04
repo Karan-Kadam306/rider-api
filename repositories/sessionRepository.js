@@ -34,8 +34,17 @@ async function deleteExpiredForUser(client, { userId }) {
     await client.query('DELETE FROM sessions WHERE user_id = $1 AND expires_at <= now()', [userId]);
 }
 
+// Signs the user out everywhere, except the session given in exceptTokenHash (if any).
+async function deleteAllForUser(client, { userId, exceptTokenHash = null }) {
+    await client.query(
+        'DELETE FROM sessions WHERE user_id = $1 AND token_hash IS DISTINCT FROM $2',
+        [userId, exceptTokenHash]
+    );
+}
+
 module.exports = {
     insertSession,
+    deleteAllForUser,
     findActiveUser,
     deleteSession,
     deleteExpiredForUser

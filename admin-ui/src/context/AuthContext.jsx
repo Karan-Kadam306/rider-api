@@ -35,6 +35,16 @@ export function AuthProvider({ children }) {
         setUser(data.user);
     }, []);
 
+    // Re-read the signed-in user, e.g. after they renamed themselves on the Users page.
+    const reloadUser = useCallback(async () => {
+        try {
+            const data = await authApi.getCurrentUser();
+            setUser(data.user);
+        } catch {
+            // A 401 already signs the user out through the unauthorized handler.
+        }
+    }, []);
+
     // Signed out locally even if the request fails, so the user is never stuck.
     const signOut = useCallback(async () => {
         try {
@@ -45,8 +55,8 @@ export function AuthProvider({ children }) {
     }, []);
 
     const value = useMemo(
-        () => ({ user, isAdmin: user?.role === 'admin', signIn, signOut }),
-        [user, signIn, signOut]
+        () => ({ user, isAdmin: user?.role === 'admin', signIn, signOut, reloadUser }),
+        [user, signIn, signOut, reloadUser]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

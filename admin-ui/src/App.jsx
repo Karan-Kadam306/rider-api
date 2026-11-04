@@ -5,6 +5,7 @@ import { WeekProvider } from './context/WeekContext';
 import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/layout/RequireAuth';
+import RequireAdmin from './components/layout/RequireAdmin';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RidersPage from './pages/RidersPage';
@@ -13,6 +14,7 @@ import DocumentHubPage from './pages/DocumentHubPage';
 import DailyKmPage from './pages/DailyKmPage';
 import BillingPage from './pages/BillingPage';
 import PayoutsPage from './pages/PayoutsPage';
+import UsersPage from './pages/UsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
@@ -32,6 +34,9 @@ export default function App() {
                                     <Route path="daily-km" element={<DailyKmPage />} />
                                     <Route path="billing" element={<BillingPage />} />
                                     <Route path="payouts" element={<PayoutsPage />} />
+                                    <Route element={<RequireAdmin />}>
+                                        <Route path="users" element={<UsersPage />} />
+                                    </Route>
                                     <Route path="*" element={<NotFoundPage />} />
                                 </Route>
                             </Route>

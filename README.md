@@ -68,7 +68,8 @@ cd admin-ui && npm run dev # Admin panel on http://127.0.0.1:5173
 ```
 
 In development the admin panel sends `/api` calls to the API through Vite's proxy, so no
-CORS setup is needed. See [`admin-ui/.env.example`](admin-ui/.env.example) for production.
+CORS setup is needed. In production the panel and the API must share one origin too; see
+[`admin-ui/.env.example`](admin-ui/.env.example).
 
 ## Sign-in and roles
 
@@ -80,6 +81,29 @@ Sessions are stored in the `sessions` table and last `SESSION_TTL_HOURS` (defaul
 |---|---|
 | `admin` | Everything, including closing a billing week and triggering payouts |
 | `staff` | Everything else: riders, bikes, assignments, imports, Daily KM, viewing billing and payouts |
+
+Admins manage users on the **Users** page: add, edit name/role, reset passwords, deactivate.
+An admin cannot change their own role or deactivate themselves, and the last active admin
+cannot be removed. Deactivating a user or resetting their password signs them out everywhere.
+Everyone can change their own password from the top bar (other browsers are signed out).
+`npm run user:create` is still needed once, to create the first admin.
+
+## Security
+
+- **Sign-in limits:** after 5 failed attempts for one email, or 20 from one IP address, within
+  15 minutes, sign-in answers `429` with a `Retry-After` header and the password is not checked.
+  Failures are stored in `login_failures`, so limits survive restarts and work across instances.
+  A successful sign-in clears that email's failures.
+- **Behind a proxy:** set `TRUST_PROXY` to the number of proxies in front of the API (usually `1`),
+  so the IP limit sees the real client address. Leave it unset otherwise; trusting a proxy that
+  is not there lets clients fake their IP.
+- **Headers:** [helmet](https://helmetjs.github.io/) sets security headers (CSP, HSTS, no sniffing,
+  no framing) and removes `X-Powered-By`.
+- **CSRF:** besides the `SameSite=Strict` cookie, changes (`POST`, `PATCH`, ...) that a browser
+  marks as cross-site (`Sec-Fetch-Site`) are refused with `403`.
+- **No CORS:** no CORS headers are sent, so other sites cannot read API responses.
+- **Request bodies:** JSON bodies are limited to 100 kB (`413`); malformed JSON gets `400`;
+  unknown `/api` routes get a JSON `404` (after the sign-in check).
 
 ## Commands
 
@@ -119,7 +143,8 @@ admin-ui/      React admin panel
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password` (change your own) |
+| Users (admin only) | `GET /api/users`, `POST /api/users`, `PATCH /api/users/:userId`, `POST /api/users/:userId/password` |
 | Riders | `GET/POST /api/riders`, `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |

@@ -6,7 +6,7 @@ const { readSessionToken, setSessionCookie, clearSessionCookie } = require('../u
 async function login(req, res, next) {
     try {
         const { email, password } = req.body ?? {};
-        const { user, token, expiresAt } = await authService.login({ email, password });
+        const { user, token, expiresAt } = await authService.login({ email, password, ipAddress: req.ip });
 
         setSessionCookie(res, token, expiresAt);
         return res.status(200).json({ user });
@@ -28,6 +28,26 @@ async function logout(req, res, next) {
     }
 }
 
+// POST /api/auth/password
+// Body: { currentPassword, newPassword }. Other browsers signed in as this user are signed out.
+async function changePassword(req, res, next) {
+    try {
+        const { currentPassword, newPassword } = req.body ?? {};
+
+        await authService.changePassword({
+            userId: req.user.userId,
+            token: readSessionToken(req),
+            currentPassword,
+            newPassword,
+            ipAddress: req.ip
+        });
+
+        return res.status(200).json({ message: 'Password changed' });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 // GET /api/auth/me
 // The signed-in user (set by requireAuth).
 function getCurrentUser(req, res) {
@@ -37,5 +57,6 @@ function getCurrentUser(req, res) {
 module.exports = {
     login,
     logout,
+    changePassword,
     getCurrentUser
 };

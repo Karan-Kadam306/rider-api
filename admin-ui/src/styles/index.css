@@ -132,6 +132,10 @@ a:hover {
     padding: 4px 12px 6px;
 }
 
+.sidebar__section--spaced {
+    margin-top: 14px;
+}
+
 .sidebar__link {
     display: flex;
     align-items: center;
@@ -468,6 +472,7 @@ a:hover {
 .badge--warning { background: var(--warning-soft); color: var(--warning); }
 .badge--danger  { background: var(--danger-soft);  color: var(--danger); }
 .badge--neutral { background: var(--neutral-soft); color: var(--neutral); }
+.badge--capitalize { text-transform: capitalize; }
 
 .dot {
     display: inline-block;
@@ -834,6 +839,7 @@ a:hover {
 
 .person__name {
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .avatar {
@@ -1102,6 +1108,19 @@ a:hover {
 .field--invalid input,
 .field--invalid textarea {
     border-color: var(--danger);
+}
+
+.form-note {
+    margin: -6px 0 0;
+    font-size: 0.8rem;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    cursor: pointer;
 }
 
 .field__error {

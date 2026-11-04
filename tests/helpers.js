@@ -17,6 +17,7 @@ if (!testDbName.endsWith('_test')) {
 }
 
 const TABLES = [
+    'login_failures',
     'sessions',
     'users',
     'payout_items',
@@ -59,6 +60,11 @@ async function startServer() {
 async function stopServer() {
     await new Promise(resolve => server.close(resolve));
     await pool.end();
+}
+
+// Full URL of a path on the test server, for requests api() cannot make (e.g. a broken body).
+function url(path) {
+    return baseUrl + path;
 }
 
 // Send a JSON request and return { status, headers, body }.
@@ -182,6 +188,7 @@ module.exports = {
     resetDb,
     startServer,
     stopServer,
+    url,
     api,
     TEST_PASSWORD,
     createUser,
