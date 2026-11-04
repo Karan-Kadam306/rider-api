@@ -66,6 +66,7 @@ async function createBike({ registrationNumber, chassisNumber }) {
     return mapBike(bike);
 }
 
+// Retrieves a paginated list of bikes with optional filters for status and search term.
 async function getBikes({ status, search, page = 1, limit = 20 }) {
     if (status !== undefined && !allowedStatuses.includes(status)) {
         throw new AppError(
