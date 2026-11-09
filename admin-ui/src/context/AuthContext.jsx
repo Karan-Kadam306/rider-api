@@ -9,6 +9,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(undefined);
 
+    // On page load, ask the API who is signed in: the session cookie is httpOnly, so scripts cannot read it.
     useEffect(() => {
         const controller = new AbortController();
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
         };
     }, []);
 
+    // A failed sign-in rejects to the caller, so the login form can show the message.
     const signIn = useCallback(async credentials => {
         const data = await authApi.login(credentials);
         setUser(data.user);
@@ -54,6 +56,7 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
+    // Memoised so consumers re-render only when the user changes.
     const value = useMemo(
         () => ({ user, isAdmin: user?.role === 'admin', signIn, signOut, reloadUser }),
         [user, signIn, signOut, reloadUser]
@@ -62,6 +65,7 @@ export function AuthProvider({ children }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Returns { user, isAdmin, signIn, signOut, reloadUser }.
 export function useAuth() {
     const context = useContext(AuthContext);
 

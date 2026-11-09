@@ -27,9 +27,11 @@ export default function DocumentHubPage() {
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
 
     const { refreshKey } = useWeek();
+    // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
     const [viewingId, setViewingId] = useState(null);
 
+    // Import types do not depend on anything on this page, so they load once.
     const types = useApi(options => getImportTypes(options), []);
     const summary = useApi(options => getImportSummary(options), [refreshKey, reloadKey]);
     const list = useApi(
@@ -37,8 +39,11 @@ export default function DocumentHubPage() {
         [type, status, page, refreshKey, reloadKey]
     );
 
+    // Lookup for the history table: { daily_km: "Daily KM", ... }.
     const typeLabels = Object.fromEntries((types.data?.types ?? []).map(item => [item.key, item.label]));
 
+    // Merges changes into the URL; an empty value removes the key.
+    // replace keeps filter changes out of the back-button history.
     function updateParams(changes) {
         setSearchParams(current => {
             const next = new URLSearchParams(current);

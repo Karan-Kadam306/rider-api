@@ -1,6 +1,7 @@
 import { getStatusTone } from '../../utils/statusColors';
 
 // e.g. Active 40 · Inactive 5 · Terminated 3
+// statuses sets which ones appear and their order; a status missing from counts shows 0.
 export default function StatusBreakdown({ counts, statuses }) {
     return (
         <ul className="status-breakdown">

@@ -154,6 +154,7 @@ const PATHS = {
     )
 };
 
+// name must be a key of PATHS. Icons are decorative, so they are hidden from screen readers.
 export default function Icon({ name, size = 18, className }) {
     return (
         <svg

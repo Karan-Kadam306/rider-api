@@ -1,6 +1,7 @@
 import StatCard from '../../../components/ui/StatCard';
 import CurrencyText from '../../../components/ui/CurrencyText';
 
+// Rental charged across all riders this week.
 export default function WeeklyRentalCard({ billing }) {
     return (
         <StatCard

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import StatCard from '../../../components/ui/StatCard';
 
+// Everything still open for the week, each item linking to the page that clears it.
 export default function NeedsAttentionCard({ attention }) {
     const items = [
         { label: 'Riders needing review', count: attention.ridersNeedingReview, to: '/billing' },

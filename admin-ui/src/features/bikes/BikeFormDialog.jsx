@@ -57,6 +57,7 @@ export default function BikeFormDialog({ onSubmit, onClose }) {
                 chassisNumber: values.chassisNumber.trim()
             });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

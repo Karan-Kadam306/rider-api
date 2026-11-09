@@ -6,6 +6,7 @@ export function validateRiderForm({ rider_id, name, phone }, { isNew }) {
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
 
+    // The rider ID is fixed once created, so it is only checked for a new rider.
     if (isNew) {
         if (!rider_id.trim()) {
             errors.rider_id = 'Rider ID is required';
@@ -14,6 +15,7 @@ export function validateRiderForm({ rider_id, name, phone }, { isNew }) {
         }
     }
 
+    // \p{N} and \p{L} match digits and letters in any script, so names in Hindi pass too.
     if (!trimmedName) {
         errors.name = 'Name is required';
     } else if (/\p{N}/u.test(trimmedName)) {
@@ -24,6 +26,7 @@ export function validateRiderForm({ rider_id, name, phone }, { isNew }) {
         errors.name = 'Name must be 150 characters or fewer';
     }
 
+    // Indian mobile numbers have 10 digits and start with 6, 7, 8 or 9.
     if (!trimmedPhone) {
         errors.phone = 'Phone is required';
     } else if (!/^[6-9]\d{9}$/.test(trimmedPhone)) {

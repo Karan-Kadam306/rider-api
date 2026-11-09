@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 // deps must be plain values (strings, numbers): together they identify the request.
 export function useApi(fetcher, deps) {
     const [attempt, setAttempt] = useState(0);
+    // attempt is part of the key, so retry() runs the request again even when deps have not changed.
     const requestKey = JSON.stringify([...deps, attempt]);
+    // result.key records which request this result belongs to (see the loading check below).
     const [result, setResult] = useState({ key: null, data: null, error: null });
 
     useEffect(() => {
@@ -13,6 +15,7 @@ export function useApi(fetcher, deps) {
         fetcher({ signal: controller.signal })
             .then(data => setResult({ key: requestKey, data, error: null }))
             .catch(error => {
+                // An aborted request was replaced or unmounted, so its outcome no longer matters.
                 if (error.name !== 'AbortError') {
                     setResult({ key: requestKey, data: null, error });
                 }

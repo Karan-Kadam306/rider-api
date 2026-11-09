@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Icon from '../ui/Icon';
 import { NAV_ITEMS } from './navItems';
 
+// One sidebar link. NavLink reports whether it matches the current page, for the highlight.
 function NavItem({ item }) {
     return (
         <NavLink
@@ -19,6 +20,7 @@ function NavItem({ item }) {
     );
 }
 
+// Links come from navItems; the Administration section only appears for admins.
 export default function Sidebar() {
     const { isAdmin } = useAuth();
     const adminItems = isAdmin ? NAV_ITEMS.filter(item => item.adminOnly) : [];

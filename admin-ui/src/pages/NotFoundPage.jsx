@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import PageHeader from '../components/layout/PageHeader';
 
+// Shown inside the app layout for any address that matches no route.
 export default function NotFoundPage() {
     return (
         <>

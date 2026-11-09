@@ -22,6 +22,7 @@ import WeeklyTrendChart from '../features/dashboard/widgets/WeeklyTrendChart';
 
 const CARD_COUNT = 6;
 
+// Rough outline of the page while the dashboard loads.
 function DashboardSkeleton() {
     return (
         <>

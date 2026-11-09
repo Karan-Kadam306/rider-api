@@ -20,6 +20,7 @@ const STATUS_TONES = {
     Failed: 'danger'
 };
 
+// Unknown statuses fall back to neutral, so a new backend status still renders.
 export function getStatusTone(status) {
     return STATUS_TONES[status] ?? 'neutral';
 }

@@ -17,6 +17,7 @@ import UsersTable from '../features/users/UsersTable';
 import UserFormDialog from '../features/users/UserFormDialog';
 import ResetPasswordDialog from '../features/users/ResetPasswordDialog';
 
+// value is the API's status filter and also the key of this tab's count in the response.
 const USER_STATUSES = [
     { value: 'active', label: 'Active', icon: 'userCheck' },
     { value: 'inactive', label: 'Inactive', icon: 'userPause' }
@@ -32,6 +33,7 @@ export default function UsersPage() {
     const [status, setStatus] = useState('active');
     const [searchInput, setSearchInput] = useState('');
     const search = useDebouncedValue(searchInput.trim());
+    // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
     // null = closed, { user: null } = add, { user } = edit
     const [formState, setFormState] = useState(null);
@@ -43,6 +45,7 @@ export default function UsersPage() {
 
     const reload = () => setReloadKey(key => key + 1);
 
+    // Errors are not caught here: they reject back to the dialog, which shows them.
     async function handleSave(values) {
         if (formState.user) {
             const target = formState.user;
@@ -74,6 +77,7 @@ export default function UsersPage() {
         reload();
     }
 
+    // Deactivating signs the user out, so it asks first; activating happens straight away.
     async function handleToggleActive(target) {
         if (target.isActive) {
             setDeactivating(target);

@@ -48,6 +48,7 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
                 phone: values.phone.trim()
             });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

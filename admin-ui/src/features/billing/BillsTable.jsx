@@ -27,6 +27,7 @@ function PayoutCell({ rider }) {
 // One row per rider for the week. A closed week adds the billed amount and difference.
 // Riders that need review show the reason instead of amounts.
 export default function BillsTable({ riders, closed, onView }) {
+    // How many columns a Needs Review row's reason spans: all the amounts, plus Billed and Difference once closed.
     const amountColumns = closed ? 8 : 6;
 
     return (

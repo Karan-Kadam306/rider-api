@@ -5,6 +5,7 @@ import { addDays, currentWeekStart, formatWeekRange } from '../../utils/week';
 export default function WeekPicker() {
     const { weekStart, setWeekStart } = useWeek();
     const thisWeek = currentWeekStart();
+    // The picker stops at the current week: there is nothing to bill in a future week yet.
     const isCurrentWeek = weekStart >= thisWeek;
 
     return (

@@ -15,6 +15,7 @@ import ErrorState from '../../components/feedback/ErrorState';
 import { formatDate } from '../../utils/formatDate';
 import { todayInIst } from '../../utils/week';
 
+// Both ends count, so a period that starts and ends on the same date is 1 day.
 function dayCount(startDate, endDate) {
     const days = (new Date(`${endDate}T00:00:00Z`) - new Date(`${startDate}T00:00:00Z`)) / 86400000 + 1;
     return `${days} day${days === 1 ? '' : 's'}`;
@@ -29,6 +30,7 @@ export default function InactivePeriodsPanel({ rider, onClose }) {
     const [startDate, setStartDate] = useState(todayInIst);
     const [endDate, setEndDate] = useState(todayInIst);
     const [formError, setFormError] = useState(null);
+    // 'add', or the ID of the period being changed, so only that row's buttons are disabled.
     const [busyId, setBusyId] = useState(null);
 
     const list = useApi(options => getInactivePeriods(rider.rider_id, options), [rider.rider_id, reloadKey]);
@@ -39,6 +41,7 @@ export default function InactivePeriodsPanel({ rider, onClose }) {
     }, []);
 
     function handleCancel(event) {
+        // Escape key: close through the parent, which unmounts this panel.
         event.preventDefault();
         onClose();
     }
@@ -46,6 +49,7 @@ export default function InactivePeriodsPanel({ rider, onClose }) {
     async function handleAdd(event) {
         event.preventDefault();
 
+        // YYYY-MM-DD strings sort like dates, so a plain comparison is enough.
         if (endDate < startDate) {
             setFormError('The end date cannot be before the start date.');
             return;
@@ -85,6 +89,7 @@ export default function InactivePeriodsPanel({ rider, onClose }) {
         }
     }
 
+    // A terminated rider cannot get new periods; existing ones are still listed.
     const canAdd = rider.status !== 'Terminated';
 
     return (

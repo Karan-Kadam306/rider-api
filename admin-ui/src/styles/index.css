@@ -71,6 +71,7 @@ a:hover {
 .app-layout__main {
     display: flex;
     flex-direction: column;
+    /* Lets wide tables scroll inside this column instead of stretching the page. */
     min-width: 0;
 }
 
@@ -84,6 +85,7 @@ a:hover {
     margin: 0 auto;
 }
 
+/* Stays in view while the page scrolls, and scrolls by itself if the menu is taller than the screen. */
 .sidebar {
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
@@ -569,6 +571,7 @@ a:hover {
 .currency--down { color: var(--success); }
 
 /* ---------- Tables ---------- */
+/* Wide tables scroll sideways inside their card, not across the whole page. */
 .table-wrap {
     overflow-x: auto;
 }
@@ -975,6 +978,7 @@ a:hover {
     box-shadow: -10px 0 40px rgba(16, 24, 40, 0.2);
 }
 
+/* Setting display on a <dialog> overrides the browser's hiding, so .drawer sets none until open. */
 .drawer[open] {
     display: flex;
 }
@@ -1174,6 +1178,7 @@ a:hover {
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
+/* Invisible, but keyboard focus and screen readers can still reach the element. */
 .visually-hidden {
     position: absolute;
     width: 1px;

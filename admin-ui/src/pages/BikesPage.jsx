@@ -51,6 +51,7 @@ export default function BikesPage() {
     const [searchInput, setSearchInput] = useState(search);
     // Registrations are stored without spaces (MH12AB1234), so "MH 12" must be sent as "MH12".
     const debouncedSearch = useDebouncedValue(searchInput.replace(/\s+/g, ''));
+    // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
     const [adding, setAdding] = useState(false);
     const [assigning, setAssigning] = useState(null);
@@ -64,6 +65,8 @@ export default function BikesPage() {
     );
     const summary = useApi(options => getBikeSummary(options), [refreshKey, reloadKey]);
 
+    // Merges changes into the URL; an empty value removes the key.
+    // replace keeps filter changes out of the back-button history.
     function updateParams(changes) {
         setSearchParams(current => {
             const next = new URLSearchParams(current);
@@ -99,6 +102,7 @@ export default function BikesPage() {
 
     const reload = () => setReloadKey(key => key + 1);
 
+    // Errors are not caught here: they reject back to the dialog, which shows them.
     async function handleAdd(values) {
         const bike = await createBike(values);
         showToast({ message: `${bikeLabel(bike)} added as Available` });

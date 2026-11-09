@@ -37,6 +37,7 @@ export default function RidersPage() {
     const showToast = useToast();
 
     const [searchInput, setSearchInput] = useState(search);
+    // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
     // null = closed, { rider: null } = add, { rider } = edit
     const [formState, setFormState] = useState(null);
@@ -50,6 +51,8 @@ export default function RidersPage() {
     );
     const summary = useApi(options => getRiderSummary(options), [refreshKey, reloadKey]);
 
+    // Merges changes into the URL; an empty value removes the key.
+    // replace keeps filter changes out of the back-button history.
     function updateParams(changes) {
         setSearchParams(current => {
             const next = new URLSearchParams(current);
@@ -88,9 +91,11 @@ export default function RidersPage() {
 
     const reload = () => setReloadKey(key => key + 1);
 
+    // Errors are not caught here: they reject back to the dialog, which shows them.
     async function handleSave(values) {
         if (formState.rider) {
             const rider = formState.rider;
+            // The API needs every field, so send the current status unchanged.
             await updateRider(rider.rider_id, { name: values.name, phone: values.phone, status: rider.status });
             showToast({ message: `${values.name} updated` });
         } else {
@@ -119,6 +124,7 @@ export default function RidersPage() {
 
         try {
             const result = await terminateRider(terminating.rider_id);
+            // The API reports the bike it took back, if the rider held one.
             const bikeNote = result.returnedAssignment
                 ? ` Bike ${result.returnedAssignment.registration_number ?? result.returnedAssignment.chassis_number} was returned.`
                 : '';

@@ -1,6 +1,8 @@
 import EmptyState from '../../../components/feedback/EmptyState';
 import CurrencyText from '../../../components/ui/CurrencyText';
 
+// Riders whose bill moved after the week closed. Billed amounts stay as they were, so corrections show here.
+// currentAmount is null when the rider now needs review and has no calculable bill.
 export default function ChangedSinceCloseTable({ rows, closed }) {
     return (
         <section className="card panel">

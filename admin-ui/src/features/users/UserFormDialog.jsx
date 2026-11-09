@@ -46,10 +46,12 @@ export default function UserFormDialog({ user, isSelf = false, onSubmit, onClose
         setServerError(null);
 
         try {
+            // Email and password cannot change here, so an edit sends only the name and role.
             await onSubmit(isNew
                 ? { name: values.name.trim(), email: values.email.trim(), role: values.role, password: values.password }
                 : { name: values.name.trim(), role: values.role });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

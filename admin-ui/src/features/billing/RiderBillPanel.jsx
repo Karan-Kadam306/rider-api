@@ -22,12 +22,14 @@ export default function RiderBillPanel({ rider, weekStart, onClose }) {
     }, []);
 
     function handleCancel(event) {
+        // Escape key: close through the parent, which unmounts this panel.
         event.preventDefault();
         onClose();
     }
 
     const bill = details.data;
     const records = bill?.energy.details ?? [];
+    // Ineligible records are listed below but are not charged, so they stay out of this total.
     const chargedKm = records.filter(record => record.eligible).reduce((sum, record) => sum + record.dailyKm, 0);
 
     return (

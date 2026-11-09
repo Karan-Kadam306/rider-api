@@ -19,6 +19,8 @@ import ResolveRecordDialog from '../features/dailyKm/ResolveRecordDialog';
 import { formatDate } from '../utils/formatDate';
 import { addDays } from '../utils/week';
 
+// Pending: matched to exactly one rider, waiting for validation. Validated: counted in billing.
+// Needs Review: the VIN matches no bike, or not exactly one rider held the bike that day.
 // "All" is a UI-only tab: the API returns every status when no status is sent.
 const KM_TABS = [
     { value: 'All', icon: 'gauge' },
@@ -50,6 +52,7 @@ export default function DailyKmPage() {
 
     const [searchInput, setSearchInput] = useState(search);
     const debouncedSearch = useDebouncedValue(searchInput.trim());
+    // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
     const [resolving, setResolving] = useState(null);
     const [confirmingValidate, setConfirmingValidate] = useState(false);
@@ -67,6 +70,8 @@ export default function DailyKmPage() {
         [fromDate, toDate, status, search, page, refreshKey, reloadKey]
     );
 
+    // Merges changes into the URL; an empty value removes the key.
+    // replace keeps filter changes out of the back-button history.
     function updateParams(changes) {
         setSearchParams(current => {
             const next = new URLSearchParams(current);
@@ -138,6 +143,7 @@ export default function DailyKmPage() {
         }
     }
 
+    // Errors are not caught here: they reject back to the dialog, which shows them.
     async function handleResolve(values) {
         await resolveDailyKmRecord(resolving.km_record_id, values);
         showToast({ message: `${resolving.reported_vin} on ${formatDate(resolving.usage_date)} resolved and validated` });
@@ -206,6 +212,7 @@ export default function DailyKmPage() {
                     value: tab.value,
                     label: tab.value,
                     icon: tab.icon,
+                    // statusCounts has no total, so All adds up the others.
                     count: statusCounts && (tab.value === 'All'
                         ? Object.values(statusCounts).reduce((sum, count) => sum + count, 0)
                         : statusCounts[tab.value])

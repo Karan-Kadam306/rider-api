@@ -39,6 +39,7 @@ export default function ResetPasswordDialog({ user, onSubmit, onClose }) {
         try {
             await onSubmit(values.password);
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

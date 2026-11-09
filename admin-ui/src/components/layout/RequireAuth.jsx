@@ -7,10 +7,12 @@ export default function RequireAuth() {
     const { user } = useAuth();
     const location = useLocation();
 
+    // Session check still running: wait, so a signed-in user never sees the login page flash.
     if (user === undefined) {
         return <div className="auth-loading" aria-busy="true" aria-label="Loading" />;
     }
 
+    // state.from lets LoginPage bring the user back here after sign-in.
     if (!user) {
         return <Navigate to="/login" replace state={{ from: location }} />;
     }

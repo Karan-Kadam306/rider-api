@@ -11,12 +11,14 @@ import { NAV_ITEMS } from './navItems';
 import WeekPicker from './WeekPicker';
 import Icon from '../ui/Icon';
 
+// The nav item for the current URL. No match means the not-found page.
 function findNavItem(pathname) {
     return NAV_ITEMS.find(nav =>
         nav.end ? pathname === nav.to : pathname.startsWith(nav.to)
     );
 }
 
+// Page title, week picker (on pages that use it), Refresh, the signed-in user and account actions.
 export default function TopBar() {
     const { pathname } = useLocation();
     const { refresh } = useWeek();
@@ -25,6 +27,7 @@ export default function TopBar() {
     const [changingPassword, setChangingPassword] = useState(false);
     const navItem = findNavItem(pathname);
 
+    // A failure rejects back to the dialog, which stays open and shows the message.
     async function handleChangePassword(values) {
         await changePassword(values);
         setChangingPassword(false);

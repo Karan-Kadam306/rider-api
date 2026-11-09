@@ -6,6 +6,7 @@ const TOAST_DURATION_MS = 4000;
 
 const ToastContext = createContext(null);
 
+// Holds the visible toasts and renders them above every page. Each one removes itself after a few seconds.
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
     const nextId = useRef(1);

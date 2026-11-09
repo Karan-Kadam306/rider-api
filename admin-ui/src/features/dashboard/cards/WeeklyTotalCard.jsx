@@ -3,6 +3,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import CurrencyText from '../../../components/ui/CurrencyText';
 import { formatINR } from '../../../utils/formatCurrency';
 
+// Rental plus energy. The value is always live; a closed week also shows what was billed at close.
 export default function WeeklyTotalCard({ billing }) {
     return (
         <StatCard

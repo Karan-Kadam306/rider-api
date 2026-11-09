@@ -11,6 +11,7 @@ import { formatDateTime } from '../../utils/formatDate';
 const PAGE_SIZE = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Whole days held, rounded down.
 function formatDuration(assignedAt, returnedAt) {
     const days = Math.floor((new Date(returnedAt ?? Date.now()) - new Date(assignedAt)) / DAY_MS);
 
@@ -36,6 +37,7 @@ export default function BikeHistoryPanel({ bike, onClose }) {
     }, []);
 
     function handleCancel(event) {
+        // Escape key: close through the parent, which unmounts this panel.
         event.preventDefault();
         onClose();
     }

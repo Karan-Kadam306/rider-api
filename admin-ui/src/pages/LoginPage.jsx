@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Field from '../components/ui/Field';
 
+// Public sign-in page. Once signIn sets the user, the redirect below takes over.
 export default function LoginPage() {
     const { user, signIn } = useAuth();
     const location = useLocation();
@@ -36,6 +37,7 @@ export default function LoginPage() {
         try {
             await signIn({ email: values.email.trim(), password: values.password });
         } catch (signInError) {
+            // busy is only reset on failure; on success the redirect unmounts this page.
             setError(signInError.message);
             setBusy(false);
         }

@@ -48,6 +48,7 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
         setResult(null);
     }
 
+    // dragover also calls preventDefault (below); without both, the browser opens the dropped file.
     function handleDrop(event) {
         event.preventDefault();
         setDragging(false);
@@ -76,6 +77,7 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
 
             setResult(uploaded.import);
             setFile(null);
+            // Clear the input, or choosing the same file again would not fire onChange.
             fileInputRef.current.value = '';
             onUploaded(uploaded);
         } catch (uploadError) {

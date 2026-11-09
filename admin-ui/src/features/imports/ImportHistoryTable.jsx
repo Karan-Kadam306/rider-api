@@ -4,6 +4,7 @@ import { formatDateTime, formatRelativeTime } from '../../utils/formatDate';
 import { formatFileSize } from '../../utils/formatFileSize';
 import { RowCounts } from './ImportResult';
 
+// One row per uploaded file; onView(importId) opens its details.
 // typeLabels: { daily_km: 'Daily KM', ... }; falls back to the raw key.
 export default function ImportHistoryTable({ imports, typeLabels, onView }) {
     return (

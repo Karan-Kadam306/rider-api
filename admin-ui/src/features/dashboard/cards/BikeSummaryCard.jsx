@@ -1,6 +1,7 @@
 import StatCard from '../../../components/ui/StatCard';
 import StatusBreakdown from '../../../components/ui/StatusBreakdown';
 
+// Total bikes, with a count for each status.
 export default function BikeSummaryCard({ bikes }) {
     return (
         <StatCard label="Bikes" value={bikes.total} to="/bikes" linkLabel="All bikes">

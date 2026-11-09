@@ -2,6 +2,7 @@ import CurrencyText from '../../components/ui/CurrencyText';
 import { formatNumber } from '../../utils/formatCurrency';
 
 // What the next payout run will write: one row per rider whose amounts differ from what was deducted.
+// change.paid is empty on a rider's first deduction, so there is no old value or difference to show.
 export default function PayoutChangesTable({ changes }) {
     return (
         <div className="table-wrap">

@@ -24,14 +24,17 @@ import { formatDateTime, formatWeekRange } from '../utils/week';
 export default function PayoutsPage() {
     const { weekStart, setWeekStart, refreshKey, refresh } = useWeek();
     const showToast = useToast();
+    // Only admins see the trigger button; the API enforces the same rule.
     const { isAdmin } = useAuth();
     const [confirming, setConfirming] = useState(false);
     const [running, setRunning] = useState(false);
 
     const week = useApi(options => getWeekPayout(weekStart, options), [weekStart, refreshKey]);
+    // Covers all weeks, so it does not depend on weekStart.
     const recent = useApi(options => getRecentPayouts({ limit: 8 }, options), [refreshKey]);
 
     const payout = week.data;
+    // changeCount is what the next run would apply, which is the pendingCount the badge expects.
     const status = payout && getPayoutStatus({ paid: payout.paid, pendingCount: payout.changeCount });
 
     async function handleTrigger() {
@@ -39,6 +42,7 @@ export default function PayoutsPage() {
 
         try {
             const result = await triggerPayout(weekStart);
+            // Run 1 deducts everyone; later runs only touch riders whose amounts changed.
             showToast({
                 message: result.run.runNumber === 1
                     ? `Payout triggered for ${formatWeekRange(weekStart)}: ${formatINR(result.run.totalAmount)} deducted`

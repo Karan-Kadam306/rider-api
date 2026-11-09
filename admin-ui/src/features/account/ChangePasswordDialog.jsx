@@ -45,6 +45,7 @@ export default function ChangePasswordDialog({ onSubmit, onClose }) {
         try {
             await onSubmit({ currentPassword: values.currentPassword, newPassword: values.newPassword });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

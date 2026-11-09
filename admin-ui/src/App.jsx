@@ -17,6 +17,9 @@ import PayoutsPage from './pages/PayoutsPage';
 import UsersPage from './pages/UsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 
+// Providers sit above the router so every page can reach the user, selected week and toasts.
+// Route nesting adds the guards: only /login is public, RequireAuth covers the rest,
+// AppLayout adds the sidebar and top bar, and RequireAdmin limits /users to admins.
 export default function App() {
     return (
         <AuthProvider>

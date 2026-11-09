@@ -36,9 +36,12 @@ const BILL_VIEWS = [
 const PAGE_SIZE = 20;
 
 // View, search and page live in the URL so a filtered list can be linked.
+// The ₹59 and ₹1.50 rates in the cards below repeat the backend's constants (utils/calculate*.js);
+// change both together.
 export default function BillingPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { weekStart, refreshKey, refresh } = useWeek();
+    // Only admins see Close week; the API enforces the same rule.
     const { isAdmin } = useAuth();
     const showToast = useToast();
 
@@ -59,6 +62,8 @@ export default function BillingPage() {
         [weekStart, view, search, page, refreshKey]
     );
 
+    // Merges changes into the URL; an empty value removes the key.
+    // replace keeps filter changes out of the back-button history.
     function updateParams(changes) {
         setSearchParams(current => {
             const next = new URLSearchParams(current);

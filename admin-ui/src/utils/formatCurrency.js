@@ -1,3 +1,4 @@
+// en-IN gives Indian digit grouping (1,23,456). Formatters are built once because they are slow to create.
 const inrFormatter = new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',

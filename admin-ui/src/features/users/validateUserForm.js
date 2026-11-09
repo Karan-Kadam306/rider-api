@@ -16,6 +16,8 @@ export function validateNewPassword(password, repeat, { field = 'password', repe
     return errors;
 }
 
+// Returns { field: message } for each invalid field; empty when the form is valid.
+// Email and password are only set when adding a user, so an edit checks just the name.
 export function validateUserForm(values, { isNew }) {
     const errors = {};
 

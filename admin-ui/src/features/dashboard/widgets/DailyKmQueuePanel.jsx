@@ -4,6 +4,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 
 const STATUSES = ['Pending', 'Needs Review', 'Validated'];
 
+// Record counts by status. The links carry no dates, so Daily KM opens on this same selected week.
 export default function DailyKmQueuePanel({ dailyKm }) {
     return (
         <section className="card panel">

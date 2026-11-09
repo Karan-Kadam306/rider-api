@@ -12,6 +12,7 @@ export default function ConfirmDialog({
 }) {
     const dialogRef = useRef(null);
 
+    // A native dialog opens with showModal() rather than an attribute, so follow the open prop here.
     useEffect(() => {
         const dialog = dialogRef.current;
 

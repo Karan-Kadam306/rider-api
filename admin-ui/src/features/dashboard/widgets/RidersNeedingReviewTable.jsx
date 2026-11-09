@@ -1,5 +1,6 @@
 import EmptyState from '../../../components/feedback/EmptyState';
 
+// Riders whose bill cannot be calculated yet, with the reason. They block closing the week.
 export default function RidersNeedingReviewTable({ rows }) {
     return (
         <section className="card panel">

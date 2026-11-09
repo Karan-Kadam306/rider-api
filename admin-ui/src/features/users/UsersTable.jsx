@@ -2,6 +2,7 @@ import Icon from '../../components/ui/Icon';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDate, formatRelativeTime } from '../../utils/formatDate';
 
+// "Priya Sharma" → its initials for the avatar; a single name gives one letter.
 function initials(name) {
     const parts = name.trim().split(/\s+/);
     return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();

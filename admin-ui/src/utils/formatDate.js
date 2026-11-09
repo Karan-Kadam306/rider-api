@@ -1,3 +1,4 @@
+// These use the browser's time zone. For timestamps that must always read in IST, use formatDateTime in week.js.
 const dateFormat = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const dateTimeFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -12,6 +13,7 @@ export function formatDateTime(value) {
 }
 
 const relativeFormat = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+// Largest unit first, so 90 minutes reads as "1 hour ago".
 const RELATIVE_UNITS = [
     ['day', 24 * 60 * 60],
     ['hour', 60 * 60],

@@ -20,6 +20,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
     const dialogRef = useRef(null);
     const needsBike = record.bike_id === null;
 
+    // Starts with the reported VIN, the best clue to which bike this is.
     const [bikeQuery, setBikeQuery] = useState(record.reported_vin);
     const [selectedBike, setSelectedBike] = useState(null);
     const [riderId, setRiderId] = useState(null);
@@ -29,6 +30,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
     const [busy, setBusy] = useState(false);
 
     const bikeSearch = useDebouncedValue(bikeQuery.trim());
+    // Hooks cannot be skipped, so these two resolve to null when there is nothing to fetch yet.
     const bikes = useApi(
         options => (needsBike
             ? getBikes({ search: bikeSearch || undefined, limit: BIKE_RESULT_LIMIT }, options)
@@ -48,6 +50,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
         dialogRef.current.showModal();
     }, []);
 
+    // Candidates depend on the bike, so a rider picked for the previous bike no longer applies.
     function selectBike(bike) {
         setSelectedBike(bike);
         setRiderId(null);
@@ -73,6 +76,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
                 reason: reason.trim()
             });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }
@@ -147,6 +151,7 @@ export default function ResolveRecordDialog({ record, onSubmit, onClose }) {
                                         Nobody held this bike on {formatDate(record.usage_date)}. Fix the assignment history in Bike Management first.
                                     </p>
                                 )}
+                                {/* A rider can hold the same bike twice in one day, so the key includes assignedAt. */}
                                 {riders.map(rider => (
                                     <button
                                         key={`${rider.riderId}-${rider.assignedAt}`}

@@ -33,6 +33,7 @@ export default function ImportDetailsPanel({ importId, types, onClose }) {
     }, []);
 
     function handleCancel(event) {
+        // Escape key: close through the parent, which unmounts this panel.
         event.preventDefault();
         onClose();
     }

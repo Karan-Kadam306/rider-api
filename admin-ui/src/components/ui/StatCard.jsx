@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
-// Base card for the dashboard's top row.
+// Base summary card, used on the Dashboard, Billing, Payouts and Document Hub pages.
+// children render under subText; to and linkLabel add a link at the bottom.
 export default function StatCard({ label, value, subText, badge, to, linkLabel = 'View', children }) {
     return (
         <section className="card stat-card">

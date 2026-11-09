@@ -6,8 +6,10 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import Icon from '../../components/ui/Icon';
 import { bikeLabel } from '../../utils/bikeLabel';
 
+// Keeps the picker short; the user types to narrow down further.
 const RESULT_LIMIT = 8;
 
+// crypto.randomUUID only exists on HTTPS or localhost, hence the fallback.
 function newIdempotencyKey() {
     return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -50,6 +52,7 @@ export default function AssignBikeDialog({ bike, onSubmit, onClose }) {
         try {
             await onSubmit({ rider: selected, idempotencyKey });
         } catch (error) {
+            // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
             setBusy(false);
         }

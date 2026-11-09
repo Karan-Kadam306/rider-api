@@ -9,6 +9,8 @@ import { toNumber } from '../../../utils/formatCurrency';
 import { formatDateTime, formatWeekRange } from '../../../utils/week';
 import { getCloseBlocker } from '../../billing/getCloseBlocker';
 
+// The week's billed and live totals, and the Close week action. Closing saves each rider's bill
+// as billed; later corrections appear as a difference from it.
 export default function WeekStatusPanel({ weekStart, billing, reviewCount, onClosed }) {
     const showToast = useToast();
     const [confirmOpen, setConfirmOpen] = useState(false);
