@@ -16,12 +16,15 @@ if (!testDbName.endsWith('_test')) {
     );
 }
 
+// partners is left out on purpose: its rows come from the schema, not from a test.
 const TABLES = [
     'login_failures',
     'sessions',
     'users',
     'payout_items',
     'payout_runs',
+    'partner_earnings',
+    'rider_partner_mappings',
     'import_row_errors',
     'import_batches',
     'billing_week_snapshots',
