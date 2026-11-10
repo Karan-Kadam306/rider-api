@@ -4,6 +4,7 @@ export const NAV_ITEMS = [
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true, usesWeek: true },
     { to: '/riders', label: 'Rider Management', icon: 'users' },
     { to: '/bikes', label: 'Bike Management', icon: 'bike' },
+    { to: '/partner-mappings', label: 'Partner Mappings', icon: 'link' },
     { to: '/documents', label: 'Document Hub', icon: 'file' },
     // Daily KM has its own date range (defaulting to the selected week), so no week picker.
     { to: '/daily-km', label: 'Daily KM', icon: 'gauge' },

@@ -106,6 +106,14 @@ const PATHS = {
     close: <path d="M6 6l12 12M18 6 6 18" />,
     chevronRight: <path d="m9 6 6 6-6 6" />,
     chevronLeft: <path d="m15 6-6 6 6 6" />,
+    chevronDown: <path d="m6 9 6 6 6-6" />,
+    chevronUp: <path d="m6 15 6-6 6 6" />,
+    link: (
+        <>
+            <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+            <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+        </>
+    ),
     refresh: (
         <>
             <path d="M20 11a8 8 0 0 0-14.8-4M4 4v4h4" />

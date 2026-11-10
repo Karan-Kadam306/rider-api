@@ -38,6 +38,14 @@ function mapDatabaseError(error) {
             };
         }
 
+        // Two saves claimed the same partner ID at the same moment.
+        if (error.constraint === 'idx_rider_partner_mappings_active_id') {
+            return {
+                statusCode: 409,
+                message: 'This partner ID is already mapped to another rider'
+            };
+        }
+
         // A different unique constraint was violated.
         return {
             statusCode: 409,

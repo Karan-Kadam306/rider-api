@@ -1,0 +1,165 @@
+// A rider's active partner IDs as a JSON list, and when the latest one was added.
+// Used with LEFT JOIN LATERAL, so riders without mappings get mappings = null.
+const ACTIVE_MAPPINGS = `
+    SELECT json_agg(
+               json_build_object(
+                   'mappingId', rm.mapping_id::int,
+                   'partnerId', rm.partner_id,
+                   'partnerName', p.name,
+                   'partnerRiderId', rm.partner_rider_id,
+                   'mappedAt', rm.created_at
+               )
+               ORDER BY p.name
+           ) AS mappings,
+           max(rm.created_at) AS last_mapped_at
+    FROM rider_partner_mappings rm
+    JOIN partners p ON p.partner_id = rm.partner_id
+    WHERE rm.rider_id = r.rider_id AND rm.is_active`;
+
+// Status and search filters shared by the list and its counts ($1 = status, $2 = search pattern).
+// search matches the rider's name, phone or ID, or one of their active partner IDs.
+const RIDER_FILTERS = `
+    ($1::text IS NULL OR r.status = $1)
+    AND (
+        $2::text IS NULL
+        OR r.name ILIKE $2
+        OR r.phone ILIKE $2
+        OR r.rider_id ILIKE $2
+        OR EXISTS (
+            SELECT 1
+            FROM rider_partner_mappings sm
+            WHERE sm.rider_id = r.rider_id AND sm.is_active AND sm.partner_rider_id ILIKE $2
+        )
+    )`;
+
+async function findPartners(client) {
+    const result = await client.query(
+        `SELECT partner_id, code, name
+         FROM partners
+         ORDER BY name`
+    );
+
+    return result.rows;
+}
+
+// One page of riders with or without active mappings.
+// Riders still to be mapped show the newest first; mapped riders show the latest mapped first.
+async function findRidersWithMappings(client, { mapped, status, search, limit, offset }) {
+    const result = await client.query(
+        `SELECT r.rider_id, r.name, r.phone, r.status, m.mappings, m.last_mapped_at
+         FROM riders r
+         LEFT JOIN LATERAL (${ACTIVE_MAPPINGS}) m ON true
+         WHERE ${RIDER_FILTERS}
+           AND (m.mappings IS NOT NULL) = $3
+         ORDER BY ${mapped ? 'm.last_mapped_at DESC' : 'r.created_at DESC'}, r.rider_id
+         LIMIT $4 OFFSET $5`,
+        [status, search ? `%${search}%` : null, mapped, limit, offset]
+    );
+
+    return result.rows;
+}
+
+async function countRidersByMapping(client, { status, search }) {
+    const result = await client.query(
+        `SELECT count(*) FILTER (WHERE NOT has_mappings)::int AS unmapped,
+                count(*) FILTER (WHERE has_mappings)::int AS mapped
+         FROM (
+             SELECT EXISTS (
+                        SELECT 1
+                        FROM rider_partner_mappings rm
+                        WHERE rm.rider_id = r.rider_id AND rm.is_active
+                    ) AS has_mappings
+             FROM riders r
+             WHERE ${RIDER_FILTERS}
+         ) riders_found`,
+        [status, search ? `%${search}%` : null]
+    );
+
+    return result.rows[0];
+}
+
+async function findRiderWithMappings(client, { riderId }) {
+    const result = await client.query(
+        `SELECT r.rider_id, r.name, r.phone, r.status, m.mappings, m.last_mapped_at
+         FROM riders r
+         LEFT JOIN LATERAL (${ACTIVE_MAPPINGS}) m ON true
+         WHERE r.rider_id = $1`,
+        [riderId]
+    );
+
+    return result.rows[0] ?? null;
+}
+
+// Locks the rider until the transaction ends, so two saves for the same rider run one after the other.
+async function lockRider(client, { riderId }) {
+    const result = await client.query(
+        `SELECT rider_id, name, status
+         FROM riders
+         WHERE rider_id = $1
+         FOR UPDATE`,
+        [riderId]
+    );
+
+    return result.rows[0] ?? null;
+}
+
+async function findActiveMappingsByRider(client, { riderId }) {
+    const result = await client.query(
+        `SELECT mapping_id::int AS mapping_id, partner_id, partner_rider_id
+         FROM rider_partner_mappings
+         WHERE rider_id = $1 AND is_active`,
+        [riderId]
+    );
+
+    return result.rows;
+}
+
+// The first of the given partner IDs that is already active for a different rider, or null.
+async function findIdTakenByOtherRider(client, { riderId, partnerIds, partnerRiderIds }) {
+    const result = await client.query(
+        `SELECT rm.partner_rider_id, rm.rider_id, r.name AS rider_name, p.name AS partner_name
+         FROM rider_partner_mappings rm
+         JOIN riders r ON r.rider_id = rm.rider_id
+         JOIN partners p ON p.partner_id = rm.partner_id
+         WHERE rm.is_active
+           AND rm.rider_id <> $1
+           AND (rm.partner_id, rm.partner_rider_id) IN (
+               SELECT * FROM unnest($2::int[], $3::text[])
+           )
+         ORDER BY p.name
+         LIMIT 1`,
+        [riderId, partnerIds, partnerRiderIds]
+    );
+
+    return result.rows[0] ?? null;
+}
+
+// Old mappings are kept for history, marked inactive.
+async function deactivateMappings(client, { mappingIds }) {
+    await client.query(
+        `UPDATE rider_partner_mappings
+         SET is_active = false, deactivated_at = now()
+         WHERE mapping_id = ANY($1::bigint[])`,
+        [mappingIds]
+    );
+}
+
+async function insertMapping(client, { riderId, partnerId, partnerRiderId }) {
+    await client.query(
+        `INSERT INTO rider_partner_mappings (rider_id, partner_id, partner_rider_id)
+         VALUES ($1, $2, $3)`,
+        [riderId, partnerId, partnerRiderId]
+    );
+}
+
+module.exports = {
+    findPartners,
+    findRidersWithMappings,
+    countRidersByMapping,
+    findRiderWithMappings,
+    lockRider,
+    findActiveMappingsByRider,
+    findIdTakenByOtherRider,
+    deactivateMappings,
+    insertMapping
+};
