@@ -20,13 +20,17 @@ export function getImport(importId, { signal } = {}) {
     return request(`/api/imports/${importId}`, { signal });
 }
 
-// POST /api/imports (multipart: type, workDate, file)
-export function uploadImport({ type, workDate, file }) {
+// POST /api/imports (multipart: type, workDate or partnerId, file)
+export function uploadImport({ type, workDate, partnerId, file }) {
     const form = new FormData();
     form.append('type', type);
 
     if (workDate) {
         form.append('workDate', workDate);
+    }
+
+    if (partnerId) {
+        form.append('partnerId', partnerId);
     }
 
     form.append('file', file);

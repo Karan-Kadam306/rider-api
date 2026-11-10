@@ -297,8 +297,14 @@ describe('Import summary and types', () => {
         const res = await h.api('GET', '/api/imports/types');
 
         assert.equal(res.status, 200);
-        assert.deepEqual(res.body.types, [
-            { key: 'daily_km', label: 'Daily KM', requiresWorkDate: true, requiredColumns: ['VIN', 'KM'] }
-        ]);
+        assert.deepEqual(res.body.types.map(type => type.key), ['daily_km', 'partner_earnings']);
+        assert.deepEqual(res.body.types[0], {
+            key: 'daily_km',
+            label: 'Daily KM',
+            requiresWorkDate: true,
+            requiresPartner: false,
+            requiredColumns: ['VIN', 'KM'],
+            partners: null
+        });
     });
 });

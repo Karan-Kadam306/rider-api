@@ -6,8 +6,12 @@ const uploadCsv = require('../middleware/uploadCsv');
 const importService = require('../services/importService');
 
 // List the import types the Document Hub accepts.
-router.get('/types', (req, res) => {
-    res.status(200).json({ types: importService.getImportTypes() });
+router.get('/types', async (req, res, next) => {
+    try {
+        res.status(200).json({ types: await importService.getImportTypes() });
+    } catch (error) {
+        next(error);
+    }
 });
 
 // Totals for the Document Hub summary cards.
@@ -41,13 +45,13 @@ router.get('/:importId', async (req, res, next) => {
     }
 });
 
-// Upload a CSV (multipart fields: type, workDate, file).
+// Upload a CSV (multipart fields: type, workDate or partnerId, file).
 router.post('/', uploadCsv.single('file'), async (req, res, next) => {
-    const { type, workDate } = req.body ?? {};
+    const { type, workDate, partnerId } = req.body ?? {};
 
     try {
         res.status(201).json(
-            await importService.runImport({ importType: type, workDate, file: req.file })
+            await importService.runImport({ importType: type, workDate, partnerId, file: req.file })
         );
     } catch (error) {
         next(error);

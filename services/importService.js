@@ -19,6 +19,8 @@ function mapBatch(row) {
         fileName: row.file_name,
         fileSizeBytes: row.file_size_bytes,
         workDate: row.work_date,
+        partnerId: row.partner_id,
+        partnerName: row.partner_name,
         status: row.status,
         totalRows: row.total_rows,
         successRows: row.success_rows,
@@ -38,13 +40,16 @@ function mapRowError(row) {
     };
 }
 
+// A type that needs a partner also lists its partners, each with that partner's columns.
 function getImportTypes() {
-    return [...importTypes.values()].map(type => ({
+    return Promise.all([...importTypes.values()].map(async type => ({
         key: type.key,
         label: type.label,
         requiresWorkDate: type.requiresWorkDate,
-        requiredColumns: type.requiredColumns
-    }));
+        requiresPartner: Boolean(type.requiresPartner),
+        requiredColumns: type.requiredColumns,
+        partners: type.requiresPartner ? await type.getPartners() : null
+    })));
 }
 
 // Read the CSV into { headers, rows, lineNumbers }; lineNumbers[i] is rows[i]'s line in the file.
@@ -74,7 +79,7 @@ function parseCsv(buffer) {
 
 // Import one uploaded file. Good rows are saved, bad rows are logged with
 // their reason, and the file is recorded as Completed, Partial or Failed.
-async function runImport({ importType, workDate, file }) {
+async function runImport({ importType, workDate, partnerId, file }) {
     const type = importTypes.get(importType);
 
     if (!type) {
@@ -92,11 +97,15 @@ async function runImport({ importType, workDate, file }) {
         throw new AppError('workDate must be a valid date in YYYY-MM-DD format', 400);
     }
 
+    // Partner earnings files differ by partner, so the partner picks the columns and row checks.
+    const handler = type.requiresPartner ? await type.forPartner(partnerId) : type;
+
     const batch = {
         importType,
         fileName: file.originalname,
         fileSizeBytes: file.size,
         workDate: type.requiresWorkDate ? workDate : null,
+        partnerId: handler.partnerId ?? null,
         resultSummary: {},
         errorMessage: null
     };
@@ -131,7 +140,7 @@ async function runImport({ importType, workDate, file }) {
         }, []);
     }
 
-    const missingColumns = type.requiredColumns.filter(column => !headers.includes(column));
+    const missingColumns = handler.requiredColumns.filter(column => !headers.includes(column));
 
     if (missingColumns.length > 0) {
         return saveImport({
@@ -144,7 +153,7 @@ async function runImport({ importType, workDate, file }) {
         }, []);
     }
 
-    const errorsByIndex = type.findRowErrors(rows, lineNumbers);
+    const errorsByIndex = handler.findRowErrors(rows, lineNumbers);
     const validRows = rows.filter((row, index) => !errorsByIndex.has(index));
 
     const rowErrors = [...errorsByIndex].map(([index, errorMessage]) => ({
@@ -167,23 +176,26 @@ async function runImport({ importType, workDate, file }) {
         totalRows: rows.length,
         successRows: validRows.length,
         failedRows: rowErrors.length
-    }, rowErrors, validRows, type);
+    }, rowErrors, validRows, handler);
 }
 
-// Save the valid rows (if any) and the import log in one transaction,
+// Save the import log and the valid rows (if any) in one transaction,
 // so a crash never leaves rows saved without their import record.
-async function saveImport(batch, rowErrors, validRows = [], type = null) {
+// The log is written first because saved rows can point back to it.
+async function saveImport(batch, rowErrors, validRows = [], handler = null) {
     const client = await pool.connect();
     let importId;
 
     try {
         await client.query('BEGIN');
 
-        const resultSummary = validRows.length > 0
-            ? await type.importRows(client, validRows, batch)
-            : batch.resultSummary;
+        importId = await importRepository.createBatch(client, batch);
 
-        importId = await importRepository.createBatch(client, { ...batch, resultSummary });
+        if (validRows.length > 0) {
+            const resultSummary = await handler.importRows(client, validRows, { ...batch, importId });
+            await importRepository.updateResultSummary(client, importId, resultSummary);
+        }
+
         await importRepository.createRowErrors(client, importId, rowErrors);
 
         await client.query('COMMIT');

@@ -3,7 +3,10 @@ import StatusBadge from '../../components/ui/StatusBadge';
 // Readable names for the per-type counts in resultSummary, in display order; unknown keys go last, as-is.
 const SUMMARY_LABELS = {
     inserted: 'New',
+    matched: 'Matched',
+    pending: 'Pending review',
     corrected: 'Corrected',
+    updated: 'Updated',
     unchanged: 'Unchanged',
     needsReview: 'Needs review'
 };

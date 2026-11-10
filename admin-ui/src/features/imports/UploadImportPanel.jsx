@@ -27,13 +27,14 @@ function checkFile(file) {
     return null;
 }
 
-// Pick a type, a work date (when the type needs one) and a CSV, then upload.
+// Pick a type, a work date or partner (when the type needs one) and a CSV, then upload.
 // onUploaded({ import, rowErrors }) runs after every upload the server logged,
 // including Failed ones; onViewDetails(importId) opens the details panel.
 export default function UploadImportPanel({ types, onUploaded, onViewDetails }) {
     const fileInputRef = useRef(null);
     const [typeKey, setTypeKey] = useState(types[0]?.key ?? '');
     const [workDate, setWorkDate] = useState(todayInIst());
+    const [partnerId, setPartnerId] = useState('');
     const [file, setFile] = useState(null);
     const [dragging, setDragging] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -41,6 +42,21 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
     const [result, setResult] = useState(null);
 
     const type = types.find(item => item.key === typeKey);
+    // Each partner sends its own file layout, so the partner decides the columns.
+    const partner = type?.partners?.find(item => String(item.partnerId) === partnerId);
+    const requiredColumns = type?.requiresPartner ? partner?.requiredColumns : type?.requiredColumns;
+
+    function checkForm() {
+        if (type?.requiresWorkDate && !workDate) {
+            return 'Choose the work date';
+        }
+
+        if (type?.requiresPartner && !partner) {
+            return 'Choose the partner';
+        }
+
+        return checkFile(file);
+    }
 
     function chooseFile(nextFile) {
         setFile(nextFile ?? null);
@@ -58,10 +74,10 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
     async function handleSubmit(event) {
         event.preventDefault();
 
-        const fileError = checkFile(file) ?? (type?.requiresWorkDate && !workDate ? 'Choose the work date' : null);
+        const formError = checkForm();
 
-        if (fileError) {
-            setError(fileError);
+        if (formError) {
+            setError(formError);
             return;
         }
 
@@ -72,6 +88,7 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
             const uploaded = await uploadImport({
                 type: typeKey,
                 workDate: type.requiresWorkDate ? workDate : undefined,
+                partnerId: type.requiresPartner ? partnerId : undefined,
                 file
             });
 
@@ -102,6 +119,17 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
                         ))}
                     </select>
                 </Field>
+
+                {type?.requiresPartner && (
+                    <Field label="Partner">
+                        <select value={partnerId} onChange={event => setPartnerId(event.target.value)}>
+                            <option value="">Choose a partner</option>
+                            {type.partners.map(item => (
+                                <option key={item.partnerId} value={item.partnerId}>{item.name}</option>
+                            ))}
+                        </select>
+                    </Field>
+                )}
 
                 {type?.requiresWorkDate && (
                     <Field label="Work date">
@@ -139,8 +167,8 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
                     ) : (
                         <span>Drop a CSV here or <span className="dropzone__link">browse</span></span>
                     )}
-                    {type && (
-                        <span className="cell-sub">Required columns: {type.requiredColumns.join(', ')}</span>
+                    {requiredColumns && (
+                        <span className="cell-sub">Required columns: {requiredColumns.join(', ')}</span>
                     )}
                 </label>
 

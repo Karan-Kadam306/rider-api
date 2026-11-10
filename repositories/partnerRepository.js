@@ -152,8 +152,45 @@ async function insertMapping(client, { riderId, partnerId, partnerRiderId }) {
     );
 }
 
+async function findPartnerById(client, { partnerId }) {
+    const result = await client.query(
+        `SELECT partner_id, code, name
+         FROM partners
+         WHERE partner_id = $1`,
+        [partnerId]
+    );
+
+    return result.rows[0] ?? null;
+}
+
+// Held by an earnings import until it commits, so one partner's files are imported one at a time.
+async function lockPartner(client, { partnerId }) {
+    await client.query(
+        `SELECT partner_id
+         FROM partners
+         WHERE partner_id = $1
+         FOR UPDATE`,
+        [partnerId]
+    );
+}
+
+// The rider each of these partner IDs is mapped to now; unmapped IDs are left out.
+async function findActiveRidersByPartnerRiderIds(client, { partnerId, partnerRiderIds }) {
+    const result = await client.query(
+        `SELECT partner_rider_id, rider_id
+         FROM rider_partner_mappings
+         WHERE partner_id = $1 AND partner_rider_id = ANY($2::text[]) AND is_active`,
+        [partnerId, partnerRiderIds]
+    );
+
+    return result.rows;
+}
+
 module.exports = {
     findPartners,
+    findPartnerById,
+    lockPartner,
+    findActiveRidersByPartnerRiderIds,
     findRidersWithMappings,
     countRidersByMapping,
     findRiderWithMappings,

@@ -4,6 +4,8 @@ const BATCH_COLUMNS = `
     file_name,
     file_size_bytes,
     TO_CHAR(work_date, 'YYYY-MM-DD') AS work_date,
+    partner_id,
+    (SELECT p.name FROM partners p WHERE p.partner_id = import_batches.partner_id) AS partner_name,
     status,
     total_rows,
     success_rows,
@@ -26,9 +28,10 @@ async function createBatch(client, batch) {
             success_rows,
             failed_rows,
             result_summary,
-            error_message
+            error_message,
+            partner_id
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING import_id`,
         [
             batch.importType,
@@ -40,11 +43,22 @@ async function createBatch(client, batch) {
             batch.successRows,
             batch.failedRows,
             batch.resultSummary,
-            batch.errorMessage
+            batch.errorMessage,
+            batch.partnerId
         ]
     );
 
     return result.rows[0].import_id;
+}
+
+// The type's own counts, known only after its rows are saved.
+async function updateResultSummary(client, importId, resultSummary) {
+    await client.query(
+        `UPDATE import_batches
+         SET result_summary = $2
+         WHERE import_id = $1`,
+        [importId, resultSummary]
+    );
 }
 
 // Save all failed rows of an import in one statement.
@@ -135,6 +149,7 @@ async function getSummary(client) {
 
 module.exports = {
     createBatch,
+    updateResultSummary,
     createRowErrors,
     findBatches,
     countBatches,

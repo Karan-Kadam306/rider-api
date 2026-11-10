@@ -41,6 +41,8 @@ export default function ImportDetailsPanel({ importId, types, onClose }) {
     const batch = details.data?.import;
     const rowErrors = details.data?.rowErrors ?? [];
     const type = types.find(item => item.key === batch?.importType);
+    const partner = type?.partners?.find(item => item.partnerId === batch.partnerId);
+    const requiredColumns = partner?.requiredColumns ?? type?.requiredColumns;
 
     return (
         <dialog ref={dialogRef} className="drawer drawer--wide" onCancel={handleCancel} aria-labelledby="import-details-title">
@@ -66,6 +68,12 @@ export default function ImportDetailsPanel({ importId, types, onClose }) {
                                 <dt>Type</dt>
                                 <dd>{type?.label ?? batch.importType}</dd>
                             </div>
+                            {batch.partnerName && (
+                                <div>
+                                    <dt>Partner</dt>
+                                    <dd>{batch.partnerName}</dd>
+                                </div>
+                            )}
                             {batch.workDate && (
                                 <div>
                                     <dt>Work date</dt>
@@ -106,7 +114,7 @@ export default function ImportDetailsPanel({ importId, types, onClose }) {
                                             {rowErrors.map(rowError => (
                                                 <tr key={rowError.rowNumber}>
                                                     <td className="mono">{rowError.rowNumber}</td>
-                                                    <td className="mono">{formatRowData(rowError.rowData, type?.requiredColumns)}</td>
+                                                    <td className="mono">{formatRowData(rowError.rowData, requiredColumns)}</td>
                                                     <td>{rowError.errorMessage}</td>
                                                 </tr>
                                             ))}

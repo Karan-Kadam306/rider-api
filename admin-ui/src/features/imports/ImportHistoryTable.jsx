@@ -34,6 +34,7 @@ export default function ImportHistoryTable({ imports, typeLabels, onView }) {
                             </td>
                             <td>
                                 <span className="badge badge--neutral">{typeLabels[batch.importType] ?? batch.importType}</span>
+                                {batch.partnerName && <div className="cell-sub">{batch.partnerName}</div>}
                             </td>
                             <td><RowCounts batch={batch} /></td>
                             <td><StatusBadge status={batch.status} /></td>

@@ -191,6 +191,7 @@ async function saveRiderMappings({ riderId, mappings }) {
 }
 
 module.exports = {
+    MAX_PARTNER_RIDER_ID_LENGTH,
     normalizePartnerRiderId,
     getPartners,
     listRiderMappings,
