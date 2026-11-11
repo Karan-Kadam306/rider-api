@@ -86,9 +86,13 @@ export default function PartnerMappingsPage() {
     async function handleSave(rider, mappings) {
         const result = await saveRiderMappings(rider.riderId, mappings);
 
+        const matched = result.matchedEarnings > 0
+            ? `; ${result.matchedEarnings} pending ${result.matchedEarnings === 1 ? 'entry' : 'entries'} matched`
+            : '';
+
         showToast({
             message: result.rider.mappings.length
-                ? `${rider.name}: partner mappings saved`
+                ? `${rider.name}: partner mappings saved${matched}`
                 : `${rider.name} no longer has partner mappings`
         });
         setOpenRiderId(null);

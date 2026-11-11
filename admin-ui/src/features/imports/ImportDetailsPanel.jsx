@@ -98,6 +98,12 @@ export default function ImportDetailsPanel({ importId, types, onClose }) {
                             </Link>
                         )}
 
+                        {batch.resultSummary?.pending > 0 && (
+                            <Link to={`/pending-earnings?partnerId=${batch.partnerId}`}>
+                                Review pending {batch.partnerName} earnings →
+                            </Link>
+                        )}
+
                         {rowErrors.length > 0 && (
                             <div>
                                 <h4 className="panel__title">Failed rows ({rowErrors.length})</h4>

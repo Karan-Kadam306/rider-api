@@ -9,7 +9,8 @@ export default function NeedsAttentionCard({ attention }) {
         { label: 'Daily KM needing review', count: attention.kmNeedsReview, to: '/daily-km?status=Needs Review' },
         { label: 'Pending Daily KM', count: attention.kmPending, to: '/daily-km?status=Pending' },
         { label: 'Changed since close', count: attention.changedSinceClose, to: '/billing?view=changed' },
-        { label: 'Payout changes pending', count: attention.payoutChanges, to: '/payouts' }
+        { label: 'Payout changes pending', count: attention.payoutChanges, to: '/payouts' },
+        { label: 'Unmapped partner IDs', count: attention.pendingEarnings, to: '/pending-earnings' }
     ];
 
     const total = items.reduce((sum, item) => sum + item.count, 0);

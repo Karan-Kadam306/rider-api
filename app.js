@@ -14,6 +14,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const partnerMappingRoutes = require('./routes/partnerMappingRoutes');
+const partnerEarningRoutes = require('./routes/partnerEarningRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
 const AppError = require('./errors/AppError');
@@ -49,6 +50,7 @@ app.use('/api/payouts', payoutRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/partner-mappings', partnerMappingRoutes);
+app.use('/api/partner-earnings', partnerEarningRoutes);
 
 // Unknown API paths get a JSON 404 instead of Express's HTML page.
 app.use('/api', (req, res, next) => {

@@ -11,6 +11,7 @@ import DashboardPage from './pages/DashboardPage';
 import RidersPage from './pages/RidersPage';
 import BikesPage from './pages/BikesPage';
 import PartnerMappingsPage from './pages/PartnerMappingsPage';
+import PendingEarningsPage from './pages/PendingEarningsPage';
 import DocumentHubPage from './pages/DocumentHubPage';
 import DailyKmPage from './pages/DailyKmPage';
 import BillingPage from './pages/BillingPage';
@@ -35,6 +36,7 @@ export default function App() {
                                     <Route path="riders" element={<RidersPage />} />
                                     <Route path="bikes" element={<BikesPage />} />
                                     <Route path="partner-mappings" element={<PartnerMappingsPage />} />
+                                    <Route path="pending-earnings" element={<PendingEarningsPage />} />
                                     <Route path="documents" element={<DocumentHubPage />} />
                                     <Route path="daily-km" element={<DailyKmPage />} />
                                     <Route path="billing" element={<BillingPage />} />

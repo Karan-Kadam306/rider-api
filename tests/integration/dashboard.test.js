@@ -63,7 +63,8 @@ describe('Dashboard', () => {
             kmNeedsReview: 1,
             kmPending: 1,
             changedSinceClose: 0,
-            payoutChanges: 0
+            payoutChanges: 0,
+            pendingEarnings: 0
         });
         assert.equal(d.payout.paid, false);
         assert.equal(d.payout.totalAmount, null);

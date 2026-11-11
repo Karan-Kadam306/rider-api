@@ -19,3 +19,25 @@ export function saveRiderMappings(riderId, mappings) {
         body: { mappings }
     });
 }
+
+// GET /api/partner-earnings/pending?partnerId=&search=&page=&limit=
+// Returns { pagination, groups } — one group per partner + ID.
+export function getPendingEarnings(params, { signal } = {}) {
+    return request('/api/partner-earnings/pending', { params, signal });
+}
+
+// POST /api/partner-earnings/pending/resolve — maps the ID to the rider and matches its pending earnings.
+export function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
+    return request('/api/partner-earnings/pending/resolve', {
+        method: 'POST',
+        body: { partnerId, partnerRiderId, riderId }
+    });
+}
+
+// POST /api/partner-earnings/pending/dismiss
+export function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
+    return request('/api/partner-earnings/pending/dismiss', {
+        method: 'POST',
+        body: { partnerId, partnerRiderId, reason }
+    });
+}

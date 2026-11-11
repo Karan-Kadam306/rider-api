@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const dailyKmRepository = require('../repositories/dailyKmRepository');
+const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
 const riderService = require('./riderService');
 const bikeService = require('./bikeService');
 const billingService = require('./billingService');
@@ -41,11 +42,12 @@ async function getDailyKmSummary({ weekStart, weekEnd }) {
 async function getDashboard({ weekStart }) {
     const weekEnd = addDays(weekStart, 6);
 
-    const [riders, bikes, billing, dailyKm] = await Promise.all([
+    const [riders, bikes, billing, dailyKm, pendingEarnings] = await Promise.all([
         riderService.getRiderStatusSummary(),
         bikeService.getBikeStatusSummary(),
         billingService.getWeeklyBillingSummary({ weekStart }),
-        getDailyKmSummary({ weekStart, weekEnd })
+        getDailyKmSummary({ weekStart, weekEnd }),
+        partnerEarningsRepository.countPendingIdsInRange(pool, { fromDate: weekStart, toDate: weekEnd })
     ]);
 
     const { payout } = await billingService.addPayouts({
@@ -89,7 +91,9 @@ async function getDashboard({ weekStart }) {
             kmNeedsReview: dailyKm['Needs Review'],
             kmPending: dailyKm.Pending,
             changedSinceClose: changedSinceClose.length,
-            payoutChanges: payout.pendingCount
+            payoutChanges: payout.pendingCount,
+            // Partner IDs with unmatched earnings this week.
+            pendingEarnings
         },
         topRiders: [...billedRiders]
             .sort((a, b) => b.totalAmount - a.totalAmount)

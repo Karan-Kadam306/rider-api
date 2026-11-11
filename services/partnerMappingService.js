@@ -1,6 +1,7 @@
 const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
+const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
 const { inTransaction } = require('./userService');
 
 const VIEWS = ['unmapped', 'mapped'];
@@ -134,11 +135,17 @@ function cleanMappings(mappings, partnerById) {
 
 // Replace a rider's partner IDs with the given list. A partner left out is unmapped;
 // a changed ID ends the old mapping and starts a new one. Unchanged mappings are kept as they are.
+// Pending earnings of a newly added ID are matched to the rider in the same transaction.
 async function saveRiderMappings({ riderId, mappings }) {
     const partners = await partnerRepository.findPartners(pool);
     const wanted = cleanMappings(mappings, new Map(partners.map(partner => [partner.partner_id, partner])));
 
     return inTransaction(async client => {
+        // Partners before the rider, the same order an earnings import takes them in.
+        await partnerRepository.lockPartnersShared(client, {
+            partnerIds: wanted.map(mapping => mapping.partnerId)
+        });
+
         const rider = await partnerRepository.lockRider(client, { riderId });
 
         if (!rider) {
@@ -176,8 +183,11 @@ async function saveRiderMappings({ riderId, mappings }) {
             });
         }
 
+        let matchedEarnings = 0;
+
         for (const mapping of toAdd) {
             await partnerRepository.insertMapping(client, { riderId, ...mapping });
+            matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, { riderId, ...mapping });
         }
 
         const saved = await partnerRepository.findRiderWithMappings(client, { riderId });
@@ -185,7 +195,8 @@ async function saveRiderMappings({ riderId, mappings }) {
         return {
             rider: toRider(saved),
             added: toAdd.length,
-            removed: toEnd.length
+            removed: toEnd.length,
+            matchedEarnings
         };
     });
 }

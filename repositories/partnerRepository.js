@@ -174,6 +174,22 @@ async function lockPartner(client, { partnerId }) {
     );
 }
 
+// Taken before a rider lock when mappings change, so an earnings import of these partners
+// either finishes first or starts after, and never saves a mapped ID as Pending.
+// Shared, so mapping saves do not wait on each other. Returns the partners found.
+async function lockPartnersShared(client, { partnerIds }) {
+    const result = await client.query(
+        `SELECT partner_id, code, name
+         FROM partners
+         WHERE partner_id = ANY($1::int[])
+         ORDER BY partner_id
+         FOR SHARE`,
+        [partnerIds]
+    );
+
+    return result.rows;
+}
+
 // The rider each of these partner IDs is mapped to now; unmapped IDs are left out.
 async function findActiveRidersByPartnerRiderIds(client, { partnerId, partnerRiderIds }) {
     const result = await client.query(
@@ -190,6 +206,7 @@ module.exports = {
     findPartners,
     findPartnerById,
     lockPartner,
+    lockPartnersShared,
     findActiveRidersByPartnerRiderIds,
     findRidersWithMappings,
     countRidersByMapping,
