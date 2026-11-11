@@ -142,8 +142,41 @@ async function dismissPendingEarnings(client, { partnerId, partnerRiderId, reaso
     return result.rowCount;
 }
 
+// Matched rows of one partner ID held by riders other than $3, dated $4..$5, totalled per rider.
+async function findMatchedWithOtherRiders(client, { partnerId, partnerRiderId, riderId, fromDate, toDate }) {
+    const result = await client.query(
+        `SELECT pe.rider_id, r.name AS rider_name, COUNT(*)::int AS entries, SUM(pe.amount)::float8 AS total_amount
+         FROM partner_earnings pe
+         JOIN riders r ON r.rider_id = pe.rider_id
+         WHERE pe.partner_id = $1 AND pe.partner_rider_id = $2 AND pe.status = 'Matched'
+           AND pe.rider_id <> $3
+           AND pe.earning_date BETWEEN $4 AND $5
+         GROUP BY pe.rider_id, r.name
+         ORDER BY pe.rider_id`,
+        [partnerId, partnerRiderId, riderId, fromDate, toDate]
+    );
+
+    return result.rows;
+}
+
+// Give those rows to rider $3; returns how many rows moved.
+async function moveMatchedEarnings(client, { partnerId, partnerRiderId, riderId, fromDate, toDate, reviewedBy }) {
+    const result = await client.query(
+        `UPDATE partner_earnings
+         SET rider_id = $3, reviewed_by = $6, reviewed_at = now(), updated_at = now()
+         WHERE partner_id = $1 AND partner_rider_id = $2 AND status = 'Matched'
+           AND rider_id <> $3
+           AND earning_date BETWEEN $4 AND $5`,
+        [partnerId, partnerRiderId, riderId, fromDate, toDate, reviewedBy]
+    );
+
+    return result.rowCount;
+}
+
 module.exports = {
     findEarning,
+    findMatchedWithOtherRiders,
+    moveMatchedEarnings,
     insertEarning,
     updateEarning,
     findPendingGroups,

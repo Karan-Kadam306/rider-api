@@ -48,8 +48,42 @@ async function dismissPendingEarnings(req, res, next) {
     }
 }
 
+// GET /api/partner-earnings/move-preview?partnerId=&partnerRiderId=&riderId=&fromDate=&toDate=
+async function previewMove(req, res, next) {
+    try {
+        const { partnerId, partnerRiderId, riderId, fromDate, toDate } = req.query;
+        const result = await partnerEarningsService.previewMove({ partnerId, partnerRiderId, riderId, fromDate, toDate });
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// POST /api/partner-earnings/move
+// Body: { partnerId, partnerRiderId, riderId, fromDate, toDate } — riderId must hold the ID now.
+async function moveEarnings(req, res, next) {
+    try {
+        const { partnerId, partnerRiderId, riderId, fromDate, toDate } = req.body ?? {};
+        const result = await partnerEarningsService.moveEarnings({
+            actingUserId: req.user.userId,
+            partnerId,
+            partnerRiderId,
+            riderId,
+            fromDate,
+            toDate
+        });
+
+        return res.status(200).json({ message: 'Earnings moved', ...result });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     listPendingEarnings,
     resolvePendingEarnings,
-    dismissPendingEarnings
+    dismissPendingEarnings,
+    previewMove,
+    moveEarnings
 };

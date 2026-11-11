@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { getPartnerMappings, getPartners, saveRiderMappings } from '../api/partnersApi';
+import { getPartnerMappings, getPartners, moveEarnings, saveRiderMappings } from '../api/partnersApi';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 import { useWeek } from '../context/WeekContext';
 import { useToast } from '../context/ToastContext';
 import PageHeader from '../components/layout/PageHeader';
@@ -13,6 +14,7 @@ import Icon from '../components/ui/Icon';
 import Pagination from '../components/ui/Pagination';
 import StatusTabs from '../components/ui/StatusTabs';
 import RiderMappingsTable from '../features/partnerMappings/RiderMappingsTable';
+import MoveEarningsDialog from '../features/partnerMappings/MoveEarningsDialog';
 
 const VIEWS = [
     { value: 'unmapped', label: 'Without Mappings', icon: 'userX' },
@@ -33,10 +35,13 @@ export default function PartnerMappingsPage() {
 
     const { refreshKey } = useWeek();
     const showToast = useToast();
+    // Only admins can move earnings; the API enforces the same rule.
+    const { isAdmin } = useAuth();
 
     const [searchInput, setSearchInput] = useState(search);
     const [reloadKey, setReloadKey] = useState(0);
     const [openRiderId, setOpenRiderId] = useState(null);
+    const [movingRider, setMovingRider] = useState(null);
 
     const partners = useApi(options => getPartners(options), [refreshKey]);
     const list = useApi(
@@ -99,6 +104,16 @@ export default function PartnerMappingsPage() {
         setReloadKey(key => key + 1);
     }
 
+    // Errors reject back to the dialog, which shows them.
+    async function handleMove(move) {
+        const result = await moveEarnings(move);
+
+        showToast({
+            message: `${result.movedEarnings} ${result.partnerName} ${result.movedEarnings === 1 ? 'entry' : 'entries'} moved to ${result.riderName}`
+        });
+        setMovingRider(null);
+    }
+
     const error = list.error ?? partners.error;
     const retry = () => {
         list.retry();
@@ -158,6 +173,7 @@ export default function PartnerMappingsPage() {
                                 openRiderId={openRiderId}
                                 onToggle={riderId => setOpenRiderId(current => (current === riderId ? null : riderId))}
                                 onSave={handleSave}
+                                onMove={isAdmin ? setMovingRider : undefined}
                             />
                             <Pagination
                                 {...list.data.pagination}
@@ -176,6 +192,10 @@ export default function PartnerMappingsPage() {
                         </div>
                     )}
                 </section>
+            )}
+
+            {movingRider && (
+                <MoveEarningsDialog rider={movingRider} onSubmit={handleMove} onClose={() => setMovingRider(null)} />
             )}
         </>
     );

@@ -8,7 +8,8 @@ import MappingEditor from './MappingEditor';
 const COLUMN_COUNT = 6;
 
 // Riders for one tab. The open rider's row expands into the mapping editor below it.
-export default function RiderMappingsTable({ riders, partners, openRiderId, onToggle, onSave }) {
+// onMove is passed for admins only, and adds Move earnings to mapped riders.
+export default function RiderMappingsTable({ riders, partners, openRiderId, onToggle, onSave, onMove }) {
     return (
         <div className="table-wrap">
             <table className="table table--roomy">
@@ -53,15 +54,23 @@ export default function RiderMappingsTable({ riders, partners, openRiderId, onTo
                                         {rider.lastMappedAt ? formatDate(rider.lastMappedAt) : '—'}
                                     </td>
                                     <td className="actions-col">
-                                        <button
-                                            type="button"
-                                            className="pill-button"
-                                            aria-expanded={isOpen}
-                                            onClick={() => onToggle(rider.riderId)}
-                                        >
-                                            <Icon name={isOpen ? 'chevronUp' : 'chevronDown'} size={15} />
-                                            {rider.mappings.length ? 'Edit mappings' : 'Map partners'}
-                                        </button>
+                                        <div className="row-actions">
+                                            <button
+                                                type="button"
+                                                className="pill-button"
+                                                aria-expanded={isOpen}
+                                                onClick={() => onToggle(rider.riderId)}
+                                            >
+                                                <Icon name={isOpen ? 'chevronUp' : 'chevronDown'} size={15} />
+                                                {rider.mappings.length ? 'Edit mappings' : 'Map partners'}
+                                            </button>
+                                            {onMove && rider.mappings.length > 0 && (
+                                                <button type="button" className="pill-button" onClick={() => onMove(rider)}>
+                                                    <Icon name="refresh" size={15} />
+                                                    Move earnings
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                                 {isOpen && (

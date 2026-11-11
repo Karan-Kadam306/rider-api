@@ -3,6 +3,7 @@ const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
 const { normalizePartnerRiderId } = require('./partnerMappingService');
+const validateUsageDate = require('../utils/validateUsageDate');
 
 const MAX_DISMISS_REASON_LENGTH = 500;
 
@@ -260,9 +261,84 @@ async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId,
     });
 }
 
+function toRiderTotal(row) {
+    return {
+        riderId: row.rider_id,
+        riderName: row.rider_name,
+        entries: row.entries,
+        totalAmount: row.total_amount
+    };
+}
+
+// Check a move request and return it cleaned. The dates are inclusive.
+function cleanMoveRequest({ partnerId, partnerRiderId, riderId, fromDate, toDate }) {
+    const key = cleanPendingKey({ partnerId, partnerRiderId });
+
+    if (typeof riderId !== 'string' || !riderId.trim()) {
+        throw new AppError('riderId is required', 400);
+    }
+
+    if (!validateUsageDate(fromDate) || !validateUsageDate(toDate) || fromDate > toDate) {
+        throw new AppError('fromDate and toDate must be dates (YYYY-MM-DD), with fromDate first', 400);
+    }
+
+    return { ...key, riderId: riderId.trim(), fromDate, toDate };
+}
+
+// What moveEarnings would move: the ID's matched earnings in the dates held by other riders, per rider.
+async function previewMove(request) {
+    const rows = await partnerEarningsRepository.findMatchedWithOtherRiders(pool, cleanMoveRequest(request));
+    return { riders: rows.map(toRiderTotal) };
+}
+
+// Fix earnings matched to the wrong rider: give the ID's matched earnings in the dates to the rider
+// who holds the ID now. Map the ID to the right rider first; the next payout run applies the change.
+async function moveEarnings({ actingUserId, ...request }) {
+    const move = cleanMoveRequest(request);
+
+    return inTransaction(async client => {
+        // Partner before rider, the same order as an import and a mapping save.
+        const partner = await lockExistingPartner(client, move.partnerId);
+        const rider = await partnerRepository.lockRider(client, { riderId: move.riderId });
+
+        if (!rider) {
+            throw new AppError(`Rider not found: ${move.riderId}`, 404);
+        }
+
+        const holdsId = (await partnerRepository.findActiveMappingsByRider(client, { riderId: rider.rider_id }))
+            .some(mapping => mapping.partner_id === move.partnerId && mapping.partner_rider_id === move.partnerRiderId);
+
+        if (!holdsId) {
+            throw new AppError(`Map ${partner.name} ID ${move.partnerRiderId} to ${rider.name} first`, 409);
+        }
+
+        const fromRiders = await partnerEarningsRepository.findMatchedWithOtherRiders(client, move);
+
+        if (fromRiders.length === 0) {
+            throw new AppError(`No ${partner.name} earnings for ${move.partnerRiderId} to move in these dates`, 404);
+        }
+
+        const movedEarnings = await partnerEarningsRepository.moveMatchedEarnings(client, {
+            ...move,
+            reviewedBy: actingUserId
+        });
+
+        return {
+            riderId: rider.rider_id,
+            riderName: rider.name,
+            partnerName: partner.name,
+            partnerRiderId: move.partnerRiderId,
+            movedEarnings,
+            fromRiders: fromRiders.map(toRiderTotal)
+        };
+    });
+}
+
 module.exports = {
     importEarnings,
     listPendingEarnings,
     resolvePendingEarnings,
-    dismissPendingEarnings
+    dismissPendingEarnings,
+    previewMove,
+    moveEarnings
 };

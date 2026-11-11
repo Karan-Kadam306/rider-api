@@ -41,3 +41,17 @@ export function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
         body: { partnerId, partnerRiderId, reason }
     });
 }
+
+// GET /api/partner-earnings/move-preview — the ID's matched earnings in the dates held by other riders.
+// Returns { riders: [{ riderId, riderName, entries, totalAmount }] }.
+export function previewMoveEarnings(params, { signal } = {}) {
+    return request('/api/partner-earnings/move-preview', { params, signal });
+}
+
+// POST /api/partner-earnings/move — gives those earnings to riderId, who must hold the ID now.
+export function moveEarnings({ partnerId, partnerRiderId, riderId, fromDate, toDate }) {
+    return request('/api/partner-earnings/move', {
+        method: 'POST',
+        body: { partnerId, partnerRiderId, riderId, fromDate, toDate }
+    });
+}

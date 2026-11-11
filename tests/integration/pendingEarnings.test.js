@@ -372,3 +372,79 @@ describe('Who did it', () => {
         );
     });
 });
+
+describe('Moving earnings matched to the wrong rider', () => {
+    // BLK-9001 (26 and 27 Oct) was resolved to R-1 by mistake, then the mapping was moved to R-2.
+    beforeEach(async () => {
+        await seedPending();
+        await h.createRider('R-1');
+        await h.createRider('R-2');
+        await resolve('Blinkit', 'BLK-9001', 'R-1');
+        await h.api('PUT', '/api/partner-mappings/riders/R-1', { mappings: [] });
+        await map('R-2', 'Blinkit', 'BLK-9001');
+    });
+
+    async function moveRequest(overrides = {}) {
+        return {
+            partnerId: await partnerId('Blinkit'),
+            partnerRiderId: 'BLK-9001',
+            riderId: 'R-2',
+            fromDate: '2026-10-26',
+            toDate: '2026-10-27',
+            ...overrides
+        };
+    }
+
+    function move(body, headers) {
+        return h.api('POST', '/api/partner-earnings/move', body, headers);
+    }
+
+    it('previews and moves the earnings to the rider who holds the ID now', async () => {
+        const params = new URLSearchParams(await moveRequest());
+        const preview = await h.api('GET', `/api/partner-earnings/move-preview?${params}`);
+
+        assert.equal(preview.status, 200);
+        assert.deepEqual(preview.body.riders, [{ riderId: 'R-1', riderName: 'Rider R-1', entries: 2, totalAmount: 850.5 }]);
+
+        const res = await move(await moveRequest());
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.movedEarnings, 2);
+        assert.deepEqual(res.body.fromRiders, preview.body.riders);
+        assert.deepEqual((await earningsOf('BLK-9001')).map(row => [row.status, row.rider_id]), [
+            ['Matched', 'R-2'],
+            ['Matched', 'R-2']
+        ]);
+
+        const { rows } = await h.pool.query(`SELECT DISTINCT reviewed_by FROM partner_earnings WHERE partner_rider_id = 'BLK-9001'`);
+        assert.equal(rows.length, 1);
+        assert.notEqual(rows[0].reviewed_by, null);
+    });
+
+    it('moves only the rows inside the dates', async () => {
+        const res = await move(await moveRequest({ fromDate: '2026-10-27' }));
+
+        assert.equal(res.body.movedEarnings, 1);
+        assert.deepEqual((await earningsOf('BLK-9001')).map(row => row.rider_id), ['R-1', 'R-2']);
+    });
+
+    it('needs the rider to hold the ID, something to move and valid dates', async () => {
+        const notHeld = await move(await moveRequest({ riderId: 'R-1' }));
+        assert.equal(notHeld.status, 409);
+        assert.equal(notHeld.body.error, 'Map Blinkit ID BLK-9001 to Rider R-1 first');
+
+        const nothing = await move(await moveRequest({ fromDate: '2026-11-01', toDate: '2026-11-30' }));
+        assert.equal(nothing.status, 404);
+
+        assert.equal((await move(await moveRequest({ fromDate: '2026-10-28' }))).status, 400);
+        assert.equal((await move(await moveRequest({ toDate: '27-10-2026' }))).status, 400);
+    });
+
+    it('is for admins only', async () => {
+        const staffId = await h.createUser({ email: 'staff@example.com' });
+        const res = await move(await moveRequest(), { Cookie: await h.signIn(staffId) });
+
+        assert.equal(res.status, 403);
+        assert.equal((await earningsOf('BLK-9001'))[0].rider_id, 'R-1');
+    });
+});
