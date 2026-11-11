@@ -1,6 +1,8 @@
 const h = require('../helpers');
 const { describe, it, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
+const importRepository = require('../../repositories/importRepository');
+const partnerRepository = require('../../repositories/partnerRepository');
 
 before(h.startServer);
 after(h.stopServer);
@@ -242,6 +244,44 @@ describe('Importing a Blinkit file', () => {
             [0, 2]
         );
         assert.equal((await earnings()).length, 2);
+    });
+
+    // Both batch rows are written before either import takes the partner lock: the second waits, not deadlocks.
+    it('two imports that both saved their batch row take the partner lock one after the other', async () => {
+        const blinkit = await partnerId('Blinkit');
+        const [first, second] = [await h.pool.connect(), await h.pool.connect()];
+
+        try {
+            for (const client of [first, second]) {
+                await client.query('BEGIN');
+                await importRepository.createBatch(client, {
+                    importType: 'partner_earnings',
+                    fileName: 'earnings.csv',
+                    fileSizeBytes: 1,
+                    workDate: null,
+                    status: 'Completed',
+                    totalRows: 0,
+                    successRows: 0,
+                    failedRows: 0,
+                    resultSummary: {},
+                    errorMessage: null,
+                    partnerId: blinkit
+                });
+            }
+
+            const locks = [first, second].map(client =>
+                partnerRepository.lockPartner(client, { partnerId: blinkit }).then(() => client));
+
+            // Whichever gets the lock commits; the other then gets it. A deadlock rejects one of them.
+            const winner = await Promise.race(locks);
+            await winner.query('COMMIT');
+
+            await Promise.all(locks);
+            await (winner === first ? second : first).query('COMMIT');
+        } finally {
+            first.release();
+            second.release();
+        }
     });
 });
 

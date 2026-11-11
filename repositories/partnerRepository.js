@@ -164,12 +164,14 @@ async function findPartnerById(client, { partnerId }) {
 }
 
 // Held by an earnings import until it commits, so one partner's files are imported one at a time.
+// NO KEY UPDATE, not UPDATE: the import's own batch row already holds a key-share lock on the partner,
+// and FOR UPDATE would deadlock with another import holding the same.
 async function lockPartner(client, { partnerId }) {
     await client.query(
         `SELECT partner_id
          FROM partners
          WHERE partner_id = $1
-         FOR UPDATE`,
+         FOR NO KEY UPDATE`,
         [partnerId]
     );
 }
