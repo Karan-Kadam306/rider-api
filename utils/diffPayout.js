@@ -29,11 +29,20 @@ function amountsDiffer(a, b) {
     return PAYOUT_FIELDS.some(field => (a[field] ?? 0) !== (b[field] ?? 0));
 }
 
+function roundAmount(amount) {
+    return Math.round(amount * 100) / 100;
+}
+
+// A payout from before partner earnings has no net; it was 0 earnings − deductions.
+function paidNetPayout(paid) {
+    return paid.netPayout ?? -paid.totalAmount;
+}
+
 // Riders whose live bill differs from what was deducted at payout, i.e. what a payout run would write.
 // liveRiders: the week's bills (riders that need review are skipped; they block a payout).
 // paidByRider: Map of riderId → paid amounts (same field names).
 // A rider who was paid but no longer has a bill is changed to zero.
-// difference is the change in deductions (totalAmount).
+// difference is the change in deductions (totalAmount); netDifference the change in net payout.
 function diffPayout(liveRiders, paidByRider) {
     const changes = [];
     const seen = new Set();
@@ -58,7 +67,8 @@ function diffPayout(liveRiders, paidByRider) {
                 riderId: rider.riderId,
                 paid: paid && pickAmounts(paid),
                 current,
-                difference: Math.round((current.totalAmount - (paid?.totalAmount ?? 0)) * 100) / 100
+                difference: roundAmount(current.totalAmount - (paid?.totalAmount ?? 0)),
+                netDifference: roundAmount(current.netPayout - (paid ? paidNetPayout(paid) : 0))
             });
         }
     }
@@ -69,7 +79,8 @@ function diffPayout(liveRiders, paidByRider) {
                 riderId,
                 paid: pickAmounts(paid),
                 current: { ...NO_AMOUNTS },
-                difference: -paid.totalAmount
+                difference: -paid.totalAmount,
+                netDifference: -paidNetPayout(paid)
             });
         }
     }

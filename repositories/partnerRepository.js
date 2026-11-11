@@ -135,20 +135,20 @@ async function findIdTakenByOtherRider(client, { riderId, partnerIds, partnerRid
 }
 
 // Old mappings are kept for history, marked inactive.
-async function deactivateMappings(client, { mappingIds }) {
+async function deactivateMappings(client, { mappingIds, deactivatedBy }) {
     await client.query(
         `UPDATE rider_partner_mappings
-         SET is_active = false, deactivated_at = now()
+         SET is_active = false, deactivated_at = now(), deactivated_by = $2
          WHERE mapping_id = ANY($1::bigint[])`,
-        [mappingIds]
+        [mappingIds, deactivatedBy]
     );
 }
 
-async function insertMapping(client, { riderId, partnerId, partnerRiderId }) {
+async function insertMapping(client, { riderId, partnerId, partnerRiderId, createdBy }) {
     await client.query(
-        `INSERT INTO rider_partner_mappings (rider_id, partner_id, partner_rider_id)
-         VALUES ($1, $2, $3)`,
-        [riderId, partnerId, partnerRiderId]
+        `INSERT INTO rider_partner_mappings (rider_id, partner_id, partner_rider_id, created_by)
+         VALUES ($1, $2, $3, $4)`,
+        [riderId, partnerId, partnerRiderId, createdBy]
     );
 }
 

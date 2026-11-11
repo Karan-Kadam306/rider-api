@@ -1,9 +1,8 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
 const { normalizePartnerRiderId } = require('./partnerMappingService');
-const { inTransaction } = require('./userService');
 
 const MAX_DISMISS_REASON_LENGTH = 500;
 
@@ -163,7 +162,8 @@ async function listPendingEarnings({ partnerId, search, page = 1, limit = 20 }) 
 }
 
 // Map an unknown partner ID to a rider and give them all of its pending earnings, in one transaction.
-async function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
+// actingUserId is recorded on the mapping and the matched rows.
+async function resolvePendingEarnings({ actingUserId, partnerId, partnerRiderId, riderId }) {
     const key = cleanPendingKey({ partnerId, partnerRiderId });
 
     if (typeof riderId !== 'string' || !riderId.trim()) {
@@ -204,7 +204,8 @@ async function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
 
         const matchedEarnings = await partnerEarningsRepository.matchPendingEarnings(client, {
             ...key,
-            riderId: rider.rider_id
+            riderId: rider.rider_id,
+            reviewedBy: actingUserId
         });
 
         if (matchedEarnings === 0) {
@@ -212,7 +213,7 @@ async function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
         }
 
         if (!current) {
-            await partnerRepository.insertMapping(client, { riderId: rider.rider_id, ...key });
+            await partnerRepository.insertMapping(client, { riderId: rider.rider_id, ...key, createdBy: actingUserId });
         }
 
         return {
@@ -225,8 +226,8 @@ async function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
     });
 }
 
-// Set an ID's pending earnings aside (test rows, another fleet's rider, ...). The reason is kept.
-async function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
+// Set an ID's pending earnings aside (test rows, another fleet's rider, ...). The reason and actingUserId are kept.
+async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId, reason }) {
     const key = cleanPendingKey({ partnerId, partnerRiderId });
     const cleanReason = typeof reason === 'string' ? reason.trim() : '';
 
@@ -243,7 +244,8 @@ async function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
 
         const dismissedEarnings = await partnerEarningsRepository.dismissPendingEarnings(client, {
             ...key,
-            reason: cleanReason
+            reason: cleanReason,
+            reviewedBy: actingUserId
         });
 
         if (dismissedEarnings === 0) {

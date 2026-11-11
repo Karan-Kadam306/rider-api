@@ -101,9 +101,9 @@ export default function PayoutsPage() {
                                 : 'Filled in by the first payout'}
                         />
                         <StatCard
-                            label={payout.paid ? 'Changes since payout' : 'To deduct'}
+                            label={payout.paid ? 'Net change since payout' : 'To deduct'}
                             value={payout.paid
-                                ? <CurrencyText value={payout.changeDifference} showSign />
+                                ? <CurrencyText value={payout.changeNetDifference} showSign />
                                 : <CurrencyText value={payout.changeDifference} />}
                             subText={`${payout.changeCount} rider${payout.changeCount === 1 ? '' : 's'}`}
                         />
@@ -231,7 +231,7 @@ export default function PayoutsPage() {
                     payout?.paid ? (
                         <p>
                             {payout.changeCount} rider{payout.changeCount === 1 ? '' : 's'} will be updated
-                            (<CurrencyText value={payout.changeDifference} showSign />). Every other rider keeps their
+                            (net <CurrencyText value={payout.changeNetDifference} showSign />). Every other rider keeps their
                             current deduction.
                         </p>
                     ) : (

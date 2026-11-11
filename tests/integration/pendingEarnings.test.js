@@ -303,3 +303,72 @@ describe('Mapping an ID that has pending earnings', () => {
         assert.equal(earlierWeek.body.dashboard.attention.pendingEarnings, 1);
     });
 });
+
+describe('Who did it', () => {
+    beforeEach(async () => {
+        await seedPending();
+        await h.createRider('R-1');
+    });
+
+    async function reviewers() {
+        const result = await h.pool.query(
+            `SELECT pe.partner_rider_id, pe.status, u.name AS reviewed_by, pe.reviewed_at IS NOT NULL AS has_time
+             FROM partner_earnings pe
+             LEFT JOIN users u ON u.user_id = pe.reviewed_by
+             ORDER BY pe.partner_rider_id, pe.earning_date`
+        );
+
+        return result.rows.map(row => [row.partner_rider_id, row.status, row.reviewed_by, row.has_time]);
+    }
+
+    it('records who uploaded, resolved, dismissed and changed a mapping', async () => {
+        const staffId = await h.createUser({ email: 'staff@example.com' });
+        const admin = 'User admin@test.local';
+
+        assert.equal((await resolve('Blinkit', 'BLK-9001', 'R-1')).status, 200);
+
+        // Staff can dismiss too, and are recorded as themselves.
+        const dismissed = await h.api('POST', '/api/partner-earnings/pending/dismiss', {
+            partnerId: await partnerId('Blinkit'),
+            partnerRiderId: 'BLK-9002',
+            reason: 'Test rows'
+        }, { Cookie: await h.signIn(staffId) });
+        assert.equal(dismissed.status, 200);
+
+        // A new ID ends the mapping the resolve made.
+        assert.equal((await map('R-1', 'Blinkit', 'BLK-7777')).status, 200);
+
+        assert.deepEqual(await reviewers(), [
+            ['BLK-9001', 'Matched', admin, true],
+            ['BLK-9001', 'Matched', admin, true],
+            ['BLK-9002', 'Dismissed', 'User staff@example.com', true],
+            ['ZPT-9003', 'Pending', null, false]
+        ]);
+
+        const { rows: mappings } = await h.pool.query(
+            `SELECT m.partner_rider_id, c.name AS created_by, d.name AS deactivated_by
+             FROM rider_partner_mappings m
+             LEFT JOIN users c ON c.user_id = m.created_by
+             LEFT JOIN users d ON d.user_id = m.deactivated_by
+             ORDER BY m.mapping_id`
+        );
+        assert.deepEqual(mappings, [
+            { partner_rider_id: 'BLK-9001', created_by: admin, deactivated_by: admin },
+            { partner_rider_id: 'BLK-7777', created_by: admin, deactivated_by: null }
+        ]);
+
+        const { imports } = (await h.api('GET', '/api/imports')).body;
+        assert.ok(imports.length > 0);
+        assert.ok(imports.every(batch => batch.uploadedBy === admin));
+    });
+
+    it('a dismissed row that comes back with a new amount loses its reviewer', async () => {
+        await dismiss('Blinkit', 'BLK-9002', 'Test rows');
+        await upload('Blinkit', [BLINKIT_HEADER, 'BLK-9002,Neha Singh,28-10-2026,350']);
+
+        assert.deepEqual(
+            (await reviewers()).find(([id]) => id === 'BLK-9002'),
+            ['BLK-9002', 'Pending', null, false]
+        );
+    });
+});

@@ -1,11 +1,11 @@
 const crypto = require('crypto');
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const userRepository = require('../repositories/userRepository');
 const sessionRepository = require('../repositories/sessionRepository');
 const loginFailureRepository = require('../repositories/loginFailureRepository');
 const { hashPassword, verifyPassword } = require('../utils/password');
-const { toUser, normalizeEmail, assertPassword, inTransaction } = require('./userService');
+const { toUser, normalizeEmail, assertPassword } = require('./userService');
 
 const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS) || 12;
 

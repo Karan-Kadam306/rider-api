@@ -17,7 +17,12 @@ async function listPendingEarnings(req, res, next) {
 async function resolvePendingEarnings(req, res, next) {
     try {
         const { partnerId, partnerRiderId, riderId } = req.body ?? {};
-        const result = await partnerEarningsService.resolvePendingEarnings({ partnerId, partnerRiderId, riderId });
+        const result = await partnerEarningsService.resolvePendingEarnings({
+            actingUserId: req.user.userId,
+            partnerId,
+            partnerRiderId,
+            riderId
+        });
 
         return res.status(200).json({ message: 'Earnings matched', ...result });
     } catch (error) {
@@ -30,7 +35,12 @@ async function resolvePendingEarnings(req, res, next) {
 async function dismissPendingEarnings(req, res, next) {
     try {
         const { partnerId, partnerRiderId, reason } = req.body ?? {};
-        const result = await partnerEarningsService.dismissPendingEarnings({ partnerId, partnerRiderId, reason });
+        const result = await partnerEarningsService.dismissPendingEarnings({
+            actingUserId: req.user.userId,
+            partnerId,
+            partnerRiderId,
+            reason
+        });
 
         return res.status(200).json({ message: 'Earnings dismissed', ...result });
     } catch (error) {

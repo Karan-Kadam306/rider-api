@@ -12,7 +12,7 @@ const BATCH_COLUMNS = `
     failed_rows,
     result_summary,
     error_message,
-    uploaded_by,
+    (SELECT u.name FROM users u WHERE u.user_id = import_batches.uploaded_by) AS uploaded_by,
     created_at`;
 
 // Log one uploaded file and return its new ID.
@@ -29,9 +29,10 @@ async function createBatch(client, batch) {
             failed_rows,
             result_summary,
             error_message,
-            partner_id
+            partner_id,
+            uploaded_by
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING import_id`,
         [
             batch.importType,
@@ -44,7 +45,8 @@ async function createBatch(client, batch) {
             batch.failedRows,
             batch.resultSummary,
             batch.errorMessage,
-            batch.partnerId
+            batch.partnerId,
+            batch.uploadedBy
         ]
     );
 

@@ -29,6 +29,7 @@ async function insertEarning(client, { partnerId, partnerRiderId, earningDate, a
 }
 
 // A new amount from a later file. Clears any dismiss reason, since the row is reviewed again.
+// The reviewer stays only while the status does (status on the right is the old value).
 async function updateEarning(client, { earningId, amount, nameInFile, status, riderId, importId }) {
     await client.query(
         `UPDATE partner_earnings
@@ -37,6 +38,8 @@ async function updateEarning(client, { earningId, amount, nameInFile, status, ri
              status = $4,
              rider_id = $5,
              dismiss_reason = NULL,
+             reviewed_by = CASE WHEN status = $4 THEN reviewed_by END,
+             reviewed_at = CASE WHEN status = $4 THEN reviewed_at END,
              import_id = $6,
              updated_at = now()
          WHERE earning_id = $1`,
@@ -116,24 +119,24 @@ async function sumMatchedEarningsInWeek(client, { weekStart, riderId = null }) {
 }
 
 // Give every pending row of this ID to the rider; returns how many rows changed.
-async function matchPendingEarnings(client, { partnerId, partnerRiderId, riderId }) {
+async function matchPendingEarnings(client, { partnerId, partnerRiderId, riderId, reviewedBy }) {
     const result = await client.query(
         `UPDATE partner_earnings
-         SET status = 'Matched', rider_id = $3, updated_at = now()
+         SET status = 'Matched', rider_id = $3, reviewed_by = $4, reviewed_at = now(), updated_at = now()
          WHERE partner_id = $1 AND partner_rider_id = $2 AND status = 'Pending'`,
-        [partnerId, partnerRiderId, riderId]
+        [partnerId, partnerRiderId, riderId, reviewedBy]
     );
 
     return result.rowCount;
 }
 
 // Set every pending row of this ID aside with a reason; returns how many rows changed.
-async function dismissPendingEarnings(client, { partnerId, partnerRiderId, reason }) {
+async function dismissPendingEarnings(client, { partnerId, partnerRiderId, reason, reviewedBy }) {
     const result = await client.query(
         `UPDATE partner_earnings
-         SET status = 'Dismissed', dismiss_reason = $3, updated_at = now()
+         SET status = 'Dismissed', dismiss_reason = $3, reviewed_by = $4, reviewed_at = now(), updated_at = now()
          WHERE partner_id = $1 AND partner_rider_id = $2 AND status = 'Pending'`,
-        [partnerId, partnerRiderId, reason]
+        [partnerId, partnerRiderId, reason, reviewedBy]
     );
 
     return result.rowCount;

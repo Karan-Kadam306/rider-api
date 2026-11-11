@@ -699,6 +699,20 @@ ALTER TABLE public.payout_runs
     ADD COLUMN total_earnings numeric(12,2),
     ADD COLUMN total_net_payout numeric(12,2);
 
+-- Audit users (added by db/migrations/007_audit_users.sql)
+
+ALTER TABLE public.import_batches
+    ALTER COLUMN uploaded_by TYPE bigint USING uploaded_by::bigint,
+    ADD CONSTRAINT import_batches_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.users(user_id);
+
+ALTER TABLE public.rider_partner_mappings
+    ADD COLUMN created_by bigint REFERENCES public.users(user_id),
+    ADD COLUMN deactivated_by bigint REFERENCES public.users(user_id);
+
+ALTER TABLE public.partner_earnings
+    ADD COLUMN reviewed_by bigint REFERENCES public.users(user_id),
+    ADD COLUMN reviewed_at timestamp with time zone;
+
 
 --
 -- PostgreSQL database dump complete

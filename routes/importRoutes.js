@@ -51,7 +51,13 @@ router.post('/', uploadCsv.single('file'), async (req, res, next) => {
 
     try {
         res.status(201).json(
-            await importService.runImport({ importType: type, workDate, partnerId, file: req.file })
+            await importService.runImport({
+                importType: type,
+                workDate,
+                partnerId,
+                file: req.file,
+                uploadedBy: req.user.userId
+            })
         );
     } catch (error) {
         next(error);

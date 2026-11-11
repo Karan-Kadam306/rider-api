@@ -28,6 +28,7 @@ async function listRiderMappings(req, res, next) {
 async function saveRiderMappings(req, res, next) {
     try {
         const result = await partnerMappingService.saveRiderMappings({
+            actingUserId: req.user.userId,
             riderId: req.params.riderId,
             mappings: req.body?.mappings
         });

@@ -3,8 +3,8 @@ import CurrencyText from '../../components/ui/CurrencyText';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { formatNumber } from '../../utils/formatCurrency';
 
-// Amount deducted at payout; empty until the week's first payout. A pending note shows a
-// correction that the next payout run will apply.
+// Amount deducted at payout; empty until the week's first payout. A pending note shows the
+// net payout change the next payout run will apply, which may come from earnings alone.
 function PayoutCell({ rider }) {
     if (!rider.payout) {
         return <span className="muted">—</span>;
@@ -15,7 +15,7 @@ function PayoutCell({ rider }) {
             <CurrencyText value={rider.payout.totalAmount} />
             {rider.payoutPending ? (
                 <span className="payout-cell__note payout-cell__note--pending">
-                    Pending <CurrencyText value={rider.totalAmount - rider.payout.totalAmount} showSign />
+                    Pending net <CurrencyText value={rider.payoutNetDifference} showSign />
                 </span>
             ) : rider.payout.updatedRunNumber > 1 && (
                 <span className="payout-cell__note">Updated in run {rider.payout.updatedRunNumber}</span>

@@ -1,4 +1,4 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const billingRepository = require('../repositories/billingRepository');
 const payoutRepository = require('../repositories/payoutRepository');
@@ -98,7 +98,8 @@ async function getWeekPayout({ weekStart }) {
         reviewCount: summary.reviewCount,
         pendingEarningsCount: summary.pendingEarningsCount,
         changeCount: changes.length,
-        changeDifference: roundAmount(changes.reduce((sum, change) => sum + change.difference, 0)),
+        changeDifference: sumField(changes, 'difference'),
+        changeNetDifference: sumField(changes, 'netDifference'),
         blocker: getPayoutBlocker({
             weekStart,
             reviewCount: summary.reviewCount,
@@ -114,31 +115,9 @@ async function getWeekPayout({ weekStart }) {
 // Trigger the week's payout. The first run pays every rider; a later run only
 // updates riders whose amounts changed. Riders that match keep their payout.
 async function triggerPayout({ weekStart }) {
-    if (!billingService.hasWeekEnded(weekStart)) {
-        throw new AppError('A payout can be triggered once the week has ended', 409);
-    }
-
     const summary = await billingService.calculateWeeklyBills({ weekStart });
 
-    if (summary.reviewCount > 0) {
-        throw new AppError(
-            `Cannot trigger the payout: ${summary.reviewCount} rider(s) require review`,
-            409
-        );
-    }
-
-    if (summary.pendingEarningsCount > 0) {
-        throw new AppError(
-            `Cannot trigger the payout: ${summary.pendingEarningsCount} partner ID(s) have pending earnings this week`,
-            409
-        );
-    }
-
-    const client = await pool.connect();
-
-    try {
-        await client.query('BEGIN');
-
+    return inTransaction(async client => {
         // Read the current payout under the lock, so two runs cannot both apply the same change.
         await payoutRepository.lockWeek(client, { weekStart });
 
@@ -152,8 +131,8 @@ async function triggerPayout({ weekStart }) {
 
         const blocker = getPayoutBlocker({
             weekStart,
-            reviewCount: 0,
-            pendingEarningsCount: 0,
+            reviewCount: summary.reviewCount,
+            pendingEarningsCount: summary.pendingEarningsCount,
             paid: runs.length > 0,
             changeCount: changes.length
         });
@@ -188,8 +167,6 @@ async function triggerPayout({ weekStart }) {
             });
         }
 
-        await client.query('COMMIT');
-
         return {
             run: toRun(run),
             previousTotalAmount: runs.at(-1)?.total_amount ?? null,
@@ -200,12 +177,7 @@ async function triggerPayout({ weekStart }) {
                 difference: change.difference
             }))
         };
-    } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
-    }
+    });
 }
 
 // The latest payout runs across all weeks.

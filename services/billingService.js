@@ -1,4 +1,4 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const rentalRepository = require('../repositories/rentalRepository');
 const billingRepository = require('../repositories/billingRepository');
@@ -349,7 +349,7 @@ async function addPayouts({ weekStart, closed, riders }) {
     const pending = paid
         ? diffPayout(withPaidOnly, new Map(items.map(item => [item.rider_id, toPaidAmounts(item)])))
         : [];
-    const pendingIds = new Set(pending.map(change => change.riderId));
+    const pendingByRider = new Map(pending.map(change => [change.riderId, change]));
 
     const lastRun = runs.at(-1);
 
@@ -377,7 +377,9 @@ async function addPayouts({ weekStart, closed, riders }) {
                         updatedAt: item.updated_at
                     }
                     : null,
-                payoutPending: pendingIds.has(rider.riderId)
+                payoutPending: pendingByRider.has(rider.riderId),
+                // What the next payout run changes this rider's net payout by.
+                payoutNetDifference: pendingByRider.get(rider.riderId)?.netDifference ?? null
             };
         })
     };
@@ -531,47 +533,35 @@ async function closeWeek({ weekStart }) {
         );
     }
 
-    const client = await pool.connect();
+    // Riders with nothing to deduct, such as those with only earnings, have no bill to save.
+    const billedRiders = summary.riders.filter(rider => rider.totalAmount > 0);
 
-    try {
-        await client.query('BEGIN');
-
+    return inTransaction(async client => {
         const closure = await billingRepository.insertWeekClosure(client, {
             weekStart,
             totalAmount: summary.totalAmount
         });
 
         if (!closure) {
-            await client.query('ROLLBACK');
             throw new AppError('Week is already closed', 409);
         }
 
-        for (const rider of summary.riders) {
+        for (const rider of billedRiders) {
             await billingRepository.insertWeekSnapshot(client, {
                 weekStart,
                 rider
             });
         }
 
-        await client.query('COMMIT');
-
         return {
             weekStart,
             closedAt: closure.closed_at,
-            riderCount: summary.riderCount,
+            riderCount: billedRiders.length,
             totalRental: summary.totalRental,
             totalEnergyCharge: summary.totalEnergyCharge,
             totalAmount: summary.totalAmount
         };
-    } catch (error) {
-        if (!(error instanceof AppError)) {
-            await client.query('ROLLBACK');
-        }
-
-        throw error;
-    } finally {
-        client.release();
-    }
+    });
 }
 
 module.exports = {

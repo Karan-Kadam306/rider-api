@@ -109,7 +109,12 @@ describe('Net payout on bills', () => {
 
     it('a rider with only earnings is not changed since close', async () => {
         await seedWeek();
-        assert.equal((await h.api('POST', `/api/billing/weeks/${WEEK}/close`)).status, 201);
+
+        const close = await h.api('POST', `/api/billing/weeks/${WEEK}/close`);
+
+        assert.equal(close.status, 201);
+        // Only PRIYA has a bill to save; MEERA only has earnings.
+        assert.equal(close.body.closure.riderCount, 1);
 
         // Earnings arriving after close do not change the deductions billed.
         await upload(['BLK-2,Meera,14-10-2026,100']);
@@ -167,6 +172,11 @@ describe('Payout with earnings', () => {
         assert.equal(payout.changes[0].paid.earnings, 300);
         assert.equal(payout.changes[0].current.earnings, 450);
         assert.equal(payout.changes[0].current.netPayout, 37);
+        // Only earnings changed: deductions are the same, net payout is up by ₹150.
+        assert.equal(payout.changes[0].difference, 0);
+        assert.equal(payout.changes[0].netDifference, 150);
+        assert.equal(payout.changeNetDifference, 150);
+        assert.equal((await bills()).riders.find(rider => rider.riderId === 'PRIYA').payoutNetDifference, 150);
 
         const rerun = await triggerPayout();
 
@@ -191,5 +201,14 @@ describe('Payout with earnings', () => {
         assert.equal(payout.paidNetPayout, null);
         assert.equal(list.payout.pendingCount, 0);
         assert.equal(list.riders[0].payout.earnings, null);
+
+        // Earnings arriving later: the old payout's net counts as 0 − ₹413.
+        await map('YS-001', 'BLK-1');
+        await upload(['BLK-1,Rider,13-10-2026,100']);
+
+        const change = (await weekPayout()).body.payout.changes[0];
+
+        assert.equal(change.difference, 0);
+        assert.equal(change.netDifference, 100);
     });
 });

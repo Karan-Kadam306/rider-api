@@ -14,4 +14,21 @@ const pool = new Pool({
     options: '-c timezone=Asia/Kolkata'
 });
 
-module.exports = { pool };
+// Run work(client) in one transaction: committed if it returns, rolled back if it throws.
+async function inTransaction(work) {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+        const result = await work(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+module.exports = { pool, inTransaction };

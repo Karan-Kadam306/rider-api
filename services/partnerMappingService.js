@@ -1,8 +1,7 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
-const { inTransaction } = require('./userService');
 
 const VIEWS = ['unmapped', 'mapped'];
 const RIDER_STATUSES = ['Active', 'Inactive', 'Terminated'];
@@ -136,7 +135,8 @@ function cleanMappings(mappings, partnerById) {
 // Replace a rider's partner IDs with the given list. A partner left out is unmapped;
 // a changed ID ends the old mapping and starts a new one. Unchanged mappings are kept as they are.
 // Pending earnings of a newly added ID are matched to the rider in the same transaction.
-async function saveRiderMappings({ riderId, mappings }) {
+// actingUserId is recorded as who made each change.
+async function saveRiderMappings({ actingUserId, riderId, mappings }) {
     const partners = await partnerRepository.findPartners(pool);
     const wanted = cleanMappings(mappings, new Map(partners.map(partner => [partner.partner_id, partner])));
 
@@ -179,15 +179,20 @@ async function saveRiderMappings({ riderId, mappings }) {
         // End old mappings first: the new ID for the same partner would clash with them.
         if (toEnd.length > 0) {
             await partnerRepository.deactivateMappings(client, {
-                mappingIds: toEnd.map(mapping => mapping.mapping_id)
+                mappingIds: toEnd.map(mapping => mapping.mapping_id),
+                deactivatedBy: actingUserId
             });
         }
 
         let matchedEarnings = 0;
 
         for (const mapping of toAdd) {
-            await partnerRepository.insertMapping(client, { riderId, ...mapping });
-            matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, { riderId, ...mapping });
+            await partnerRepository.insertMapping(client, { riderId, ...mapping, createdBy: actingUserId });
+            matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, {
+                riderId,
+                ...mapping,
+                reviewedBy: actingUserId
+            });
         }
 
         const saved = await partnerRepository.findRiderWithMappings(client, { riderId });

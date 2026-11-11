@@ -51,7 +51,12 @@ export default function PayoutChangesTable({ changes }) {
                                 )}
                                 <CurrencyText value={change.current.earnings} />
                             </td>
-                            <td className="num"><strong><CurrencyText value={change.current.netPayout} /></strong></td>
+                            <td className="num">
+                                {change.paid && change.netDifference !== 0 && (
+                                    <span className="muted"><CurrencyText value={change.current.netPayout - change.netDifference} /> → </span>
+                                )}
+                                <strong><CurrencyText value={change.current.netPayout} /></strong>
+                            </td>
                         </tr>
                     ))}
                 </tbody>

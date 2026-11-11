@@ -79,7 +79,7 @@ function parseCsv(buffer) {
 
 // Import one uploaded file. Good rows are saved, bad rows are logged with
 // their reason, and the file is recorded as Completed, Partial or Failed.
-async function runImport({ importType, workDate, partnerId, file }) {
+async function runImport({ importType, workDate, partnerId, file, uploadedBy }) {
     const type = importTypes.get(importType);
 
     if (!type) {
@@ -106,6 +106,7 @@ async function runImport({ importType, workDate, partnerId, file }) {
         fileSizeBytes: file.size,
         workDate: type.requiresWorkDate ? workDate : null,
         partnerId: handler.partnerId ?? null,
+        uploadedBy,
         resultSummary: {},
         errorMessage: null
     };

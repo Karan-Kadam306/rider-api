@@ -1,4 +1,4 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const userRepository = require('../repositories/userRepository');
 const sessionRepository = require('../repositories/sessionRepository');
@@ -66,22 +66,6 @@ function parseUserId(userId) {
     }
 
     return Number(userId);
-}
-
-async function inTransaction(work) {
-    const client = await pool.connect();
-
-    try {
-        await client.query('BEGIN');
-        const result = await work(client);
-        await client.query('COMMIT');
-        return result;
-    } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
-    }
 }
 
 async function createUser({ email, name, password, role }) {
@@ -206,7 +190,6 @@ module.exports = {
     toUser,
     normalizeEmail,
     assertPassword,
-    inTransaction,
     createUser,
     listUsers,
     updateUser,
