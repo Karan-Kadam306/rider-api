@@ -89,6 +89,54 @@ const CHECKS = [
               WHERE r.run_number = (SELECT MAX(run_number) FROM payout_runs x WHERE x.week_start = r.week_start)
                 AND r.total_amount <> COALESCE((SELECT SUM(total_amount) FROM payout_items i
                                                 WHERE i.week_start = r.week_start), 0)`
+    },
+    {
+        // Past mappings count too: a reassigned ID keeps its earlier earnings with the first rider.
+        name: 'Matched earning whose rider was never mapped to that partner ID',
+        sql: `SELECT pe.earning_id, p.name AS partner, pe.partner_rider_id, pe.rider_id,
+                     TO_CHAR(pe.earning_date, 'YYYY-MM-DD') AS earning_date
+              FROM partner_earnings pe
+              JOIN partners p ON p.partner_id = pe.partner_id
+              WHERE pe.status = 'Matched'
+                AND NOT EXISTS (SELECT 1 FROM rider_partner_mappings m
+                                WHERE m.partner_id = pe.partner_id
+                                  AND m.partner_rider_id = pe.partner_rider_id
+                                  AND m.rider_id = pe.rider_id)`
+    },
+    {
+        // Saving or resolving a mapping matches its pending rows, so none should be left.
+        name: 'Pending earning for a partner ID that is mapped',
+        sql: `SELECT pe.earning_id, p.name AS partner, pe.partner_rider_id, m.rider_id AS mapped_to,
+                     TO_CHAR(pe.earning_date, 'YYYY-MM-DD') AS earning_date
+              FROM partner_earnings pe
+              JOIN partners p ON p.partner_id = pe.partner_id
+              JOIN rider_partner_mappings m
+                ON m.partner_id = pe.partner_id AND m.partner_rider_id = pe.partner_rider_id AND m.is_active
+              WHERE pe.status = 'Pending'`
+    },
+    {
+        // Payouts from before partner earnings have neither value.
+        name: 'Payout rider whose net is not earnings minus deductions',
+        sql: `SELECT TO_CHAR(week_start, 'YYYY-MM-DD') AS week_start, rider_id,
+                     total_earnings::float8 AS earnings,
+                     total_amount::float8 AS deductions,
+                     net_payout::float8 AS net_payout
+              FROM payout_items
+              WHERE (total_earnings IS NULL) <> (net_payout IS NULL)
+                 OR net_payout <> total_earnings - total_amount`
+    },
+    {
+        // A rider paid before partner earnings counts as 0 earnings − deductions.
+        name: 'Payout whose latest run net does not match its riders',
+        sql: `SELECT TO_CHAR(r.week_start, 'YYYY-MM-DD') AS week_start,
+                     r.total_net_payout::float8 AS run_net,
+                     COALESCE((SELECT SUM(COALESCE(net_payout, -total_amount)) FROM payout_items i
+                               WHERE i.week_start = r.week_start), 0)::float8 AS riders_net
+              FROM payout_runs r
+              WHERE r.run_number = (SELECT MAX(run_number) FROM payout_runs x WHERE x.week_start = r.week_start)
+                AND r.total_net_payout IS NOT NULL
+                AND r.total_net_payout <> COALESCE((SELECT SUM(COALESCE(net_payout, -total_amount)) FROM payout_items i
+                                                    WHERE i.week_start = r.week_start), 0)`
     }
 ];
 

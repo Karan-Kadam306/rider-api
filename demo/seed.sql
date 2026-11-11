@@ -41,3 +41,21 @@ FROM (VALUES
     ('DEMO-VIN-6', 'DM-006', '2026-10-20 09:00', '2026-10-27 18:00')
 ) AS a (chassis_number, rider_id, assigned_at, returned_at)
 JOIN bikes b ON b.chassis_number = a.chassis_number;
+
+-- Partner IDs for the earnings sheets in demo/csv/earnings (same list as 0-partner-mappings.csv).
+-- BLK-9999, ZPT-9999 and ZOM-7777 are left unmapped so they land in Pending Review.
+INSERT INTO rider_partner_mappings (rider_id, partner_id, partner_rider_id)
+SELECT m.rider_id, p.partner_id, m.partner_rider_id
+FROM (VALUES
+    ('DM-001', 'blinkit', 'BLK-1001'),
+    ('DM-002', 'blinkit', 'BLK-1002'),
+    ('DM-003', 'blinkit', 'BLK-1003'),
+    ('DM-006', 'blinkit', 'BLK-1006'),
+    ('DM-001', 'zepto',   'ZPT-2001'),
+    ('DM-004', 'zepto',   'ZPT-2004'),
+    ('DM-005', 'zepto',   'ZPT-2005'),
+    ('DM-002', 'zomato',  'ZOM-3002'),
+    ('DM-005', 'zomato',  'ZOM-3005'),
+    ('DM-008', 'zomato',  'ZOM-3008')
+) AS m (rider_id, partner_code, partner_rider_id)
+JOIN partners p ON p.code = m.partner_code;

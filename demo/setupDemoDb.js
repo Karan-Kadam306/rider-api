@@ -52,7 +52,7 @@ async function setupDemoDb() {
         await client.end();
     }
 
-    console.log(`Demo database "${DEMO_DB}" is ready with the demo riders, bikes and assignments.`);
+    console.log(`Demo database "${DEMO_DB}" is ready with the demo riders, bikes, assignments and partner mappings.`);
 }
 
 setupDemoDb().catch(error => {
