@@ -87,9 +87,11 @@ export default function PayoutsPage() {
                             label="Payout status"
                             value={payout.paid ? `Run ${payout.runCount}` : '—'}
                             badge={<StatusBadge status={status} />}
-                            subText={payout.paid
+                            subText={payout.paid && !payout.pendingEarningsCount
                                 ? `First run ${formatDateTime(payout.firstPaidAt)}`
                                 : payout.blocker ?? 'Ready to trigger'}
+                            to={payout.pendingEarningsCount ? '/pending-earnings' : undefined}
+                            linkLabel="Pending Review"
                         />
                         <StatCard
                             label="Total deducted"
@@ -111,7 +113,12 @@ export default function PayoutsPage() {
                             subText={payout.reviewCount ? `${payout.reviewCount} rider(s) need review` : 'Current bills this week'}
                             to="/billing"
                             linkLabel="Billing"
-                        />
+                        >
+                            <p className="stat-card__sub">
+                                Net payout <CurrencyText value={payout.liveNetPayout} /> after{' '}
+                                <CurrencyText value={payout.liveTotalEarnings} /> earnings
+                            </p>
+                        </StatCard>
                     </div>
 
                     <section className="card card--flush">
@@ -130,7 +137,7 @@ export default function PayoutsPage() {
                                 <EmptyState
                                     message={payout.paid
                                         ? 'Nothing has changed since the last payout.'
-                                        : 'No rider has anything to deduct this week.'}
+                                        : 'No rider has earnings or deductions this week.'}
                                 />
                             </div>
                         )}
@@ -150,6 +157,7 @@ export default function PayoutsPage() {
                                                 <th>Triggered</th>
                                                 <th className="num">Updated</th>
                                                 <th className="num">Week total</th>
+                                                <th className="num">Net payout</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -159,6 +167,10 @@ export default function PayoutsPage() {
                                                     <td className="nowrap">{formatDateTime(run.triggeredAt)}</td>
                                                     <td className="num">{run.updatedCount} of {run.riderCount}</td>
                                                     <td className="num"><CurrencyText value={run.totalAmount} /></td>
+                                                    {/* Runs from before partner earnings have no net. */}
+                                                    <td className="num">
+                                                        {run.totalNetPayout === null ? <span className="muted">—</span> : <CurrencyText value={run.totalNetPayout} />}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

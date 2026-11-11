@@ -569,6 +569,7 @@ a:hover {
 
 .currency--up   { color: var(--danger); }
 .currency--down { color: var(--success); }
+.currency--negative { color: var(--danger); }
 
 /* ---------- Tables ---------- */
 /* Wide tables scroll sideways inside their card, not across the whole page. */
@@ -1382,9 +1383,9 @@ a:hover {
     color: var(--warning);
 }
 
-/* Five stat cards fit on one row on a laptop screen. */
+/* Six stat cards fit on one row on a laptop screen. */
 .card-grid--compact {
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
 
 /* ---------- Inactive periods ---------- */

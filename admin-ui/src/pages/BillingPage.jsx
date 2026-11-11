@@ -186,7 +186,7 @@ export default function BillingPage() {
                             subText={`${formatNumber(bills.totalKm)} km at ₹1.50`}
                         />
                         <StatCard
-                            label="Weekly total"
+                            label="Deductions"
                             value={<CurrencyText value={bills.totalAmount} />}
                             badge={<StatusBadge status={bills.closed ? 'Closed' : 'Open'} />}
                             subText={bills.closed
@@ -200,6 +200,15 @@ export default function BillingPage() {
                                 </p>
                             )}
                         </StatCard>
+                        <StatCard
+                            label="Net payout"
+                            value={<CurrencyText value={bills.totalNetPayout} />}
+                            subText={bills.pendingEarningsCount
+                                ? `${bills.pendingEarningsCount} partner ID(s) with pending earnings`
+                                : `Earnings ${formatINR(bills.totalEarnings)}`}
+                            to={bills.pendingEarningsCount ? '/pending-earnings' : undefined}
+                            linkLabel="Pending Review"
+                        />
                         <StatCard
                             label="Deducted"
                             value={bills.payout.paid ? <CurrencyText value={bills.payout.totalAmount} /> : '—'}
@@ -249,7 +258,7 @@ export default function BillingPage() {
                                     message={search
                                         ? `No riders match “${search}” this week.`
                                         : view === 'all'
-                                            ? 'No rider held a bike this week.'
+                                            ? 'No rider held a bike or has earnings this week.'
                                             : 'No riders in this view this week.'}
                                 />
                             </div>

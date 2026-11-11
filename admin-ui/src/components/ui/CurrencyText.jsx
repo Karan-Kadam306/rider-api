@@ -1,8 +1,13 @@
 import { formatINR, toNumber } from '../../utils/formatCurrency';
 
 // Rupee amount; showSign colours differences (+ red for more owed, − green).
+// Without showSign, a negative amount (a net payout the rider owes) is shown in red.
 export default function CurrencyText({ value, showSign = false }) {
     const number = toNumber(value);
+
+    if (!showSign && number < 0) {
+        return <span className="currency currency--negative">{formatINR(value)}</span>;
+    }
 
     if (!showSign || number === null || number === 0) {
         return <span className="currency">{formatINR(value)}</span>;

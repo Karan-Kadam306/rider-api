@@ -3,6 +3,7 @@ const AppError = require('../errors/AppError');
 const rentalRepository = require('../repositories/rentalRepository');
 const billingRepository = require('../repositories/billingRepository');
 const payoutRepository = require('../repositories/payoutRepository');
+const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
 const { diffPayout, toPaidAmounts } = require('../utils/diffPayout');
 const { calculateRiderWeeklyRental } = require('./rentalService');
 const { calculateWeeklyEnergyCharges } = require('./energyService');
@@ -44,6 +45,11 @@ function toBilledAmounts(snapshot) {
 // Compare a rider's live bill with what was billed when the week closed.
 // Corrections after closing are allowed; they only show up here.
 function compareWithSnapshot(current, snapshot) {
+    // Nothing billed and nothing to bill, e.g. a rider who only has earnings.
+    if (!snapshot && !current.requiresReview && current.totalAmount === 0) {
+        return { billed: null, changedSinceClose: false, difference: 0 };
+    }
+
     if (!snapshot) {
         return {
             billed: null,
@@ -74,7 +80,7 @@ function compareWithSnapshot(current, snapshot) {
     };
 }
 
-// Weekly bill for one rider: rental + energy.
+// Weekly bill for one rider: rental + energy deductions, partner earnings and the net payout.
 async function getRiderBill({ riderId, weekStart }) {
     const rental = await calculateRiderWeeklyRental({
         riderId,
@@ -86,12 +92,22 @@ async function getRiderBill({ riderId, weekStart }) {
         riderId
     });
 
+    const [earningRow] = await partnerEarningsRepository.sumMatchedEarningsInWeek(pool, {
+        weekStart,
+        riderId
+    });
+
+    const totalAmount = roundAmount(rental.totalRental + energy.totalEnergyCharge);
+    const earnings = earningRow?.earnings ?? 0;
+
     const bill = {
         riderId,
         weekStart,
         rental,
         energy,
-        totalAmount: roundAmount(rental.totalRental + energy.totalEnergyCharge)
+        totalAmount,
+        earnings,
+        netPayout: roundAmount(earnings - totalAmount)
     };
 
     const closure = await billingRepository.findWeekClosure(pool, { weekStart });
@@ -124,21 +140,36 @@ async function getRiderBill({ riderId, weekStart }) {
     };
 }
 
-// Live weekly bills for every rider who held a bike that week.
+// Live weekly bills for every rider who held a bike or has matched earnings that week.
+// totalAmount is what is deducted; netPayout = earnings − totalAmount and may be negative.
 async function calculateWeeklyBills({ weekStart }) {
-    const riderIds =
+    const assignedRiderIds =
         await rentalRepository.findRiderIdsWithAssignmentsInWeek(pool, {
             weekStart
         });
 
     const energy = await calculateWeeklyEnergyCharges({ weekStart });
 
+    const earningRows = await partnerEarningsRepository.sumMatchedEarningsInWeek(pool, { weekStart });
+    const earningsByRider = new Map(earningRows.map(row => [row.rider_id, row.earnings]));
+
+    // A partner ID still pending could belong to any rider, so it blocks the payout.
+    const pendingEarningsCount = await partnerEarningsRepository.countPendingIdsInRange(pool, {
+        fromDate: weekStart,
+        toDate: addDays(weekStart, 6)
+    });
+
+    // Riders with earnings but no bike are billed too; they have nothing to deduct.
+    const riderIds = [...new Set([...assignedRiderIds, ...earningsByRider.keys()])].sort();
+
     const riders = [];
     const totals = {
         totalRental: 0,
         totalKm: 0,
         totalEnergyCharge: 0,
-        totalAmount: 0
+        totalAmount: 0,
+        totalEarnings: 0,
+        totalNetPayout: 0
     };
 
     for (const riderId of riderIds) {
@@ -172,6 +203,8 @@ async function calculateWeeklyBills({ weekStart }) {
         }
 
         const totalAmount = roundAmount(rental.totalRental + totalEnergyCharge);
+        const earnings = earningsByRider.get(riderId) ?? 0;
+        const netPayout = roundAmount(earnings - totalAmount);
 
         riders.push({
             riderId,
@@ -181,6 +214,8 @@ async function calculateWeeklyBills({ weekStart }) {
             totalKm,
             totalEnergyCharge,
             totalAmount,
+            earnings,
+            netPayout,
             requiresReview: false
         });
 
@@ -188,16 +223,21 @@ async function calculateWeeklyBills({ weekStart }) {
         totals.totalKm += totalKm;
         totals.totalEnergyCharge += totalEnergyCharge;
         totals.totalAmount += totalAmount;
+        totals.totalEarnings += earnings;
+        totals.totalNetPayout += netPayout;
     }
 
     return {
         weekStart,
         riderCount: riders.length,
         reviewCount: riders.filter(rider => rider.requiresReview).length,
+        pendingEarningsCount,
         totalRental: roundAmount(totals.totalRental),
         totalKm: roundAmount(totals.totalKm),
         totalEnergyCharge: roundAmount(totals.totalEnergyCharge),
         totalAmount: roundAmount(totals.totalAmount),
+        totalEarnings: roundAmount(totals.totalEarnings),
+        totalNetPayout: roundAmount(totals.totalNetPayout),
         riders
     };
 }
@@ -234,6 +274,8 @@ async function getWeeklyBillingSummary({ weekStart }) {
             totalKm: 0,
             totalEnergyCharge: 0,
             totalAmount: 0,
+            earnings: 0,
+            netPayout: 0,
             requiresReview: false,
             billed,
             changedSinceClose: true,
@@ -296,6 +338,8 @@ async function addPayouts({ weekStart, closed, riders }) {
                 totalKm: 0,
                 totalEnergyCharge: 0,
                 totalAmount: 0,
+                earnings: 0,
+                netPayout: 0,
                 requiresReview: false,
                 ...(closed ? { billed: null, changedSinceClose: false, difference: 0 } : {})
             });
@@ -316,6 +360,7 @@ async function addPayouts({ weekStart, closed, riders }) {
             firstPaidAt: runs[0]?.triggered_at ?? null,
             lastRunAt: lastRun?.triggered_at ?? null,
             totalAmount: lastRun?.total_amount ?? null,
+            totalNetPayout: lastRun?.total_net_payout ?? null,
             pendingCount: pending.length,
             pendingDifference: roundAmount(pending.reduce((sum, change) => sum + change.difference, 0))
         },
@@ -439,6 +484,8 @@ async function exportWeeklyBills({ weekStart, view, search }) {
         ['KM', rider => rider.totalKm],
         ['Energy (INR)', rider => rider.totalEnergyCharge],
         ['Total (INR)', rider => rider.totalAmount],
+        ['Earnings (INR)', rider => rider.earnings],
+        ['Net Payout (INR)', rider => rider.netPayout],
         ['Needs Review', rider => (rider.requiresReview ? 'Yes' : 'No')],
         ['Review Reason', rider => rider.reason]
     ];

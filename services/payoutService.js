@@ -17,12 +17,18 @@ function toRun(row) {
         riderCount: row.rider_count,
         updatedCount: row.updated_count,
         totalAmount: row.total_amount,
+        totalEarnings: row.total_earnings,
+        totalNetPayout: row.total_net_payout,
         triggeredAt: row.triggered_at
     };
 }
 
+function sumField(amounts, field) {
+    return roundAmount(amounts.reduce((sum, item) => sum + (item[field] ?? 0), 0));
+}
+
 // Why a payout cannot run now, or null. Mirrored by the admin UI to explain a disabled button.
-function getPayoutBlocker({ weekStart, reviewCount, paid, changeCount }) {
+function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, paid, changeCount }) {
     if (!billingService.hasWeekEnded(weekStart)) {
         return 'A payout can be triggered once the week has ended';
     }
@@ -31,12 +37,16 @@ function getPayoutBlocker({ weekStart, reviewCount, paid, changeCount }) {
         return `Cannot trigger the payout: ${reviewCount} rider(s) require review`;
     }
 
+    if (pendingEarningsCount > 0) {
+        return `Cannot trigger the payout: ${pendingEarningsCount} partner ID(s) have pending earnings this week`;
+    }
+
     if (paid && changeCount === 0) {
         return 'Nothing has changed since the last payout';
     }
 
     if (changeCount === 0) {
-        return 'No rider has anything to deduct this week';
+        return 'No rider has earnings or deductions this week';
     }
 
     return null;
@@ -81,13 +91,18 @@ async function getWeekPayout({ weekStart }) {
         lastRunAt: runs.at(-1)?.triggeredAt ?? null,
         deductedRiderCount: items.length,
         deductedTotalAmount: runs.at(-1)?.totalAmount ?? null,
+        paidNetPayout: runs.at(-1)?.totalNetPayout ?? null,
         liveTotalAmount: summary.totalAmount,
+        liveTotalEarnings: summary.totalEarnings,
+        liveNetPayout: summary.totalNetPayout,
         reviewCount: summary.reviewCount,
+        pendingEarningsCount: summary.pendingEarningsCount,
         changeCount: changes.length,
         changeDifference: roundAmount(changes.reduce((sum, change) => sum + change.difference, 0)),
         blocker: getPayoutBlocker({
             weekStart,
             reviewCount: summary.reviewCount,
+            pendingEarningsCount: summary.pendingEarningsCount,
             paid,
             changeCount: changes.length
         }),
@@ -112,6 +127,13 @@ async function triggerPayout({ weekStart }) {
         );
     }
 
+    if (summary.pendingEarningsCount > 0) {
+        throw new AppError(
+            `Cannot trigger the payout: ${summary.pendingEarningsCount} partner ID(s) have pending earnings this week`,
+            409
+        );
+    }
+
     const client = await pool.connect();
 
     try {
@@ -131,6 +153,7 @@ async function triggerPayout({ weekStart }) {
         const blocker = getPayoutBlocker({
             weekStart,
             reviewCount: 0,
+            pendingEarningsCount: 0,
             paid: runs.length > 0,
             changeCount: changes.length
         });
@@ -143,16 +166,17 @@ async function triggerPayout({ weekStart }) {
             paidByRider.set(change.riderId, change.current);
         }
 
-        const totalAmount = roundAmount(
-            [...paidByRider.values()].reduce((sum, amounts) => sum + amounts.totalAmount, 0)
-        );
+        const paidAmounts = [...paidByRider.values()];
 
+        // Riders paid before partner earnings have no net yet; theirs is 0 earnings − deductions.
         const run = await payoutRepository.insertRun(client, {
             weekStart,
             runNumber: runs.length + 1,
             riderCount: paidByRider.size,
             updatedCount: changes.length,
-            totalAmount
+            totalAmount: sumField(paidAmounts, 'totalAmount'),
+            totalEarnings: sumField(paidAmounts, 'earnings'),
+            totalNetPayout: roundAmount(sumField(paidAmounts, 'earnings') - sumField(paidAmounts, 'totalAmount'))
         });
 
         for (const change of changes) {

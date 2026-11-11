@@ -24,11 +24,11 @@ function PayoutCell({ rider }) {
     );
 }
 
-// One row per rider for the week. A closed week adds the billed amount and difference.
-// Riders that need review show the reason instead of amounts.
+// One row per rider for the week: deductions, partner earnings and net payout (earnings − deductions).
+// A closed week adds the billed amount and difference. Riders that need review show the reason instead of amounts.
 export default function BillsTable({ riders, closed, onView }) {
     // How many columns a Needs Review row's reason spans: all the amounts, plus Billed and Difference once closed.
-    const amountColumns = closed ? 8 : 6;
+    const amountColumns = closed ? 10 : 8;
 
     return (
         <div className="table-wrap">
@@ -41,7 +41,9 @@ export default function BillsTable({ riders, closed, onView }) {
                         <th className="num">Rental</th>
                         <th className="num">KM</th>
                         <th className="num">Energy</th>
-                        <th className="num">Total</th>
+                        <th className="num">Deductions</th>
+                        <th className="num">Earnings</th>
+                        <th className="num">Net payout</th>
                         {closed && <th className="num">Billed</th>}
                         {closed && <th className="num">Difference</th>}
                         <th className="num">Deducted</th>
@@ -68,7 +70,9 @@ export default function BillsTable({ riders, closed, onView }) {
                                     <td className="num"><CurrencyText value={rider.totalRental} /></td>
                                     <td className="num">{formatNumber(rider.totalKm)}</td>
                                     <td className="num"><CurrencyText value={rider.totalEnergyCharge} /></td>
-                                    <td className="num"><strong><CurrencyText value={rider.totalAmount} /></strong></td>
+                                    <td className="num"><CurrencyText value={rider.totalAmount} /></td>
+                                    <td className="num"><CurrencyText value={rider.earnings} /></td>
+                                    <td className="num"><strong><CurrencyText value={rider.netPayout} /></strong></td>
                                     {closed && (
                                         <td className="num">
                                             {rider.billed ? <CurrencyText value={rider.billed.totalAmount} /> : <span className="muted">Not billed</span>}

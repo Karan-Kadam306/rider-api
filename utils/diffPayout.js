@@ -1,31 +1,39 @@
 // The amounts a bill and a payout are compared on.
-const PAYOUT_FIELDS = ['rentalDays', 'totalRental', 'totalKm', 'totalEnergyCharge', 'totalAmount'];
+// netPayout follows from earnings and totalAmount, so it is carried along but not compared.
+const PAYOUT_FIELDS = ['rentalDays', 'totalRental', 'totalKm', 'totalEnergyCharge', 'totalAmount', 'earnings'];
 
-const NO_AMOUNTS = Object.fromEntries(PAYOUT_FIELDS.map(field => [field, 0]));
+const NO_AMOUNTS = { ...Object.fromEntries(PAYOUT_FIELDS.map(field => [field, 0])), netPayout: 0 };
 
 function pickAmounts(source) {
-    return Object.fromEntries(PAYOUT_FIELDS.map(field => [field, source[field]]));
+    return {
+        ...Object.fromEntries(PAYOUT_FIELDS.map(field => [field, source[field]])),
+        netPayout: source.netPayout
+    };
 }
 
-// A payout_items row as amounts.
+// A payout_items row as amounts. Payouts made before partner earnings have no earnings or net.
 function toPaidAmounts(item) {
     return {
         rentalDays: item.rental_days,
         totalRental: item.total_rental,
         totalKm: item.total_km,
         totalEnergyCharge: item.total_energy_charge,
-        totalAmount: item.total_amount
+        totalAmount: item.total_amount,
+        earnings: item.total_earnings,
+        netPayout: item.net_payout
     };
 }
 
+// Missing earnings on an old payout count as 0, so old payouts do not all show as changed.
 function amountsDiffer(a, b) {
-    return PAYOUT_FIELDS.some(field => a[field] !== b[field]);
+    return PAYOUT_FIELDS.some(field => (a[field] ?? 0) !== (b[field] ?? 0));
 }
 
 // Riders whose live bill differs from what was deducted at payout, i.e. what a payout run would write.
 // liveRiders: the week's bills (riders that need review are skipped; they block a payout).
 // paidByRider: Map of riderId → paid amounts (same field names).
 // A rider who was paid but no longer has a bill is changed to zero.
+// difference is the change in deductions (totalAmount).
 function diffPayout(liveRiders, paidByRider) {
     const changes = [];
     const seen = new Set();

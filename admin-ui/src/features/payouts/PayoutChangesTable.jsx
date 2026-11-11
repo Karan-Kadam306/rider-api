@@ -15,6 +15,8 @@ export default function PayoutChangesTable({ changes }) {
                         <th className="num">Deducted</th>
                         <th className="num">New deduction</th>
                         <th className="num">Difference</th>
+                        <th className="num">Earnings</th>
+                        <th className="num">Net payout</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,6 +45,13 @@ export default function PayoutChangesTable({ changes }) {
                             <td className="num">
                                 {change.paid ? <CurrencyText value={change.difference} showSign /> : <span className="muted">First payout</span>}
                             </td>
+                            <td className="num">
+                                {change.paid && (change.paid.earnings ?? 0) !== change.current.earnings && (
+                                    <span className="muted"><CurrencyText value={change.paid.earnings ?? 0} /> → </span>
+                                )}
+                                <CurrencyText value={change.current.earnings} />
+                            </td>
+                            <td className="num"><strong><CurrencyText value={change.current.netPayout} /></strong></td>
                         </tr>
                     ))}
                 </tbody>

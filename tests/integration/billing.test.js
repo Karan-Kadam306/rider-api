@@ -360,9 +360,9 @@ describe('Weekly bills export', () => {
         const lines = res.body.replace(/^﻿/, '').trim().split('\r\n');
 
         assert.equal(lines.length, 3);
-        assert.equal(lines[0], 'Rider ID,Rider Name,Rider Status,Rental Days,Rental (INR),KM,Energy (INR),Total (INR),Needs Review,Review Reason');
-        assert.equal(lines[1], 'YS-001,Rider YS-001,Active,7,413,20,30,443,No,');
-        assert.equal(lines[2], 'YS-002,"Shah, ""Raj""",Active,2,118,0,0,118,No,');
+        assert.equal(lines[0], 'Rider ID,Rider Name,Rider Status,Rental Days,Rental (INR),KM,Energy (INR),Total (INR),Earnings (INR),Net Payout (INR),Needs Review,Review Reason');
+        assert.equal(lines[1], 'YS-001,Rider YS-001,Active,7,413,20,30,443,0,-443,No,');
+        assert.equal(lines[2], 'YS-002,"Shah, ""Raj""",Active,2,118,0,0,118,0,-118,No,');
     });
 
     it('applies the view and adds billed columns for a closed week', async () => {

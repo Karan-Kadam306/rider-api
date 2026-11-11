@@ -66,8 +66,16 @@ export default function RiderBillPanel({ rider, weekStart, onClose }) {
                                 </dd>
                             </div>
                             <div>
-                                <dt>Total</dt>
+                                <dt>Deductions</dt>
                                 <dd><CurrencyText value={bill.totalAmount} /></dd>
+                            </div>
+                            <div>
+                                <dt>Earnings</dt>
+                                <dd><CurrencyText value={bill.earnings} /></dd>
+                            </div>
+                            <div>
+                                <dt>Net payout</dt>
+                                <dd><strong><CurrencyText value={bill.netPayout} /></strong></dd>
                             </div>
                             <div>
                                 <dt>Deducted at payout</dt>

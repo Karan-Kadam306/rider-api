@@ -99,6 +99,22 @@ async function countPendingIdsInRange(client, { fromDate, toDate }) {
     return result.rows[0].total;
 }
 
+// Matched earnings per rider for the week (Monday to Sunday), optionally for one rider.
+async function sumMatchedEarningsInWeek(client, { weekStart, riderId = null }) {
+    const result = await client.query(
+        `SELECT rider_id, SUM(amount)::float8 AS earnings
+         FROM partner_earnings
+         WHERE status = 'Matched'
+           AND earning_date BETWEEN $1::date AND $1::date + 6
+           AND ($2::varchar IS NULL OR rider_id = $2)
+         GROUP BY rider_id
+         ORDER BY rider_id`,
+        [weekStart, riderId]
+    );
+
+    return result.rows;
+}
+
 // Give every pending row of this ID to the rider; returns how many rows changed.
 async function matchPendingEarnings(client, { partnerId, partnerRiderId, riderId }) {
     const result = await client.query(
@@ -130,6 +146,7 @@ module.exports = {
     findPendingGroups,
     countPendingGroups,
     countPendingIdsInRange,
+    sumMatchedEarningsInWeek,
     matchPendingEarnings,
     dismissPendingEarnings
 };
