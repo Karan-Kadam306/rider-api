@@ -1,5 +1,5 @@
-// The amounts a bill and a payout are compared on.
-// netPayout follows from earnings and totalAmount, so it is carried along but not compared.
+// The amounts a bill and a payout are compared on. netPayout is compared too (see amountsDiffer),
+// since a balance carried from last week changes it without changing these.
 const PAYOUT_FIELDS = ['rentalDays', 'totalRental', 'totalKm', 'totalEnergyCharge', 'totalAmount', 'earnings'];
 
 const NO_AMOUNTS = { ...Object.fromEntries(PAYOUT_FIELDS.map(field => [field, 0])), netPayout: 0 };
@@ -24,11 +24,6 @@ function toPaidAmounts(item) {
     };
 }
 
-// Missing earnings on an old payout count as 0, so old payouts do not all show as changed.
-function amountsDiffer(a, b) {
-    return PAYOUT_FIELDS.some(field => (a[field] ?? 0) !== (b[field] ?? 0));
-}
-
 function roundAmount(amount) {
     return Math.round(amount * 100) / 100;
 }
@@ -36,6 +31,12 @@ function roundAmount(amount) {
 // A payout from before partner earnings has no net; it was 0 earnings − deductions.
 function paidNetPayout(paid) {
     return paid.netPayout ?? -paid.totalAmount;
+}
+
+// Missing earnings and net on an old payout count as above, so old payouts do not all show as changed.
+function amountsDiffer(a, b) {
+    return PAYOUT_FIELDS.some(field => (a[field] ?? 0) !== (b[field] ?? 0)) ||
+        paidNetPayout(a) !== paidNetPayout(b);
 }
 
 // Riders whose live bill differs from what was deducted at payout, i.e. what a payout run would write.
@@ -91,5 +92,6 @@ function diffPayout(liveRiders, paidByRider) {
 module.exports = {
     pickAmounts,
     toPaidAmounts,
+    paidNetPayout,
     diffPayout
 };

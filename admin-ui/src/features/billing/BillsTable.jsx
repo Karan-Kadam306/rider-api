@@ -72,7 +72,12 @@ export default function BillsTable({ riders, closed, onView }) {
                                     <td className="num"><CurrencyText value={rider.totalEnergyCharge} /></td>
                                     <td className="num"><CurrencyText value={rider.totalAmount} /></td>
                                     <td className="num"><CurrencyText value={rider.earnings} /></td>
-                                    <td className="num"><strong><CurrencyText value={rider.netPayout} /></strong></td>
+                                    <td className="num">
+                                        <strong><CurrencyText value={rider.netPayout} /></strong>
+                                        {rider.previousBalance < 0 && (
+                                            <div className="cell-sub">incl. <CurrencyText value={rider.previousBalance} /> last week</div>
+                                        )}
+                                    </td>
                                     {closed && (
                                         <td className="num">
                                             {rider.billed ? <CurrencyText value={rider.billed.totalAmount} /> : <span className="muted">Not billed</span>}

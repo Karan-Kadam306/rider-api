@@ -212,3 +212,83 @@ describe('Payout with earnings', () => {
         assert.equal(change.netDifference, 100);
     });
 });
+
+describe('Partner sheets missing for the week', () => {
+    it('blocks the payout until every mapped partner with a file format has earnings in the week', async () => {
+        await seedWeek();
+
+        const partners = new Map((await h.api('GET', '/api/partners')).body.partners.map(p => [p.name, p.partnerId]));
+        const saved = await h.api('PUT', '/api/partner-mappings/riders/PRIYA', {
+            mappings: [
+                { partnerId: partners.get('Blinkit'), partnerRiderId: 'BLK-1' },
+                { partnerId: partners.get('Zepto'), partnerRiderId: 'ZPT-1' },
+                // Porter has no file format, so its sheet can never be imported and never blocks.
+                { partnerId: partners.get('Porter'), partnerRiderId: 'PRT-1' }
+            ]
+        });
+        assert.equal(saved.status, 200);
+
+        // Mapped before the week, as they would be in real use.
+        await h.pool.query(`UPDATE rider_partner_mappings SET created_at = '2026-10-01'`);
+
+        const { payout } = (await weekPayout()).body;
+        assert.equal(payout.partnersWithoutEarnings.join(), 'Zepto');
+        assert.equal(payout.blocker, 'Cannot trigger the payout: no earnings imported this week from Zepto');
+        assert.equal((await triggerPayout()).status, 409);
+
+        // A ₹0 row is enough to show the sheet was imported.
+        const form = new FormData();
+        form.append('type', 'partner_earnings');
+        form.append('partnerId', String(partners.get('Zepto')));
+        form.append('file', new Blob(['Zepto Rider ID,Week Start,Week End,Net Payable\nZPT-1,2026-10-12,2026-10-18,0']), 'zepto.csv');
+        assert.equal((await h.api('POST', '/api/imports', form)).status, 201);
+
+        assert.deepEqual((await weekPayout()).body.payout.partnersWithoutEarnings, []);
+        assert.equal((await triggerPayout()).status, 201);
+    });
+});
+
+describe('Negative net carried to the next week', () => {
+    const NEXT_WEEK = '2026-10-19';
+
+    async function nextWeekBill(riderId) {
+        const { body } = await h.api('GET', `/api/billing/bills?weekStart=${NEXT_WEEK}`);
+        return body.riders.find(rider => rider.riderId === riderId);
+    }
+
+    it('is taken from next week\'s net until recovered, and follows corrections', async () => {
+        await seedWeek();
+        // ZED rides Mon–Wed only (₹177) and earns nothing: −₹177, with nothing at all next week.
+        await h.createRider('ZED');
+        const bikeId = await h.createBike('VIN-2');
+        await h.createAssignment(bikeId, 'ZED', '2026-10-12 09:00', '2026-10-14 18:00');
+
+        assert.equal((await triggerPayout()).status, 201);
+
+        // Next week PRIYA earns ₹600 against ₹413 rental and last week's −₹113.
+        await upload(['BLK-1,Priya,20-10-2026,600']);
+
+        const priya = await nextWeekBill('PRIYA');
+        assert.deepEqual([priya.earnings, priya.totalAmount, priya.previousBalance, priya.netPayout], [600, 413, -113, 74]);
+
+        // A balance alone keeps the rider billed, so it carries on until recovered.
+        const zed = await nextWeekBill('ZED');
+        assert.deepEqual([zed.totalAmount, zed.previousBalance, zed.netPayout], [0, -177, -177]);
+        assert.equal(await nextWeekBill('MEERA'), undefined);
+
+        const { bill } = (await h.api('GET', `/api/billing/riders/PRIYA?weekStart=${NEXT_WEEK}`)).body;
+        assert.equal(bill.previousBalance, -113);
+
+        const run = await h.api('POST', `/api/payouts/weeks/${NEXT_WEEK}/run`);
+        assert.equal(run.status, 201);
+        assert.equal(run.body.run.totalNetPayout, 74 - 177);
+
+        // Last week is corrected and re-run: PRIYA's −₹113 becomes −₹13, so next week changes by +₹100.
+        await upload(['BLK-1,Priya,13-10-2026,400']);
+        assert.equal((await triggerPayout()).status, 201);
+
+        const change = (await h.api('GET', `/api/payouts/weeks/${NEXT_WEEK}`)).body.payout.changes
+            .find(item => item.riderId === 'PRIYA');
+        assert.deepEqual([change.difference, change.netDifference, change.current.netPayout], [0, 100, 174]);
+    });
+});

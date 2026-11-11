@@ -142,6 +142,35 @@ async function dismissPendingEarnings(client, { partnerId, partnerRiderId, reaso
     return result.rowCount;
 }
 
+// Partners (of partnerCodes, the ones with a file format) whose sheet for the week has not been imported:
+// a rider who held a bike that week was mapped to them during the week, but they have no earnings dated in it.
+// A ₹0 row counts as imported.
+async function findPartnersWithoutEarnings(client, { weekStart, partnerCodes }) {
+    const result = await client.query(
+        `SELECT DISTINCT p.name
+         FROM rider_partner_mappings m
+         JOIN partners p ON p.partner_id = m.partner_id
+         WHERE p.code = ANY($2::text[])
+           AND m.created_at < $1::date + 7
+           AND (m.deactivated_at IS NULL OR m.deactivated_at >= $1::date)
+           AND EXISTS (
+               SELECT 1 FROM bike_assignments ba
+               WHERE ba.rider_id = m.rider_id
+                 AND ba.assigned_at < $1::date + 7
+                 AND (ba.returned_at IS NULL OR ba.returned_at > $1::date)
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM partner_earnings pe
+               WHERE pe.partner_id = m.partner_id
+                 AND pe.earning_date BETWEEN $1::date AND $1::date + 6
+           )
+         ORDER BY p.name`,
+        [weekStart, partnerCodes]
+    );
+
+    return result.rows.map(row => row.name);
+}
+
 // Matched rows of one partner ID held by riders other than $3, dated $4..$5, totalled per rider.
 async function findMatchedWithOtherRiders(client, { partnerId, partnerRiderId, riderId, fromDate, toDate }) {
     const result = await client.query(
@@ -175,6 +204,7 @@ async function moveMatchedEarnings(client, { partnerId, partnerRiderId, riderId,
 
 module.exports = {
     findEarning,
+    findPartnersWithoutEarnings,
     findMatchedWithOtherRiders,
     moveMatchedEarnings,
     insertEarning,

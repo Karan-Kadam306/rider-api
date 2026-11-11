@@ -4,14 +4,7 @@ const partnerRepository = require('../../repositories/partnerRepository');
 const partnerEarningsService = require('../partnerEarningsService');
 const { normalizePartnerRiderId, MAX_PARTNER_RIDER_ID_LENGTH } = require('../partnerMappingService');
 const validateUsageDate = require('../../utils/validateUsageDate');
-
-// Each partner sends its own sheet layout, keyed by partners.code.
-// Supporting a new partner is one new file in partnerFormats added here.
-const formats = {
-    blinkit: require('./partnerFormats/blinkit'),
-    zepto: require('./partnerFormats/zepto'),
-    zomato: require('./partnerFormats/zomato')
-};
+const formats = require('./partnerFormats');
 
 // Up to 8 digits before the point and 2 after, so it always fits numeric(10,2).
 const AMOUNT_PATTERN = /^\d{1,8}(\.\d{1,2})?$/;

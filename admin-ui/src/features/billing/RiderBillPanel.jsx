@@ -73,6 +73,12 @@ export default function RiderBillPanel({ rider, weekStart, onClose }) {
                                 <dt>Earnings</dt>
                                 <dd><CurrencyText value={bill.earnings} /></dd>
                             </div>
+                            {bill.previousBalance < 0 && (
+                                <div>
+                                    <dt>Owed from last week</dt>
+                                    <dd><CurrencyText value={bill.previousBalance} /></dd>
+                                </div>
+                            )}
                             <div>
                                 <dt>Net payout</dt>
                                 <dd><strong><CurrencyText value={bill.netPayout} /></strong></dd>

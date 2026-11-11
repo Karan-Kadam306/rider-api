@@ -3,7 +3,7 @@ const AppError = require('../errors/AppError');
 const billingRepository = require('../repositories/billingRepository');
 const payoutRepository = require('../repositories/payoutRepository');
 const billingService = require('./billingService');
-const { diffPayout, toPaidAmounts } = require('../utils/diffPayout');
+const { diffPayout, paidNetPayout, toPaidAmounts } = require('../utils/diffPayout');
 
 function roundAmount(amount) {
     return Math.round(amount * 100) / 100;
@@ -28,7 +28,7 @@ function sumField(amounts, field) {
 }
 
 // Why a payout cannot run now, or null. Mirrored by the admin UI to explain a disabled button.
-function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, paid, changeCount }) {
+function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, partnersWithoutEarnings, paid, changeCount }) {
     if (!billingService.hasWeekEnded(weekStart)) {
         return 'A payout can be triggered once the week has ended';
     }
@@ -39,6 +39,10 @@ function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, paid, 
 
     if (pendingEarningsCount > 0) {
         return `Cannot trigger the payout: ${pendingEarningsCount} partner ID(s) have pending earnings this week`;
+    }
+
+    if (partnersWithoutEarnings.length > 0) {
+        return `Cannot trigger the payout: no earnings imported this week from ${partnersWithoutEarnings.join(', ')}`;
     }
 
     if (paid && changeCount === 0) {
@@ -97,6 +101,7 @@ async function getWeekPayout({ weekStart }) {
         liveNetPayout: summary.totalNetPayout,
         reviewCount: summary.reviewCount,
         pendingEarningsCount: summary.pendingEarningsCount,
+        partnersWithoutEarnings: summary.partnersWithoutEarnings,
         changeCount: changes.length,
         changeDifference: sumField(changes, 'difference'),
         changeNetDifference: sumField(changes, 'netDifference'),
@@ -104,6 +109,7 @@ async function getWeekPayout({ weekStart }) {
             weekStart,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
+            partnersWithoutEarnings: summary.partnersWithoutEarnings,
             paid,
             changeCount: changes.length
         }),
@@ -133,6 +139,7 @@ async function triggerPayout({ weekStart }) {
             weekStart,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
+            partnersWithoutEarnings: summary.partnersWithoutEarnings,
             paid: runs.length > 0,
             changeCount: changes.length
         });
@@ -147,7 +154,6 @@ async function triggerPayout({ weekStart }) {
 
         const paidAmounts = [...paidByRider.values()];
 
-        // Riders paid before partner earnings have no net yet; theirs is 0 earnings − deductions.
         const run = await payoutRepository.insertRun(client, {
             weekStart,
             runNumber: runs.length + 1,
@@ -155,7 +161,7 @@ async function triggerPayout({ weekStart }) {
             updatedCount: changes.length,
             totalAmount: sumField(paidAmounts, 'totalAmount'),
             totalEarnings: sumField(paidAmounts, 'earnings'),
-            totalNetPayout: roundAmount(sumField(paidAmounts, 'earnings') - sumField(paidAmounts, 'totalAmount'))
+            totalNetPayout: roundAmount(paidAmounts.reduce((sum, amounts) => sum + paidNetPayout(amounts), 0))
         });
 
         for (const change of changes) {

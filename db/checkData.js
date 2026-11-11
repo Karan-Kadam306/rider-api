@@ -115,15 +115,16 @@ const CHECKS = [
               WHERE pe.status = 'Pending'`
     },
     {
+        // Net is earnings − deductions plus a carried balance, which is never positive.
         // Payouts from before partner earnings have neither value.
-        name: 'Payout rider whose net is not earnings minus deductions',
+        name: 'Payout rider whose net is more than earnings minus deductions',
         sql: `SELECT TO_CHAR(week_start, 'YYYY-MM-DD') AS week_start, rider_id,
                      total_earnings::float8 AS earnings,
                      total_amount::float8 AS deductions,
                      net_payout::float8 AS net_payout
               FROM payout_items
               WHERE (total_earnings IS NULL) <> (net_payout IS NULL)
-                 OR net_payout <> total_earnings - total_amount`
+                 OR net_payout > total_earnings - total_amount`
     },
     {
         // A rider paid before partner earnings counts as 0 earnings − deductions.

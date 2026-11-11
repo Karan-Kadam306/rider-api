@@ -57,6 +57,21 @@ async function findItems(client, { weekStart }) {
     return result.rows;
 }
 
+// Riders paid a negative net in the week before weekStart, optionally one rider; it is carried into this week.
+// Payouts from before partner earnings have no net and carry nothing.
+async function findCarriedBalances(client, { weekStart, riderId = null }) {
+    const result = await client.query(
+        `SELECT rider_id, net_payout::float8 AS balance
+         FROM payout_items
+         WHERE week_start = $1::date - 7
+           AND net_payout < 0
+           AND ($2::varchar IS NULL OR rider_id = $2)`,
+        [weekStart, riderId]
+    );
+
+    return result.rows;
+}
+
 // Only one payout run per week at a time; held until the transaction ends.
 async function lockWeek(client, { weekStart }) {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext('payout:' || $1::text))`, [weekStart]);
@@ -112,6 +127,7 @@ module.exports = {
     findRuns,
     findRecentRuns,
     findItems,
+    findCarriedBalances,
     lockWeek,
     insertRun,
     upsertItem

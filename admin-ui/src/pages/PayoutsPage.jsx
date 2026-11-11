@@ -36,6 +36,12 @@ export default function PayoutsPage() {
     const payout = week.data;
     // changeCount is what the next run would apply, which is the pendingCount the badge expects.
     const status = payout && getPayoutStatus({ paid: payout.paid, pendingCount: payout.changeCount });
+    // Where to fix partner earnings that block the payout: review unknown IDs, or import a missing sheet.
+    const earningsFix = payout?.pendingEarningsCount
+        ? { to: '/pending-earnings', label: 'Pending Review' }
+        : payout?.partnersWithoutEarnings.length
+            ? { to: '/documents', label: 'Document Hub' }
+            : null;
 
     async function handleTrigger() {
         setRunning(true);
@@ -87,11 +93,11 @@ export default function PayoutsPage() {
                             label="Payout status"
                             value={payout.paid ? `Run ${payout.runCount}` : '—'}
                             badge={<StatusBadge status={status} />}
-                            subText={payout.paid && !payout.pendingEarningsCount
+                            subText={payout.paid && !earningsFix
                                 ? `First run ${formatDateTime(payout.firstPaidAt)}`
                                 : payout.blocker ?? 'Ready to trigger'}
-                            to={payout.pendingEarningsCount ? '/pending-earnings' : undefined}
-                            linkLabel="Pending Review"
+                            to={earningsFix?.to}
+                            linkLabel={earningsFix?.label}
                         />
                         <StatCard
                             label="Total deducted"
