@@ -45,12 +45,14 @@ export default function PayoutChangesTable({ changes }) {
                             <td className="num">
                                 {change.paid ? <CurrencyText value={change.difference} showSign /> : <span className="muted">First payout</span>}
                             </td>
+                            {/* Payouts from before partner earnings have none saved, so they count as ₹0. */}
                             <td className="num">
                                 {change.paid && (change.paid.earnings ?? 0) !== change.current.earnings && (
                                     <span className="muted"><CurrencyText value={change.paid.earnings ?? 0} /> → </span>
                                 )}
                                 <CurrencyText value={change.current.earnings} />
                             </td>
+                            {/* The old net is worked back from the difference, since old payouts have no net saved. */}
                             <td className="num">
                                 {change.paid && change.netDifference !== 0 && (
                                     <span className="muted"><CurrencyText value={change.current.netPayout - change.netDifference} /> → </span>

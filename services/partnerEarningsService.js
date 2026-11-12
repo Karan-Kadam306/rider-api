@@ -97,6 +97,7 @@ async function importEarnings(client, { partnerId, entries, importId }) {
             continue;
         }
 
+        // Compare as numbers: the database gives "850.00" while the sheet may say "850".
         if (Number(existing.amount) === Number(entry.amount)) {
             results.unchanged++;
             continue;

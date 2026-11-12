@@ -148,6 +148,7 @@ async function triggerPayout({ weekStart }) {
             throw new AppError(blocker, 409);
         }
 
+        // Riders that did not change keep their old amounts, so the run totals still cover everyone paid.
         for (const change of changes) {
             paidByRider.set(change.riderId, change.current);
         }

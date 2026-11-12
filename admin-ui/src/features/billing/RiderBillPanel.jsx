@@ -11,7 +11,8 @@ import { formatNumber } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { addDays, formatDateTime, formatWeekRange } from '../../utils/week';
 
-// Side panel with one rider's weekly bill: rental, each Daily KM record and, for a closed week,
+// Side panel with one rider's weekly bill: rental and energy deductions, partner earnings,
+// any negative net owed from last week, the net payout, each Daily KM record and, for a closed week,
 // the billed amount. Mounted only while open.
 export default function RiderBillPanel({ rider, weekStart, onClose }) {
     const dialogRef = useRef(null);

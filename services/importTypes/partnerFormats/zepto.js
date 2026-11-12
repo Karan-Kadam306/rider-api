@@ -16,6 +16,8 @@ module.exports = {
             return null;
         }
 
+        // Go 6 days ahead: if that lands on a Sunday, Week Start was a Monday,
+        // and it must also be the Week End the sheet gives.
         const sunday = new Date(`${weekStart}T00:00:00Z`);
         sunday.setUTCDate(sunday.getUTCDate() + 6);
 

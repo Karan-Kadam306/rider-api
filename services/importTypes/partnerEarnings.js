@@ -12,6 +12,7 @@ const AMOUNT_PATTERN = /^\d{1,8}(\.\d{1,2})?$/;
 // Read one sheet row into { entry } or { error }.
 function readRow(format, row) {
     const idText = row[format.idColumn] ?? '';
+    // Zomato writes thousands with commas ("1,250.50"); drop them before checking the amount.
     const amountText = (row[format.amountColumn] ?? '').replaceAll(',', '');
     const earningDate = format.readDate(row);
 
