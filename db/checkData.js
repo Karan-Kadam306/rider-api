@@ -115,8 +115,8 @@ const CHECKS = [
               WHERE pe.status = 'Pending'`
     },
     {
-        // Net is earnings − deductions plus a carried balance, which is never positive.
-        // Payouts from before partner earnings have neither value.
+        // Net is earnings − deductions − escalation charges + cleared balance, plus a carried
+        // balance, which is never positive. Payouts from before partner earnings have neither value.
         name: 'Payout rider whose net is more than earnings minus deductions',
         sql: `SELECT TO_CHAR(week_start, 'YYYY-MM-DD') AS week_start, rider_id,
                      total_earnings::float8 AS earnings,
@@ -124,7 +124,8 @@ const CHECKS = [
                      net_payout::float8 AS net_payout
               FROM payout_items
               WHERE (total_earnings IS NULL) <> (net_payout IS NULL)
-                 OR net_payout > total_earnings - total_amount`
+                 OR net_payout > total_earnings - total_amount
+                                 - COALESCE(escalation_charges, 0) + COALESCE(balance_cleared, 0)`
     },
     {
         // A rider paid before partner earnings counts as 0 earnings − deductions.
@@ -138,6 +139,16 @@ const CHECKS = [
                 AND r.total_net_payout IS NOT NULL
                 AND r.total_net_payout <> COALESCE((SELECT SUM(COALESCE(net_payout, -total_amount)) FROM payout_items i
                                                     WHERE i.week_start = r.week_start), 0)`
+    },
+    {
+        // The webhook, an admin or a payout run always records the step that ended an escalation.
+        name: 'Closed escalation without its closing event',
+        sql: `SELECT e.escalation_id, e.rider_id, e.status
+              FROM rider_escalations e
+              WHERE e.status <> 'Open'
+                AND NOT EXISTS (SELECT 1 FROM escalation_events ev
+                                WHERE ev.escalation_id = e.escalation_id
+                                  AND ev.event_type = ANY (ARRAY['Paid', 'MarkedPaid', 'Waived', 'Recovered', 'Closed']))`
     }
 ];
 
