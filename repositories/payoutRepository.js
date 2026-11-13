@@ -123,10 +123,43 @@ async function upsertItem(client, { weekStart, riderId, amounts, runId }) {
     );
 }
 
+// One rider's payouts, newest week first.
+async function findRiderItems(client, { riderId, limit, offset }) {
+    const result = await client.query(
+        `SELECT TO_CHAR(week_start, 'YYYY-MM-DD') AS week_start,
+                rental_days,
+                total_rental::float8 AS total_rental,
+                total_km::float8 AS total_km,
+                total_energy_charge::float8 AS total_energy_charge,
+                total_amount::float8 AS total_amount,
+                total_earnings::float8 AS total_earnings,
+                net_payout::float8 AS net_payout,
+                updated_at
+         FROM payout_items
+         WHERE rider_id = $1
+         ORDER BY week_start DESC
+         LIMIT $2 OFFSET $3`,
+        [riderId, limit, offset]
+    );
+
+    return result.rows;
+}
+
+async function countRiderItems(client, { riderId }) {
+    const result = await client.query(
+        'SELECT COUNT(*)::int AS total FROM payout_items WHERE rider_id = $1',
+        [riderId]
+    );
+
+    return result.rows[0].total;
+}
+
 module.exports = {
     findRuns,
     findRecentRuns,
     findItems,
+    findRiderItems,
+    countRiderItems,
     findCarriedBalances,
     lockWeek,
     insertRun,

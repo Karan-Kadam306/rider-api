@@ -140,6 +140,40 @@ async function countAssignmentHistory(client, bikeId) {
     return Number(result.rows[0].total);
 }
 
+// Get the bikes a rider has held, newest first, with pagination support.
+async function findRiderAssignmentHistory(client, riderId, limit, offset) {
+    const result = await client.query(
+        `SELECT
+            ba.assignment_id,
+            ba.bike_id,
+            b.chassis_number,
+            b.registration_number,
+            ba.assigned_at,
+            ba.returned_at
+        FROM bike_assignments AS ba
+        JOIN bikes AS b
+            ON b.bike_id = ba.bike_id
+        WHERE ba.rider_id = $1
+        ORDER BY ba.assigned_at DESC, ba.assignment_id DESC
+        LIMIT $2 OFFSET $3`,
+        [riderId, limit, offset]
+    );
+
+    return result.rows;
+}
+
+// Count the total number of assignment history records for a specific rider.
+async function countRiderAssignmentHistory(client, riderId) {
+    const result = await client.query(
+        `SELECT COUNT(*) AS total
+        FROM bike_assignments
+        WHERE rider_id = $1`,
+        [riderId]
+    );
+
+    return Number(result.rows[0].total);
+}
+
 module.exports = {
     findBikeForUpdate,
     createAssignment,
@@ -147,5 +181,7 @@ module.exports = {
     markBikeAssigned,
     returnBike,
     findAssignmentHistory,
-    countAssignmentHistory
+    countAssignmentHistory,
+    findRiderAssignmentHistory,
+    countRiderAssignmentHistory
 };

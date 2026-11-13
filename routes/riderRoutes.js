@@ -7,7 +7,10 @@ const {
     createRider,
     updateRider,
     terminateRider,
-    getRiderSummary
+    getRiderSummary,
+    getRiderProfile,
+    getRiderPayouts,
+    getRiderAssignments
 } = require('../controllers/riderController');
 const inactivePeriodController = require('../controllers/inactivePeriodController');
 const { validateRiderQuery } = require('../middleware/validateRiderQuery');
@@ -28,6 +31,11 @@ router.get('/:riderId', getRider);
 
 // Define the route for updating an existing rider's information with validation of the request body.
 router.put('/:riderId', validateUpdateRider, updateRider);
+
+// Rider detail page: the overview, then the Earnings and History tabs.
+router.get('/:riderId/profile', getRiderProfile);
+router.get('/:riderId/payouts', getRiderPayouts);
+router.get('/:riderId/assignments', getRiderAssignments);
 
 // Inactive periods: approved days are not charged rental, even if a bike was assigned.
 router.get('/:riderId/inactive-periods', inactivePeriodController.listPeriods);

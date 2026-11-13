@@ -1,4 +1,5 @@
 const riderService = require('../services/riderService');
+const riderProfileService = require('../services/riderProfileService');
 
 // GET /api/riders/:riderId
 // Get the details of a specific rider by their ID.
@@ -202,11 +203,58 @@ async function getRiderSummary(req, res, next) {
     }
 }
 
+// GET /api/riders/:riderId/profile
+// Get everything the rider detail page shows at the top: rider, bike, partner IDs, this week's bill.
+async function getRiderProfile(req, res, next) {
+    try {
+        const profile = await riderProfileService.getRiderProfile(req.params.riderId);
+
+        return res.status(200).json(profile);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// GET /api/riders/:riderId/payouts?page=1&limit=10
+// Get the rider's paid weeks, newest first.
+async function getRiderPayouts(req, res, next) {
+    try {
+        const result = await riderProfileService.getRiderPayouts(
+            req.params.riderId,
+            req.query.page ?? 1,
+            req.query.limit ?? 10
+        );
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// GET /api/riders/:riderId/assignments?page=1&limit=10
+// Get the bikes the rider has held, newest first.
+async function getRiderAssignments(req, res, next) {
+    try {
+        const result = await riderProfileService.getRiderAssignments(
+            req.params.riderId,
+            req.query.page ?? 1,
+            req.query.limit ?? 10
+        );
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     getRider,
     getRiders,
     createRider,
     updateRider,
     terminateRider,
-    getRiderSummary
+    getRiderSummary,
+    getRiderProfile,
+    getRiderPayouts,
+    getRiderAssignments
 };

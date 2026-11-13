@@ -28,6 +28,13 @@ function addDays(date, days) {
     return result.toISOString().slice(0, 10);
 }
 
+// Monday of the current IST week as YYYY-MM-DD.
+function currentWeekStart() {
+    const today = todayInIst();
+    const daysSinceMonday = (new Date(`${today}T00:00:00.000Z`).getUTCDay() + 6) % 7;
+    return addDays(today, -daysSinceMonday);
+}
+
 // The week runs Monday to Sunday; it has ended from the next Monday.
 function hasWeekEnded(weekStart) {
     return todayInIst() >= addDays(weekStart, 7);
@@ -592,6 +599,7 @@ module.exports = {
     getWeeklyBillingSummary,
     calculateWeeklyBills,
     addPayouts,
+    currentWeekStart,
     hasWeekEnded,
     listWeeklyBills,
     exportWeeklyBills,

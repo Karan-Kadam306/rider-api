@@ -80,7 +80,8 @@ async function countRidersByMapping(client, { status, search }) {
 
 async function findRiderWithMappings(client, { riderId }) {
     const result = await client.query(
-        `SELECT r.rider_id, r.name, r.phone, r.status, m.mappings, m.last_mapped_at
+        `SELECT r.rider_id, r.name, r.phone, r.status, r.created_at, r.terminated_on,
+                m.mappings, m.last_mapped_at
          FROM riders r
          LEFT JOIN LATERAL (${ACTIVE_MAPPINGS}) m ON true
          WHERE r.rider_id = $1`,
