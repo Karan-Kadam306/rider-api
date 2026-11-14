@@ -6,36 +6,6 @@ before(h.startServer);
 after(h.stopServer);
 beforeEach(h.resetDb);
 
-function addDays(date, days) {
-    const result = new Date(`${date}T00:00:00.000Z`);
-    result.setUTCDate(result.getUTCDate() + days);
-    return result.toISOString().slice(0, 10);
-}
-
-// Monday of the current IST week.
-function currentWeekStart() {
-    const today = h.todayInIst();
-    return addDays(today, -((new Date(`${today}T00:00:00.000Z`).getUTCDay() + 6) % 7));
-}
-
-// A payout for the rider in the given week with only a net, e.g. a negative net carried forward.
-async function createPayoutItem(riderId, weekStart, netPayout) {
-    const { rows: [run] } = await h.pool.query(
-        `INSERT INTO payout_runs (week_start, run_number, rider_count, updated_count, total_amount)
-         VALUES ($1, 1, 1, 1, 0)
-         RETURNING run_id`,
-        [weekStart]
-    );
-
-    await h.pool.query(
-        `INSERT INTO payout_items
-            (week_start, rider_id, rental_days, total_rental, total_km, total_energy_charge, total_amount,
-             total_earnings, net_payout, first_run_id, updated_run_id)
-         VALUES ($1, $2, 0, 0, 0, 0, 0, 0, $3, $4, $4)`,
-        [weekStart, riderId, netPayout, run.run_id]
-    );
-}
-
 describe('Rider profile', () => {
     it('returns the rider, current bike and this week\'s bill', async () => {
         await h.createRider('YS-001');
@@ -49,8 +19,9 @@ describe('Rider profile', () => {
         assert.equal(res.body.currentAssignment.bikeId, String(bikeId));
         assert.equal(res.body.currentAssignment.registrationNumber, 'MH12AB1234');
         assert.deepEqual(res.body.partnerMappings, []);
-        assert.equal(res.body.currentWeekBill.weekStart, currentWeekStart());
+        assert.equal(res.body.currentWeekBill.weekStart, h.currentWeekStart());
         assert.equal(res.body.outstandingBalance, 0);
+        assert.deepEqual(res.body.openEscalations, []);
     });
 
     it('has no current bike once the bike is returned', async () => {
@@ -65,7 +36,7 @@ describe('Rider profile', () => {
 
     it('shows last week\'s negative net as the outstanding balance', async () => {
         await h.createRider('YS-001');
-        await createPayoutItem('YS-001', addDays(currentWeekStart(), -7), -250);
+        await h.createPayoutItem('YS-001', h.addDays(h.currentWeekStart(), -7), -250);
 
         const res = await h.api('GET', '/api/riders/YS-001/profile');
 
@@ -83,8 +54,8 @@ describe('Rider profile', () => {
 describe('Rider payouts and assignments', () => {
     it('lists paid weeks newest first', async () => {
         await h.createRider('YS-001');
-        await createPayoutItem('YS-001', '2026-10-05', 100);
-        await createPayoutItem('YS-001', '2026-10-12', -50);
+        await h.createPayoutItem('YS-001', '2026-10-05', 100);
+        await h.createPayoutItem('YS-001', '2026-10-12', -50);
 
         const res = await h.api('GET', '/api/riders/YS-001/payouts');
 

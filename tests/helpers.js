@@ -18,6 +18,8 @@ if (!testDbName.endsWith('_test')) {
 
 // partners is left out on purpose: its rows come from the schema, not from a test.
 const TABLES = [
+    'escalation_events',
+    'rider_escalations',
     'login_failures',
     'sessions',
     'users',
@@ -186,6 +188,36 @@ function todayInIst() {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 }
 
+function addDays(date, days) {
+    const result = new Date(`${date}T00:00:00.000Z`);
+    result.setUTCDate(result.getUTCDate() + days);
+    return result.toISOString().slice(0, 10);
+}
+
+// Monday of the current IST week.
+function currentWeekStart() {
+    const today = todayInIst();
+    return addDays(today, -((new Date(`${today}T00:00:00.000Z`).getUTCDay() + 6) % 7));
+}
+
+// A payout for the rider in the given week with only a net, e.g. a negative net carried forward.
+async function createPayoutItem(riderId, weekStart, netPayout) {
+    const { rows: [run] } = await pool.query(
+        `INSERT INTO payout_runs (week_start, run_number, rider_count, updated_count, total_amount)
+         VALUES ($1, 1, 1, 1, 0)
+         RETURNING run_id`,
+        [weekStart]
+    );
+
+    await pool.query(
+        `INSERT INTO payout_items
+            (week_start, rider_id, rental_days, total_rental, total_km, total_energy_charge, total_amount,
+             total_earnings, net_payout, first_run_id, updated_run_id)
+         VALUES ($1, $2, 0, 0, 0, 0, 0, 0, $3, $4, $4)`,
+        [weekStart, riderId, netPayout, run.run_id]
+    );
+}
+
 module.exports = {
     pool,
     resetDb,
@@ -200,5 +232,8 @@ module.exports = {
     createBike,
     createAssignment,
     createKmRecord,
-    todayInIst
+    todayInIst,
+    addDays,
+    currentWeekStart,
+    createPayoutItem
 };

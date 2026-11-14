@@ -1,6 +1,7 @@
 const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const bikeRepository = require("../repositories/bikeAssignmentRepository");
+const escalationService = require("./escalationService");
 
 // Returns a bike to the system, ensuring that the bikeId is valid and handling database transactions safely.
 async function returnBike(bikeId) {
@@ -29,6 +30,9 @@ async function returnBike(bikeId) {
 
         await client.query("COMMIT");
         transactionStarted = false;
+
+        // The bike is back at the hub, so any escalation lock on it is released for the next rider.
+        await escalationService.releaseLocksForReturnedBike(bikeId);
 
         return {
             message: "Bike returned Successfully",

@@ -2,6 +2,7 @@
 const { pool } = require('../db');
 const riderRepository = require('../repositories/riderRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
+const escalationService = require('./escalationService');
 
 // Fetch one rider by ID.
 async function getRiderById(riderId) {
@@ -126,6 +127,11 @@ async function terminateRider(riderId) {
             : null;
 
         await client.query('COMMIT');
+
+        // The returned bike goes to another rider, so any escalation lock on it is released.
+        if (returnedAssignment) {
+            await escalationService.releaseLocksForReturnedBike(returnedAssignment.bike_id);
+        }
 
         return {
             type: 'terminated',

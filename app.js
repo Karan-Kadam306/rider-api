@@ -15,6 +15,8 @@ const userRoutes = require('./routes/userRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const partnerMappingRoutes = require('./routes/partnerMappingRoutes');
 const partnerEarningRoutes = require('./routes/partnerEarningRoutes');
+const escalationRoutes = require('./routes/escalationRoutes');
+const { webhookRouter, mockPayRouter } = require('./routes/paymentRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
 const AppError = require('./errors/AppError');
@@ -27,14 +29,19 @@ app.set('trust proxy', Number(process.env.TRUST_PROXY) || false);
 
 // Security headers (no sniffing, no framing, strict CSP, ...); also removes X-Powered-By.
 app.use(helmet());
+
+// Server-to-server and signed, so it comes before the JSON parser, the cross-site check and sign-in.
+app.use('/api/webhooks', webhookRouter);
+
 app.use(express.json({ limit: '100kb' }));
 
 // The admin panel is served from the same origin, so no CORS headers are sent:
 // browsers block other sites from reading API responses.
 app.use('/api', rejectCrossSite);
 
-// Sign-in routes are public; every other /api route needs a session.
+// Sign-in and the mock rider payment page are public; every other /api route needs a session.
 app.use('/api/auth', authRoutes);
+app.use('/api/mock-pay', mockPayRouter);
 app.use('/api', requireAuth);
 
 app.use('/api/riders', riderRoutes);
@@ -51,6 +58,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/partner-mappings', partnerMappingRoutes);
 app.use('/api/partner-earnings', partnerEarningRoutes);
+app.use('/api/escalations', escalationRoutes);
 
 // Unknown API paths get a JSON 404 instead of Express's HTML page.
 app.use('/api', (req, res, next) => {

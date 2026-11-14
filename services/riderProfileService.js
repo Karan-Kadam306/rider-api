@@ -4,6 +4,7 @@ const partnerRepository = require('../repositories/partnerRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
 const payoutRepository = require('../repositories/payoutRepository');
 const billingService = require('./billingService');
+const escalationService = require('./escalationService');
 
 function toPagination(page, limit) {
     page = Number(page);
@@ -56,9 +57,10 @@ async function findCurrentWeekBill(riderId) {
 async function getRiderProfile(riderId) {
     const rider = await findRiderOrThrow(riderId);
 
-    const [[latestAssignment], currentWeekBill] = await Promise.all([
+    const [[latestAssignment], currentWeekBill, openEscalations] = await Promise.all([
         bikeAssignmentRepository.findRiderAssignmentHistory(pool, riderId, 1, 0),
-        findCurrentWeekBill(riderId)
+        findCurrentWeekBill(riderId),
+        escalationService.listEscalations({ riderId, openOnly: true })
     ]);
 
     // Last week's negative net carried into this week, as a positive amount owed.
@@ -80,7 +82,8 @@ async function getRiderProfile(riderId) {
             : null,
         partnerMappings: rider.mappings ?? [],
         currentWeekBill,
-        outstandingBalance
+        outstandingBalance,
+        openEscalations
     };
 }
 

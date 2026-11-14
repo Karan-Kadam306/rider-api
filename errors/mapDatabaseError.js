@@ -46,6 +46,14 @@ function mapDatabaseError(error) {
             };
         }
 
+        // Two escalations raised for the same rider at the same moment.
+        if (error.constraint === 'idx_rider_escalations_open_rider') {
+            return {
+                statusCode: 409,
+                message: 'Rider already has an open escalation'
+            };
+        }
+
         // A different unique constraint was violated.
         return {
             statusCode: 409,
