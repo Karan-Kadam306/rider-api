@@ -899,6 +899,7 @@ a:hover {
 .pill-button:hover {
     border-color: var(--primary);
     background: var(--primary-soft);
+    text-decoration: none;
 }
 
 .pill-button--danger {
@@ -1482,4 +1483,11 @@ a:hover {
     .mapping-editor__row {
         grid-template-columns: 1fr;
     }
+}
+
+/* ---------- Rider detail ---------- */
+.rider-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
 }

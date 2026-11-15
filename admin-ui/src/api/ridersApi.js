@@ -67,3 +67,19 @@ export function removeInactivePeriod(riderId, periodId) {
 export function terminateRider(riderId) {
     return request(`/api/riders/${encodeURIComponent(riderId)}`, { method: 'DELETE' });
 }
+
+// GET /api/riders/:riderId/profile — rider, current bike, partner IDs, this week's bill,
+// outstanding balance and open escalations, for the rider detail page.
+export function getRiderProfile(riderId, { signal } = {}) {
+    return request(`/api/riders/${encodeURIComponent(riderId)}/profile`, { signal });
+}
+
+// GET /api/riders/:riderId/payouts (paginated, newest week first)
+export function getRiderPayouts(riderId, params, { signal } = {}) {
+    return request(`/api/riders/${encodeURIComponent(riderId)}/payouts`, { params, signal });
+}
+
+// GET /api/riders/:riderId/assignments (paginated, newest first)
+export function getRiderAssignments(riderId, params, { signal } = {}) {
+    return request(`/api/riders/${encodeURIComponent(riderId)}/assignments`, { params, signal });
+}

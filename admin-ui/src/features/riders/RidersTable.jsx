@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 import Icon from '../../components/ui/Icon';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
@@ -8,7 +10,7 @@ function initials(name) {
     return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
 }
 
-// Riders for one status tab. Terminated riders are read-only.
+// Riders for one status tab. Details opens the rider page; terminated riders are otherwise read-only.
 export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminate, onInactiveDays }) {
     return (
         <div className="table-wrap">
@@ -37,36 +39,40 @@ export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminat
                             <td><StatusBadge status={rider.status} /></td>
                             <td className="muted">{formatDate(rider.created_at)}</td>
                             <td className="actions-col">
-                                {rider.status === 'Terminated' ? (
-                                    <span className="muted">No actions</span>
-                                ) : (
-                                    <div className="row-actions">
-                                        <button type="button" className="pill-button" onClick={() => onEdit(rider)}>
-                                            <Icon name="edit" size={15} />
-                                            Edit
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="pill-button"
-                                            onClick={() => onToggleStatus(rider)}
-                                        >
-                                            <Icon name={rider.status === 'Active' ? 'userPause' : 'userCheck'} size={15} />
-                                            {rider.status === 'Active' ? 'Deactivate' : 'Activate'}
-                                        </button>
-                                        <button type="button" className="pill-button" onClick={() => onInactiveDays(rider)}>
-                                            <Icon name="clock" size={15} />
-                                            Inactive days
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="pill-button pill-button--danger"
-                                            onClick={() => onTerminate(rider)}
-                                        >
-                                            <Icon name="userX" size={15} />
-                                            Terminate
-                                        </button>
-                                    </div>
-                                )}
+                                <div className="row-actions">
+                                    <Link to={`/riders/${encodeURIComponent(rider.rider_id)}`} className="pill-button">
+                                        <Icon name="eye" size={15} />
+                                        Details
+                                    </Link>
+                                    {rider.status !== 'Terminated' && (
+                                        <>
+                                            <button type="button" className="pill-button" onClick={() => onEdit(rider)}>
+                                                <Icon name="edit" size={15} />
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="pill-button"
+                                                onClick={() => onToggleStatus(rider)}
+                                            >
+                                                <Icon name={rider.status === 'Active' ? 'userPause' : 'userCheck'} size={15} />
+                                                {rider.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                            </button>
+                                            <button type="button" className="pill-button" onClick={() => onInactiveDays(rider)}>
+                                                <Icon name="clock" size={15} />
+                                                Inactive days
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="pill-button pill-button--danger"
+                                                onClick={() => onTerminate(rider)}
+                                            >
+                                                <Icon name="userX" size={15} />
+                                                Terminate
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </td>
                         </tr>
                     ))}

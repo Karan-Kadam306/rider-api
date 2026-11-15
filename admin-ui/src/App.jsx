@@ -9,6 +9,7 @@ import RequireAdmin from './components/layout/RequireAdmin';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RidersPage from './pages/RidersPage';
+import RiderDetailPage from './pages/RiderDetailPage';
 import BikesPage from './pages/BikesPage';
 import PartnerMappingsPage from './pages/PartnerMappingsPage';
 import PendingEarningsPage from './pages/PendingEarningsPage';
@@ -34,6 +35,7 @@ export default function App() {
                                 <Route element={<AppLayout />}>
                                     <Route index element={<DashboardPage />} />
                                     <Route path="riders" element={<RidersPage />} />
+                                    <Route path="riders/:riderId" element={<RiderDetailPage />} />
                                     <Route path="bikes" element={<BikesPage />} />
                                     <Route path="partner-mappings" element={<PartnerMappingsPage />} />
                                     <Route path="pending-earnings" element={<PendingEarningsPage />} />
