@@ -17,8 +17,9 @@ Daily KM uploads, weekly billing and weekly payouts.
 | Payout | Saves each rider's deductions (rental + energy) for an ended week. It can be re-triggered after corrections, and then only riders whose amounts changed are updated. |
 | Close week | Saves the week's bills as billed. Later corrections are still allowed and show as changes since close. |
 
-Rental and energy are **deductions** from the rider. Once rider earnings are imported,
-a rider's net payout will be: **Earnings − Deductions**.
+Rental and energy are **deductions** from the rider. A rider's net payout is
+**Earnings − Deductions + Previous balance + Balance cleared − Escalation charges**
+(see [Rider escalations](#rider-escalations)). A negative net is carried into the next week.
 
 ## Requirements
 
@@ -73,7 +74,7 @@ CORS setup is needed. In production the panel and the API must share one origin 
 
 ## Sign-in and roles
 
-Every `/api` route except `/api/auth/*` needs a signed-in user; `/health` stays public.
+Every `/api` route except `/api/auth/*`, the payment webhook and the mock pay page needs a signed-in user; `/health` stays public.
 Signing in sets an `httpOnly`, `SameSite=Strict` session cookie (`Secure` when `NODE_ENV=production`).
 Sessions are stored in the `sessions` table and last `SESSION_TTL_HOURS` (default 12).
 
@@ -105,6 +106,36 @@ Everyone can change their own password from the top bar (other browsers are sign
 - **Request bodies:** JSON bodies are limited to 100 kB (`413`); malformed JSON gets `400`;
   unknown `/api` routes get a JSON `404` (after the sign-in check).
 
+## Rider escalations
+
+From a rider's page (**Riders → Details**), an admin can **Escalate** with one or more reasons,
+an optional amount and a comment:
+
+| Kind | When | What happens |
+|---|---|---|
+| Charge | An amount, without Payment Due | The bike is locked and a payment link is sent. Unless paid or waived first, it is deducted from that week's payout and marked **Recovered**. |
+| Payment Due | Payment Due is ticked | Collects the outstanding balance (last week's negative net). It is never deducted again; paying or waiving it clears the carried balance. |
+| Record | No amount | Kept for history only, with no lock or link. An admin closes it with a note. |
+
+A rider has at most one open Charge or Payment Due. Payments arrive through the signed webhook
+(`POST /api/webhooks/payment`); if it did not arrive, an admin uses **Mark as paid** with a reference.
+The bike is unlocked once nothing holds it locked. A Recovered charge that leaves the net negative
+keeps the bike locked until the bike is returned to the hub.
+
+The IoT lock and the payment provider are mocked in `services/integrations/`. A payment link opens
+`/mock-pay/:token` in the admin panel, a public stand-in for the rider app with swipe to pay.
+To try it, set in `.env`:
+
+| Variable | Purpose |
+|---|---|
+| `ENABLE_MOCK_PAY=true` | Serves the mock pay API. Keep it off in production. |
+| `PAYMENT_WEBHOOK_SECRET` | Secret the webhook is signed with; payments are refused without it. |
+| `APP_URL` | Admin panel address used in payment links (default `http://localhost:5173`). |
+| `MOCK_IOT_FAIL=true` | Makes every lock and unlock fail, to try **Retry lock**. |
+
+`npm run demo:setup` builds `rider_demo` with an example: Meera Joshi (DM-008) owes ₹350 from
+last week, and Amit Patil (DM-001) has an open ₹750 charge with his bike locked.
+
 ## Commands
 
 | Command | What it does |
@@ -116,6 +147,7 @@ Everyone can change their own password from the top bar (other browsers are sign
 | `npm run db:migrate` | Apply new files in `db/migrations` (prefix `NODE_ENV=test` for `rider_test`) |
 | `npm run db:check` | Read-only data consistency check; reports problems, changes nothing |
 | `npm run user:create` | Create an admin panel user (prompts for the password) |
+| `npm run demo:setup` | Drop and recreate `rider_demo` with the demo data in `demo/seed.sql` |
 | `npm run lint` (in `admin-ui`) | Lint the admin panel |
 | `npm run build` (in `admin-ui`) | Production build of the admin panel |
 
@@ -146,6 +178,9 @@ admin-ui/      React admin panel
 | Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password` (change your own) |
 | Users (admin only) | `GET /api/users`, `POST /api/users`, `PATCH /api/users/:userId`, `POST /api/users/:userId/password` |
 | Riders | `GET/POST /api/riders`, `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` |
+| Rider page | `GET /api/riders/:riderId/profile`, `GET /api/riders/:riderId/payouts`, `GET /api/riders/:riderId/assignments` |
+| Escalations | `GET/POST /api/riders/:riderId/escalations` (POST admin), `POST /api/escalations/:escalationId/mark-paid`, `…/waive`, `…/close`, `…/retry-lock` (admin) |
+| Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |

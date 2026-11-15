@@ -59,3 +59,32 @@ FROM (VALUES
     ('DM-008', 'zomato',  'ZOM-3008')
 ) AS m (rider_id, partner_code, partner_rider_id)
 JOIN partners p ON p.code = m.partner_code;
+
+-- Escalations demo, dated from today so it always lands in the current week (IST, Monday start).
+-- Meera paid out −₹350 last week, so she starts this week owing ₹350: try Payment Due on her.
+WITH last_week AS (
+    SELECT (date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata'))::date - 7 AS week_start
+), run AS (
+    INSERT INTO payout_runs (week_start, run_number, rider_count, updated_count, total_amount, total_earnings, total_net_payout)
+    SELECT week_start, 1, 1, 1, 413, 63, -350 FROM last_week
+    RETURNING run_id, week_start
+)
+INSERT INTO payout_items
+    (week_start, rider_id, rental_days, total_rental, total_km, total_energy_charge, total_amount,
+     total_earnings, net_payout, first_run_id, updated_run_id)
+SELECT week_start, 'DM-008', 7, 413, 0, 0, 413, 63, -350, run_id, run_id FROM run;
+
+-- Amit has an open ₹750 charge with his bike locked: open its payment link from his Escalations tab.
+WITH escalation AS (
+    INSERT INTO rider_escalations
+        (rider_id, kind, reasons, comment, amount, week_start, lock_status, bike_id, lock_ref, payment_token)
+    SELECT 'DM-001', 'Charge', ARRAY['Bike Misuse'], 'Side mirror broken', 750,
+           (date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata'))::date,
+           'Locked', bike_id, 'MOCK-LOCK-DEMO', md5(random()::text) || md5(random()::text)
+    FROM bikes
+    WHERE chassis_number = 'DEMO-VIN-1'
+    RETURNING escalation_id
+)
+INSERT INTO escalation_events (escalation_id, event_type)
+SELECT escalation_id, event_type
+FROM escalation, unnest(ARRAY['Raised', 'LinkSent', 'BikeLocked']) AS event_type;
