@@ -7,6 +7,7 @@ import AppLayout from './components/layout/AppLayout';
 import RequireAuth from './components/layout/RequireAuth';
 import RequireAdmin from './components/layout/RequireAdmin';
 import LoginPage from './pages/LoginPage';
+import MockPayPage from './pages/MockPayPage';
 import DashboardPage from './pages/DashboardPage';
 import RidersPage from './pages/RidersPage';
 import RiderDetailPage from './pages/RiderDetailPage';
@@ -21,8 +22,8 @@ import UsersPage from './pages/UsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Providers sit above the router so every page can reach the user, selected week and toasts.
-// Route nesting adds the guards: only /login is public, RequireAuth covers the rest,
-// AppLayout adds the sidebar and top bar, and RequireAdmin limits /users to admins.
+// Route nesting adds the guards: only /login and the mock rider payment page are public,
+// RequireAuth covers the rest, AppLayout adds the sidebar and top bar, and RequireAdmin limits /users to admins.
 export default function App() {
     return (
         <AuthProvider>
@@ -31,6 +32,7 @@ export default function App() {
                     <BrowserRouter>
                         <Routes>
                             <Route path="login" element={<LoginPage />} />
+                            <Route path="mock-pay/:token" element={<MockPayPage />} />
                             <Route element={<RequireAuth />}>
                                 <Route element={<AppLayout />}>
                                     <Route index element={<DashboardPage />} />

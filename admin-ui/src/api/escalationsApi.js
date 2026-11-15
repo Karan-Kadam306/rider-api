@@ -38,3 +38,14 @@ export async function retryEscalationLock(escalationId) {
     const data = await request(`/api/escalations/${escalationId}/retry-lock`, { method: 'POST' });
     return data.escalation;
 }
+
+// GET /api/mock-pay/:token — public. What the mock rider app shows for a payment link.
+export async function getMockPayment(token, { signal } = {}) {
+    const data = await request(`/api/mock-pay/${encodeURIComponent(token)}`, { signal });
+    return data.payment;
+}
+
+// POST /api/mock-pay/:token/swipe — public. Plays the payment provider and sends the signed webhook.
+export function swipeToPay(token) {
+    return request(`/api/mock-pay/${encodeURIComponent(token)}/swipe`, { method: 'POST' });
+}

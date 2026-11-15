@@ -1527,3 +1527,35 @@ a:hover {
 .reason-grid .field__error {
     grid-column: 1 / -1;
 }
+
+/* ---------- Mock pay page ---------- */
+.mock-pay__amount {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 4px 0 20px;
+}
+
+.mock-pay__done {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--success-soft);
+    color: var(--success);
+    font-weight: 600;
+}
+
+.mock-pay__swipe {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 600;
+    text-align: center;
+}
+
+.mock-pay__swipe input {
+    width: 100%;
+    accent-color: var(--primary);
+}
