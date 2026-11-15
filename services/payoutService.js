@@ -2,7 +2,9 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const billingRepository = require('../repositories/billingRepository');
 const payoutRepository = require('../repositories/payoutRepository');
+const escalationRepository = require('../repositories/escalationRepository');
 const billingService = require('./billingService');
+const escalationService = require('./escalationService');
 const { diffPayout, paidNetPayout, toPaidAmounts } = require('../utils/diffPayout');
 
 function roundAmount(amount) {
@@ -123,7 +125,7 @@ async function getWeekPayout({ weekStart }) {
 async function triggerPayout({ weekStart }) {
     const summary = await billingService.calculateWeeklyBills({ weekStart });
 
-    return inTransaction(async client => {
+    const result = await inTransaction(async client => {
         // Read the current payout under the lock, so two runs cannot both apply the same change.
         await payoutRepository.lockWeek(client, { weekStart });
 
@@ -174,7 +176,23 @@ async function triggerPayout({ weekStart }) {
             });
         }
 
+        // The week's open Charges are now deducted, so they are Recovered and their links stop working.
+        // A later run still counts them (Recovered stays in the bill), so nothing is deducted twice.
+        const recovered = await escalationRepository.recoverWeekCharges(client, {
+            weekStart,
+            riderIds: [...paidByRider.keys()]
+        });
+
+        for (const escalation of recovered) {
+            await escalationRepository.insertEvent(client, {
+                escalationId: escalation.escalation_id,
+                eventType: 'Recovered',
+                detail: { weekStart, runId: run.run_id }
+            });
+        }
+
         return {
+            recovered,
             run: toRun(run),
             previousTotalAmount: runs.at(-1)?.total_amount ?? null,
             updated: changes.map(change => ({
@@ -185,6 +203,19 @@ async function triggerPayout({ weekStart }) {
             }))
         };
     });
+
+    // Outside the transaction: the IoT call must not hold the payout lock.
+    // A rider whose net is still negative keeps the bike locked until it is returned to the hub.
+    const { recovered, ...payout } = result;
+    const netByRider = new Map(summary.riders.map(rider => [rider.riderId, rider.netPayout]));
+
+    for (const escalation of recovered) {
+        if (escalation.lock_status === 'Locked' && netByRider.get(escalation.rider_id) >= 0) {
+            await escalationService.releaseRecoveredLock(escalation);
+        }
+    }
+
+    return payout;
 }
 
 // The latest payout runs across all weeks.

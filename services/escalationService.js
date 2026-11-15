@@ -31,10 +31,14 @@ function toEscalation(row) {
     };
 }
 
-// Last week's negative net carried into this week, as a positive amount owed.
+// Last week's negative net carried into this week, less what Payment Due cleared this week,
+// as a positive amount owed.
 async function getOutstandingBalance(riderId) {
-    const [carried] = await payoutRepository.findCarriedBalances(pool, { weekStart: currentWeekStart(), riderId });
-    return carried ? -carried.balance : 0;
+    const weekStart = currentWeekStart();
+    const [carried] = await payoutRepository.findCarriedBalances(pool, { weekStart, riderId });
+    const [escalationRow] = await escalationRepository.sumWeekAmounts(pool, { weekStart, riderId });
+
+    return Math.max(0, -(carried?.balance ?? 0) - (escalationRow?.balance_cleared ?? 0));
 }
 
 async function findEscalationOrThrow(escalationId) {
@@ -292,6 +296,11 @@ async function getPaymentLink(token) {
     };
 }
 
+// After a payout recovered a Charge and the rider's net is not negative.
+async function releaseRecoveredLock(escalation) {
+    await releaseLocks([escalation.escalation_id], escalation.bike_id, null, 'Recovered');
+}
+
 // A bike back at the hub can go to another rider, so every lock on it is released.
 async function releaseLocksForReturnedBike(bikeId) {
     const escalationIds = await escalationRepository.findLockedByBike(pool, { bikeId });
@@ -311,5 +320,6 @@ module.exports = {
     close,
     applyPayment,
     getPaymentLink,
+    releaseRecoveredLock,
     releaseLocksForReturnedBike
 };

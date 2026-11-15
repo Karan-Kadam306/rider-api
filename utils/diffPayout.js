@@ -1,6 +1,9 @@
 // The amounts a bill and a payout are compared on. netPayout is compared too (see amountsDiffer),
 // since a balance carried from last week changes it without changing these.
-const PAYOUT_FIELDS = ['rentalDays', 'totalRental', 'totalKm', 'totalEnergyCharge', 'totalAmount', 'earnings'];
+const PAYOUT_FIELDS = [
+    'rentalDays', 'totalRental', 'totalKm', 'totalEnergyCharge', 'totalAmount', 'earnings',
+    'escalationCharges', 'balanceCleared'
+];
 
 const NO_AMOUNTS = { ...Object.fromEntries(PAYOUT_FIELDS.map(field => [field, 0])), netPayout: 0 };
 
@@ -20,6 +23,8 @@ function toPaidAmounts(item) {
         totalEnergyCharge: item.total_energy_charge,
         totalAmount: item.total_amount,
         earnings: item.total_earnings,
+        escalationCharges: item.escalation_charges,
+        balanceCleared: item.balance_cleared,
         netPayout: item.net_payout
     };
 }

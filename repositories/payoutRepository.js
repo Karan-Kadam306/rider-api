@@ -45,6 +45,8 @@ async function findItems(client, { weekStart }) {
                 total_amount::float8 AS total_amount,
                 total_earnings::float8 AS total_earnings,
                 net_payout::float8 AS net_payout,
+                escalation_charges::float8 AS escalation_charges,
+                balance_cleared::float8 AS balance_cleared,
                 previous_total_amount::float8 AS previous_total_amount,
                 updated_at,
                 (SELECT run_number FROM payout_runs WHERE run_id = payout_items.updated_run_id) AS updated_run_number
@@ -95,8 +97,8 @@ async function upsertItem(client, { weekStart, riderId, amounts, runId }) {
         `INSERT INTO payout_items
             (week_start, rider_id, rental_days, total_rental, total_km,
              total_energy_charge, total_amount, total_earnings, net_payout,
-             first_run_id, updated_run_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+             escalation_charges, balance_cleared, first_run_id, updated_run_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
          ON CONFLICT (week_start, rider_id) DO UPDATE SET
             rental_days = EXCLUDED.rental_days,
             total_rental = EXCLUDED.total_rental,
@@ -105,6 +107,8 @@ async function upsertItem(client, { weekStart, riderId, amounts, runId }) {
             total_amount = EXCLUDED.total_amount,
             total_earnings = EXCLUDED.total_earnings,
             net_payout = EXCLUDED.net_payout,
+            escalation_charges = EXCLUDED.escalation_charges,
+            balance_cleared = EXCLUDED.balance_cleared,
             previous_total_amount = payout_items.total_amount,
             updated_run_id = EXCLUDED.updated_run_id,
             updated_at = now()`,
@@ -118,6 +122,8 @@ async function upsertItem(client, { weekStart, riderId, amounts, runId }) {
             amounts.totalAmount,
             amounts.earnings,
             amounts.netPayout,
+            amounts.escalationCharges,
+            amounts.balanceCleared,
             runId
         ]
     );
@@ -134,6 +140,8 @@ async function findRiderItems(client, { riderId, limit, offset }) {
                 total_amount::float8 AS total_amount,
                 total_earnings::float8 AS total_earnings,
                 net_payout::float8 AS net_payout,
+                escalation_charges::float8 AS escalation_charges,
+                balance_cleared::float8 AS balance_cleared,
                 updated_at
          FROM payout_items
          WHERE rider_id = $1

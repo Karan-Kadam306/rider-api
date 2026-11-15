@@ -4,6 +4,7 @@ const rentalRepository = require('../repositories/rentalRepository');
 const billingRepository = require('../repositories/billingRepository');
 const payoutRepository = require('../repositories/payoutRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
+const escalationRepository = require('../repositories/escalationRepository');
 const partnerFormats = require('./importTypes/partnerFormats');
 const { diffPayout, toPaidAmounts } = require('../utils/diffPayout');
 const { calculateRiderWeeklyRental } = require('./rentalService');
@@ -89,7 +90,7 @@ function compareWithSnapshot(current, snapshot) {
 }
 
 // Weekly bill for one rider: rental + energy deductions, partner earnings, any negative net carried
-// from last week's payout, and the net payout.
+// from last week's payout, escalation charges and cleared balance, and the net payout.
 async function getRiderBill({ riderId, weekStart }) {
     const rental = await calculateRiderWeeklyRental({
         riderId,
@@ -107,10 +108,13 @@ async function getRiderBill({ riderId, weekStart }) {
     });
 
     const [carried] = await payoutRepository.findCarriedBalances(pool, { weekStart, riderId });
+    const [escalationRow] = await escalationRepository.sumWeekAmounts(pool, { weekStart, riderId });
 
     const totalAmount = roundAmount(rental.totalRental + energy.totalEnergyCharge);
     const earnings = earningRow?.earnings ?? 0;
     const previousBalance = carried?.balance ?? 0;
+    const escalationCharges = escalationRow?.escalation_charges ?? 0;
+    const balanceCleared = escalationRow?.balance_cleared ?? 0;
 
     const bill = {
         riderId,
@@ -120,7 +124,9 @@ async function getRiderBill({ riderId, weekStart }) {
         totalAmount,
         earnings,
         previousBalance,
-        netPayout: roundAmount(earnings - totalAmount + previousBalance)
+        escalationCharges,
+        balanceCleared,
+        netPayout: roundAmount(earnings - totalAmount + previousBalance + balanceCleared - escalationCharges)
     };
 
     const closure = await billingRepository.findWeekClosure(pool, { weekStart });
@@ -155,7 +161,9 @@ async function getRiderBill({ riderId, weekStart }) {
 
 // Live weekly bills for every rider who held a bike, has matched earnings, or owes a balance that week.
 // totalAmount is what is deducted. previousBalance is last week's negative net payout, carried until
-// recovered. netPayout = earnings − totalAmount + previousBalance and may be negative.
+// recovered. escalationCharges are the week's escalation charges; balanceCleared is Payment Due paid or
+// waived this week. netPayout = earnings − totalAmount + previousBalance + balanceCleared − escalationCharges
+// and may be negative.
 async function calculateWeeklyBills({ weekStart }) {
     const assignedRiderIds =
         await rentalRepository.findRiderIdsWithAssignmentsInWeek(pool, {
@@ -182,9 +190,17 @@ async function calculateWeeklyBills({ weekStart }) {
     const carriedRows = await payoutRepository.findCarriedBalances(pool, { weekStart });
     const balanceByRider = new Map(carriedRows.map(row => [row.rider_id, row.balance]));
 
-    // Riders with earnings or a balance but no bike are billed too; they have nothing to deduct.
+    const escalationRows = await escalationRepository.sumWeekAmounts(pool, { weekStart });
+    const escalationByRider = new Map(escalationRows.map(row => [row.rider_id, row]));
+
+    // Riders with earnings, a balance or an escalation but no bike are billed too; they have no rental.
     // A balance with nothing else this week is carried on again by this week's payout.
-    const riderIds = [...new Set([...assignedRiderIds, ...earningsByRider.keys(), ...balanceByRider.keys()])].sort();
+    const riderIds = [...new Set([
+        ...assignedRiderIds,
+        ...earningsByRider.keys(),
+        ...balanceByRider.keys(),
+        ...escalationByRider.keys()
+    ])].sort();
 
     const riders = [];
     const totals = {
@@ -229,7 +245,9 @@ async function calculateWeeklyBills({ weekStart }) {
         const totalAmount = roundAmount(rental.totalRental + totalEnergyCharge);
         const earnings = earningsByRider.get(riderId) ?? 0;
         const previousBalance = balanceByRider.get(riderId) ?? 0;
-        const netPayout = roundAmount(earnings - totalAmount + previousBalance);
+        const escalationCharges = escalationByRider.get(riderId)?.escalation_charges ?? 0;
+        const balanceCleared = escalationByRider.get(riderId)?.balance_cleared ?? 0;
+        const netPayout = roundAmount(earnings - totalAmount + previousBalance + balanceCleared - escalationCharges);
 
         riders.push({
             riderId,
@@ -241,6 +259,8 @@ async function calculateWeeklyBills({ weekStart }) {
             totalAmount,
             earnings,
             previousBalance,
+            escalationCharges,
+            balanceCleared,
             netPayout,
             requiresReview: false
         });
@@ -303,6 +323,8 @@ async function getWeeklyBillingSummary({ weekStart }) {
             totalAmount: 0,
             earnings: 0,
             previousBalance: 0,
+            escalationCharges: 0,
+            balanceCleared: 0,
             netPayout: 0,
             requiresReview: false,
             billed,
@@ -368,6 +390,8 @@ async function addPayouts({ weekStart, closed, riders }) {
                 totalAmount: 0,
                 earnings: 0,
                 previousBalance: 0,
+                escalationCharges: 0,
+                balanceCleared: 0,
                 netPayout: 0,
                 requiresReview: false,
                 ...(closed ? { billed: null, changedSinceClose: false, difference: 0 } : {})
@@ -517,6 +541,8 @@ async function exportWeeklyBills({ weekStart, view, search }) {
         ['Total (INR)', rider => rider.totalAmount],
         ['Earnings (INR)', rider => rider.earnings],
         ['Previous Balance (INR)', rider => rider.previousBalance],
+        ['Balance Cleared (INR)', rider => rider.balanceCleared],
+        ['Escalation Charges (INR)', rider => rider.escalationCharges],
         ['Net Payout (INR)', rider => rider.netPayout],
         ['Needs Review', rider => (rider.requiresReview ? 'Yes' : 'No')],
         ['Review Reason', rider => rider.reason]

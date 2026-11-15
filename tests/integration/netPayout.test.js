@@ -292,3 +292,100 @@ describe('Negative net carried to the next week', () => {
         assert.deepEqual([change.difference, change.netDifference, change.current.netPayout], [0, 100, 174]);
     });
 });
+
+// An escalation as it would stand in WEEK; created directly so tests control week and status.
+async function createEscalation({ riderId, kind, amount, status = 'Open', resolvedAt = null, lockStatus = 'NoBike', bikeId = null }) {
+    const { rows: [row] } = await h.pool.query(
+        `INSERT INTO rider_escalations
+            (rider_id, kind, reasons, amount, week_start, status, resolved_at, lock_status, bike_id, payment_token)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::timestamp AT TIME ZONE 'Asia/Kolkata', $8, $9, md5(random()::text))
+         RETURNING escalation_id::int AS escalation_id`,
+        [riderId, kind, kind === 'Collection' ? ['Payment Due'] : ['Bike Misuse'], amount, WEEK, status, resolvedAt, lockStatus, bikeId]
+    );
+
+    return row.escalation_id;
+}
+
+async function getEscalation(escalationId) {
+    const { rows: [row] } = await h.pool.query(
+        'SELECT status, lock_status FROM rider_escalations WHERE escalation_id = $1',
+        [escalationId]
+    );
+
+    return row;
+}
+
+describe('Escalations in the net payout', () => {
+    it('deducts an open Charge, marks it Recovered at payout and never deducts it twice', async () => {
+        await seedWeek();
+        const escalationId = await createEscalation({ riderId: 'MEERA', kind: 'Charge', amount: 1000 });
+
+        const meera = (await bills()).riders.find(rider => rider.riderId === 'MEERA');
+        assert.equal(meera.escalationCharges, 1000);
+        assert.equal(meera.netPayout, 200);
+
+        assert.equal((await triggerPayout()).status, 201);
+        assert.equal((await getEscalation(escalationId)).status, 'Recovered');
+
+        // Still in the bill after the payout, so a re-run sees no change.
+        const { payout } = (await weekPayout()).body;
+        assert.equal(payout.changeCount, 0);
+        assert.equal((await bills()).riders.find(rider => rider.riderId === 'MEERA').payout.netPayout, 200);
+    });
+
+    it('does not deduct a Charge paid before the payout', async () => {
+        await seedWeek();
+        await createEscalation({ riderId: 'MEERA', kind: 'Charge', amount: 1000, status: 'Paid', resolvedAt: '2026-10-15 12:00' });
+
+        const meera = (await bills()).riders.find(rider => rider.riderId === 'MEERA');
+
+        assert.equal(meera.escalationCharges, 0);
+        assert.equal(meera.netPayout, 1200);
+    });
+
+    it('a Payment Due paid this week cancels the carried balance', async () => {
+        await seedWeek();
+        await h.createPayoutItem('MEERA', h.addDays(WEEK, -7), -500);
+        await createEscalation({ riderId: 'MEERA', kind: 'Collection', amount: 500, status: 'Paid', resolvedAt: '2026-10-15 12:00' });
+
+        const meera = (await bills()).riders.find(rider => rider.riderId === 'MEERA');
+
+        assert.equal(meera.previousBalance, -500);
+        assert.equal(meera.balanceCleared, 500);
+        assert.equal(meera.netPayout, 1200);
+    });
+
+    it('keeps the bike locked when the recovered Charge leaves the net negative', async () => {
+        await seedWeek();
+        const { rows: [bike] } = await h.pool.query(`SELECT bike_id FROM bikes WHERE chassis_number = 'VIN-1'`);
+        const priyaCharge = await createEscalation({
+            riderId: 'PRIYA', kind: 'Charge', amount: 100, lockStatus: 'Locked', bikeId: bike.bike_id
+        });
+
+        assert.equal((await triggerPayout()).status, 201);
+
+        // PRIYA: 300 − 413 − 100 = −213, so the bike stays locked until it is returned to the hub.
+        assert.deepEqual(await getEscalation(priyaCharge), { status: 'Recovered', lock_status: 'Locked' });
+
+        // Clearing the balance with Payment Due releases the lock the recovered Charge left.
+        const collection = await createEscalation({
+            riderId: 'PRIYA', kind: 'Collection', amount: 213, lockStatus: 'Locked', bikeId: bike.bike_id
+        });
+        await h.api('POST', `/api/escalations/${collection}/mark-paid`, { reference: 'UPI-9' });
+
+        assert.equal((await getEscalation(priyaCharge)).lock_status, 'Unlocked');
+        assert.equal((await getEscalation(collection)).lock_status, 'Unlocked');
+    });
+
+    it('unlocks the bike when the recovered Charge leaves the net positive', async () => {
+        await seedWeek();
+        const bikeId = await h.createBike('VIN-2');
+        const escalationId = await createEscalation({
+            riderId: 'MEERA', kind: 'Charge', amount: 100, lockStatus: 'Locked', bikeId
+        });
+
+        assert.equal((await triggerPayout()).status, 201);
+
+        assert.deepEqual(await getEscalation(escalationId), { status: 'Recovered', lock_status: 'Unlocked' });
+    });
+});

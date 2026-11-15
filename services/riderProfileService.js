@@ -63,10 +63,10 @@ async function getRiderProfile(riderId) {
         escalationService.listEscalations({ riderId, openOnly: true })
     ]);
 
-    // Last week's negative net carried into this week, as a positive amount owed.
+    // Last week's negative net carried into this week, less what Payment Due cleared, as a positive amount owed.
     const outstandingBalance = currentWeekBill.requiresReview
         ? null
-        : Math.max(0, -currentWeekBill.previousBalance);
+        : Math.max(0, -(currentWeekBill.previousBalance + currentWeekBill.balanceCleared));
 
     return {
         rider: {
@@ -107,6 +107,8 @@ async function getRiderPayouts(riderId, page = 1, limit = 10) {
             totalEnergyCharge: row.total_energy_charge,
             totalAmount: row.total_amount,
             earnings: row.total_earnings,
+            escalationCharges: row.escalation_charges,
+            balanceCleared: row.balance_cleared,
             netPayout: row.net_payout,
             updatedAt: row.updated_at
         }))

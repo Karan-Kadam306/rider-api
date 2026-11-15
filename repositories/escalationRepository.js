@@ -117,7 +117,48 @@ async function findLockedByBike(client, { bikeId }) {
     return result.rows.map(row => row.escalation_id);
 }
 
+// Escalation amounts per rider for a week, optionally for one rider:
+// escalation_charges: Charges raised that week, still Open or already Recovered by its payout.
+// balance_cleared: Payment Due paid or waived that week (IST); it cancels the carried balance.
+async function sumWeekAmounts(client, { weekStart, riderId = null }) {
+    const result = await client.query(
+        `SELECT rider_id,
+                COALESCE(SUM(amount) FILTER (WHERE kind = 'Charge'), 0)::float8 AS escalation_charges,
+                COALESCE(SUM(amount) FILTER (WHERE kind = 'Collection'), 0)::float8 AS balance_cleared
+         FROM rider_escalations
+         WHERE ((kind = 'Charge' AND week_start = $1 AND status IN ('Open', 'Recovered'))
+                OR (kind = 'Collection' AND status IN ('Paid', 'Waived')
+                    AND resolved_at >= $1::date AND resolved_at < $1::date + 7))
+           AND ($2::varchar IS NULL OR rider_id = $2)
+         GROUP BY rider_id
+         ORDER BY rider_id`,
+        [weekStart, riderId]
+    );
+
+    return result.rows;
+}
+
+// A payout run deducts the week's open Charges for the paid riders, so they become Recovered
+// and their payment links stop working.
+async function recoverWeekCharges(client, { weekStart, riderIds }) {
+    const result = await client.query(
+        `UPDATE rider_escalations
+         SET status = 'Recovered',
+             resolved_at = now()
+         WHERE kind = 'Charge'
+           AND status = 'Open'
+           AND week_start = $1
+           AND rider_id = ANY($2::varchar[])
+         RETURNING escalation_id::int AS escalation_id, rider_id, kind, lock_status, bike_id`,
+        [weekStart, riderIds]
+    );
+
+    return result.rows;
+}
+
 module.exports = {
+    sumWeekAmounts,
+    recoverWeekCharges,
     insertEscalation,
     insertEvent,
     findById,
