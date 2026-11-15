@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { getRiderProfile } from '../api/ridersApi';
+import { raiseEscalation } from '../api/escalationsApi';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 import { useWeek } from '../context/WeekContext';
+import { useToast } from '../context/ToastContext';
 import PageHeader from '../components/layout/PageHeader';
 import ErrorState from '../components/feedback/ErrorState';
 import LoadingSkeleton from '../components/feedback/LoadingSkeleton';
@@ -12,11 +16,14 @@ import StatusTabs from '../components/ui/StatusTabs';
 import RiderOverview from '../features/riders/RiderOverview';
 import RiderEarningsTab from '../features/riders/RiderEarningsTab';
 import RiderHistoryTab from '../features/riders/RiderHistoryTab';
+import RiderEscalationsTab from '../features/riders/RiderEscalationsTab';
+import EscalateDialog from '../features/riders/EscalateDialog';
 
 const TABS = [
     { value: 'overview', label: 'Overview', icon: 'users' },
     { value: 'earnings', label: 'Earnings', icon: 'wallet' },
-    { value: 'history', label: 'History', icon: 'clock' }
+    { value: 'history', label: 'History', icon: 'clock' },
+    { value: 'escalations', label: 'Escalations', icon: 'shield' }
 ];
 
 // One rider's page, opened from Details in the riders list. The tab lives in the URL
@@ -27,9 +34,31 @@ export default function RiderDetailPage() {
     const requestedTab = searchParams.get('tab');
     const tab = TABS.some(item => item.value === requestedTab) ? requestedTab : 'overview';
 
+    const { isAdmin } = useAuth();
     const { refreshKey } = useWeek();
-    const profile = useApi(options => getRiderProfile(riderId, options), [riderId, refreshKey]);
+    const showToast = useToast();
+    // Bumped after an escalation changes, so the balance, banner and list all reload.
+    const [reloadKey, setReloadKey] = useState(0);
+    const [escalating, setEscalating] = useState(false);
+
+    const profile = useApi(options => getRiderProfile(riderId, options), [riderId, refreshKey, reloadKey]);
     const rider = profile.data?.rider;
+    const openEscalations = profile.data?.openEscalations ?? [];
+
+    const reload = () => setReloadKey(key => key + 1);
+    const openTab = next => setSearchParams(next === 'overview' ? {} : { tab: next }, { replace: true });
+
+    // Errors are not caught here: they reject back to the dialog, which shows them.
+    async function handleEscalate(values) {
+        const escalation = await raiseEscalation(riderId, values);
+
+        showToast(escalation.lockStatus === 'Failed'
+            ? { type: 'error', message: 'Escalation raised, but the bike could not be locked. Retry from the Escalations tab.' }
+            : { message: 'Escalation raised' });
+        setEscalating(false);
+        reload();
+        openTab('escalations');
+    }
 
     return (
         <>
@@ -45,6 +74,12 @@ export default function RiderDetailPage() {
                     </span>
                 }
                 subtitle={rider && <span className="mono">{rider.riderId} · {rider.phone}</span>}
+                actions={isAdmin && rider && rider.status !== 'Terminated' && (
+                    <button type="button" className="button button--danger" onClick={() => setEscalating(true)}>
+                        <Icon name="shield" size={16} />
+                        Escalate
+                    </button>
+                )}
             />
 
             {profile.loading && <LoadingSkeleton variant="table" rows={6} />}
@@ -59,17 +94,34 @@ export default function RiderDetailPage() {
 
             {profile.data && (
                 <>
-                    <StatusTabs
-                        label="Rider sections"
-                        tabs={TABS}
-                        value={tab}
-                        onChange={next => setSearchParams(next === 'overview' ? {} : { tab: next }, { replace: true })}
-                    />
+                    {openEscalations.length > 0 && tab !== 'escalations' && (
+                        <p className="escalation-banner" role="status">
+                            {openEscalations.length === 1 ? '1 open escalation' : `${openEscalations.length} open escalations`}
+                            {' — '}
+                            <button type="button" className="button button--link" onClick={() => openTab('escalations')}>
+                                View escalations
+                            </button>
+                        </p>
+                    )}
+
+                    <StatusTabs label="Rider sections" tabs={TABS} value={tab} onChange={openTab} />
 
                     {tab === 'overview' && <RiderOverview profile={profile.data} />}
                     {tab === 'earnings' && <RiderEarningsTab riderId={riderId} />}
                     {tab === 'history' && <RiderHistoryTab riderId={riderId} />}
+                    {tab === 'escalations' && (
+                        <RiderEscalationsTab riderId={riderId} reloadKey={reloadKey} onChanged={reload} />
+                    )}
                 </>
+            )}
+
+            {escalating && profile.data && (
+                <EscalateDialog
+                    rider={rider}
+                    outstandingBalance={profile.data.outstandingBalance}
+                    onSubmit={handleEscalate}
+                    onClose={() => setEscalating(false)}
+                />
             )}
         </>
     );

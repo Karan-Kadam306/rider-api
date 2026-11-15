@@ -17,7 +17,9 @@ const STATUS_TONES = {
     'Changes pending': 'warning',
     Completed: 'success',
     Partial: 'warning',
-    Failed: 'danger'
+    Failed: 'danger',
+    Waived: 'neutral',
+    Recovered: 'info'
 };
 
 // Unknown statuses fall back to neutral, so a new backend status still renders.
