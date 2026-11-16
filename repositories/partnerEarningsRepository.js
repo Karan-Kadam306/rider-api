@@ -1,17 +1,31 @@
-// One partner ID's earning for one date, locked until the transaction ends.
-async function findEarning(client, { partnerId, partnerRiderId, earningDate }) {
+const { mappingCoversDate } = require('./partnerRepository');
+
+// The saved earnings for these partner ID + date entries, locked until the transaction ends.
+async function findEarningsForUpdate(client, { partnerId, entries }) {
     const result = await client.query(
-        `SELECT earning_id, amount, status, rider_id
-         FROM partner_earnings
-         WHERE partner_id = $1 AND partner_rider_id = $2 AND earning_date = $3
-         FOR UPDATE`,
-        [partnerId, partnerRiderId, earningDate]
+        `SELECT pe.earning_id,
+                pe.partner_rider_id,
+                TO_CHAR(pe.earning_date, 'YYYY-MM-DD') AS earning_date,
+                pe.amount,
+                pe.status,
+                pe.rider_id
+         FROM partner_earnings pe
+         JOIN UNNEST($2::text[], $3::date[]) AS e(partner_rider_id, earning_date)
+           ON pe.partner_rider_id = e.partner_rider_id AND pe.earning_date = e.earning_date
+         WHERE pe.partner_id = $1
+         FOR UPDATE OF pe`,
+        [partnerId, entries.map(entry => entry.partnerRiderId), entries.map(entry => entry.earningDate)]
     );
 
-    return result.rows[0] ?? null;
+    return result.rows;
 }
 
-async function insertEarning(client, { partnerId, partnerRiderId, earningDate, amount, status, riderId, nameInFile, importId }) {
+// Save new earnings of one partner file in one statement.
+async function insertEarnings(client, { partnerId, importId, rows }) {
+    if (rows.length === 0) {
+        return;
+    }
+
     await client.query(
         `INSERT INTO partner_earnings (
             partner_id,
@@ -23,27 +37,51 @@ async function insertEarning(client, { partnerId, partnerRiderId, earningDate, a
             name_in_file,
             import_id
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [partnerId, partnerRiderId, earningDate, amount, status, riderId, nameInFile, importId]
+         SELECT $1, e.partner_rider_id, e.earning_date, e.amount, e.status, e.rider_id, e.name_in_file, $2
+         FROM UNNEST($3::text[], $4::date[], $5::numeric[], $6::text[], $7::varchar[], $8::text[])
+             AS e(partner_rider_id, earning_date, amount, status, rider_id, name_in_file)`,
+        [
+            partnerId,
+            importId,
+            rows.map(row => row.partnerRiderId),
+            rows.map(row => row.earningDate),
+            rows.map(row => row.amount),
+            rows.map(row => row.status),
+            rows.map(row => row.riderId),
+            rows.map(row => row.nameInFile)
+        ]
     );
 }
 
-// A new amount from a later file. Clears any dismiss reason, since the row is reviewed again.
-// The reviewer stays only while the status does (status on the right is the old value).
-async function updateEarning(client, { earningId, amount, nameInFile, status, riderId, importId }) {
+// New amounts from a later file, in one statement. Clears any dismiss reason, since the row is reviewed again.
+// The reviewer stays only while the status does (pe.status is the old value).
+async function updateEarnings(client, { importId, rows }) {
+    if (rows.length === 0) {
+        return;
+    }
+
     await client.query(
-        `UPDATE partner_earnings
-         SET amount = $2,
-             name_in_file = $3,
-             status = $4,
-             rider_id = $5,
+        `UPDATE partner_earnings pe
+         SET amount = u.amount,
+             name_in_file = u.name_in_file,
+             status = u.status,
+             rider_id = u.rider_id,
              dismiss_reason = NULL,
-             reviewed_by = CASE WHEN status = $4 THEN reviewed_by END,
-             reviewed_at = CASE WHEN status = $4 THEN reviewed_at END,
-             import_id = $6,
+             reviewed_by = CASE WHEN pe.status = u.status THEN pe.reviewed_by END,
+             reviewed_at = CASE WHEN pe.status = u.status THEN pe.reviewed_at END,
+             import_id = $1,
              updated_at = now()
-         WHERE earning_id = $1`,
-        [earningId, amount, nameInFile, status, riderId, importId]
+         FROM UNNEST($2::bigint[], $3::numeric[], $4::text[], $5::text[], $6::varchar[])
+             AS u(earning_id, amount, name_in_file, status, rider_id)
+         WHERE pe.earning_id = u.earning_id`,
+        [
+            importId,
+            rows.map(row => row.earningId),
+            rows.map(row => row.amount),
+            rows.map(row => row.nameInFile),
+            rows.map(row => row.status),
+            rows.map(row => row.riderId)
+        ]
     );
 }
 
@@ -118,13 +156,26 @@ async function sumMatchedEarningsInWeek(client, { weekStart, riderId = null }) {
     return result.rows;
 }
 
-// Give every pending row of this ID to the rider; returns how many rows changed.
-async function matchPendingEarnings(client, { partnerId, partnerRiderId, riderId, reviewedBy }) {
+// Give pending rows of this ID to the rider; returns how many rows changed.
+// onlyCoveredDates: only rows dated inside one of the rider's mappings of the ID (a mapping save).
+// Without it every pending row moves, for a reviewer who chose the rider for these rows (a resolve).
+async function matchPendingEarnings(client, { partnerId, partnerRiderId, riderId, reviewedBy, onlyCoveredDates = false }) {
     const result = await client.query(
-        `UPDATE partner_earnings
+        `UPDATE partner_earnings pe
          SET status = 'Matched', rider_id = $3, reviewed_by = $4, reviewed_at = now(), updated_at = now()
-         WHERE partner_id = $1 AND partner_rider_id = $2 AND status = 'Pending'`,
-        [partnerId, partnerRiderId, riderId, reviewedBy]
+         WHERE pe.partner_id = $1 AND pe.partner_rider_id = $2 AND pe.status = 'Pending'
+           AND (
+               NOT $5::boolean
+               OR EXISTS (
+                   SELECT 1
+                   FROM rider_partner_mappings rm
+                   WHERE rm.partner_id = pe.partner_id
+                     AND rm.partner_rider_id = pe.partner_rider_id
+                     AND rm.rider_id = $3
+                     AND ${mappingCoversDate('rm', 'pe.earning_date')}
+               )
+           )`,
+        [partnerId, partnerRiderId, riderId, reviewedBy, onlyCoveredDates]
     );
 
     return result.rowCount;
@@ -203,12 +254,12 @@ async function moveMatchedEarnings(client, { partnerId, partnerRiderId, riderId,
 }
 
 module.exports = {
-    findEarning,
+    findEarningsForUpdate,
     findPartnersWithoutEarnings,
     findMatchedWithOtherRiders,
     moveMatchedEarnings,
-    insertEarning,
-    updateEarning,
+    insertEarnings,
+    updateEarnings,
     findPendingGroups,
     countPendingGroups,
     countPendingIdsInRange,

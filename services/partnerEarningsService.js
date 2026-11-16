@@ -50,56 +50,46 @@ async function lockExistingPartner(client, partnerId) {
     return partner;
 }
 
-// Save one partner file's rows inside the caller's transaction.
-// New rows are Matched when the partner ID is mapped to a rider, otherwise Pending for review.
+function entryKey(partnerRiderId, earningDate) {
+    return `${partnerRiderId}|${earningDate}`;
+}
+
+// Save one partner file's rows inside the caller's transaction, in a fixed number of queries.
+// New rows are Matched to the rider who held the partner ID on the row's date, otherwise Pending for review.
 // A re-uploaded row with the same amount is left alone; a new amount updates it.
 async function importEarnings(client, { partnerId, entries, importId }) {
-    const results = {
-        matched: 0,
-        pending: 0,
-        updated: 0,
-        unchanged: 0
-    };
-
     // One import per partner at a time, so two uploads of the same file cannot both insert a row.
     await partnerRepository.lockPartner(client, { partnerId });
 
-    const mappings = await partnerRepository.findActiveRidersByPartnerRiderIds(client, {
-        partnerId,
-        partnerRiderIds: [...new Set(entries.map(entry => entry.partnerRiderId))]
-    });
-    const riderIdByPartnerRiderId = new Map(mappings.map(row => [row.partner_rider_id, row.rider_id]));
+    const [existingRows, riderRows] = await Promise.all([
+        partnerEarningsRepository.findEarningsForUpdate(client, { partnerId, entries }),
+        partnerRepository.findRidersForEntries(client, { partnerId, entries })
+    ]);
+
+    const existingByKey = new Map(existingRows.map(row => [entryKey(row.partner_rider_id, row.earning_date), row]));
+    const riderIdByKey = new Map(riderRows.map(row => [entryKey(row.partner_rider_id, row.earning_date), row.rider_id]));
+
+    const toInsert = [];
+    const toUpdate = [];
+    let unchanged = 0;
 
     for (const entry of entries) {
-        const mappedRiderId = riderIdByPartnerRiderId.get(entry.partnerRiderId) ?? null;
-
-        const existing = await partnerEarningsRepository.findEarning(client, {
-            partnerId,
-            partnerRiderId: entry.partnerRiderId,
-            earningDate: entry.earningDate
-        });
+        const key = entryKey(entry.partnerRiderId, entry.earningDate);
+        const mappedRiderId = riderIdByKey.get(key) ?? null;
+        const existing = existingByKey.get(key);
 
         if (!existing) {
-            await partnerEarningsRepository.insertEarning(client, {
+            toInsert.push({
                 ...entry,
-                partnerId,
                 status: mappedRiderId ? 'Matched' : 'Pending',
-                riderId: mappedRiderId,
-                importId
+                riderId: mappedRiderId
             });
-
-            if (mappedRiderId) {
-                results.matched++;
-            } else {
-                results.pending++;
-            }
-
             continue;
         }
 
         // Compare as numbers: the database gives "850.00" while the sheet may say "850".
         if (Number(existing.amount) === Number(entry.amount)) {
-            results.unchanged++;
+            unchanged++;
             continue;
         }
 
@@ -107,19 +97,24 @@ async function importEarnings(client, { partnerId, entries, importId }) {
         // Pending and Dismissed rows are matched again, so a dismissed row with a new amount comes back for review.
         const riderId = existing.status === 'Matched' ? existing.rider_id : mappedRiderId;
 
-        await partnerEarningsRepository.updateEarning(client, {
+        toUpdate.push({
             earningId: existing.earning_id,
             amount: entry.amount,
             nameInFile: entry.nameInFile,
             status: riderId ? 'Matched' : 'Pending',
-            riderId,
-            importId
+            riderId
         });
-
-        results.updated++;
     }
 
-    return results;
+    await partnerEarningsRepository.insertEarnings(client, { partnerId, importId, rows: toInsert });
+    await partnerEarningsRepository.updateEarnings(client, { importId, rows: toUpdate });
+
+    return {
+        matched: toInsert.filter(row => row.status === 'Matched').length,
+        pending: toInsert.filter(row => row.status === 'Pending').length,
+        updated: toUpdate.length,
+        unchanged
+    };
 }
 
 // One page of the Pending Review queue: one group per partner + ID, with its days and total.

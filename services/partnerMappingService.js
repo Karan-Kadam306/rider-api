@@ -134,7 +134,7 @@ function cleanMappings(mappings, partnerById) {
 
 // Replace a rider's partner IDs with the given list. A partner left out is unmapped;
 // a changed ID ends the old mapping and starts a new one. Unchanged mappings are kept as they are.
-// Pending earnings of a newly added ID are matched to the rider in the same transaction.
+// Pending earnings of a newly added ID, dated inside the new mapping, are matched to the rider in the same transaction.
 // actingUserId is recorded as who made each change.
 async function saveRiderMappings({ actingUserId, riderId, mappings }) {
     const partners = await partnerRepository.findPartners(pool);
@@ -142,8 +142,9 @@ async function saveRiderMappings({ actingUserId, riderId, mappings }) {
 
     return inTransaction(async client => {
         // Partners before the rider, the same order an earnings import takes them in.
+        // Every partner, since the mappings this save ends are not known until the rider is locked.
         await partnerRepository.lockPartnersShared(client, {
-            partnerIds: wanted.map(mapping => mapping.partnerId)
+            partnerIds: partners.map(partner => partner.partner_id)
         });
 
         const rider = await partnerRepository.lockRider(client, { riderId });
@@ -188,10 +189,12 @@ async function saveRiderMappings({ actingUserId, riderId, mappings }) {
 
         for (const mapping of toAdd) {
             await partnerRepository.insertMapping(client, { riderId, ...mapping, createdBy: actingUserId });
+            // Pending rows dated before the ID came to this rider stay for review.
             matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, {
                 riderId,
                 ...mapping,
-                reviewedBy: actingUserId
+                reviewedBy: actingUserId,
+                onlyCoveredDates: true
             });
         }
 

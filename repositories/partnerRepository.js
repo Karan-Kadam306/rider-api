@@ -193,13 +193,41 @@ async function lockPartnersShared(client, { partnerIds }) {
     return result.rows;
 }
 
-// The rider each of these partner IDs is mapped to now; unmapped IDs are left out.
-async function findActiveRidersByPartnerRiderIds(client, { partnerId, partnerRiderIds }) {
+// SQL condition: mapping `m` covers the earning date `date`.
+// A mapping covers its created day up to (not including) the day it was deactivated.
+// The ID's first mapping also covers every earlier date, since a rider works before being mapped.
+// A mapping deactivated on the day it was made (a typo fixed) covers nothing, and does not count as first.
+function mappingCoversDate(m, date) {
+    return `(${m}.deactivated_at IS NULL OR ${date} < ${m}.deactivated_at::date)
+        AND (
+            ${date} >= ${m}.created_at::date
+            OR NOT EXISTS (
+                SELECT 1
+                FROM rider_partner_mappings earlier
+                WHERE earlier.partner_id = ${m}.partner_id
+                  AND earlier.partner_rider_id = ${m}.partner_rider_id
+                  AND earlier.created_at < ${m}.created_at
+                  AND (earlier.deactivated_at IS NULL OR earlier.deactivated_at::date > earlier.created_at::date)
+            )
+        )`;
+}
+
+// The rider who held each partner ID on each earning date: [{ partner_rider_id, earning_date, rider_id }].
+// Entries no mapping covers are left out.
+async function findRidersForEntries(client, { partnerId, entries }) {
     const result = await client.query(
-        `SELECT partner_rider_id, rider_id
-         FROM rider_partner_mappings
-         WHERE partner_id = $1 AND partner_rider_id = ANY($2::text[]) AND is_active`,
-        [partnerId, partnerRiderIds]
+        `SELECT e.partner_rider_id, TO_CHAR(e.earning_date, 'YYYY-MM-DD') AS earning_date, m.rider_id
+         FROM UNNEST($2::text[], $3::date[]) AS e(partner_rider_id, earning_date)
+         JOIN LATERAL (
+             SELECT rm.rider_id
+             FROM rider_partner_mappings rm
+             WHERE rm.partner_id = $1
+               AND rm.partner_rider_id = e.partner_rider_id
+               AND ${mappingCoversDate('rm', 'e.earning_date')}
+             ORDER BY rm.created_at DESC
+             LIMIT 1
+         ) m ON true`,
+        [partnerId, entries.map(entry => entry.partnerRiderId), entries.map(entry => entry.earningDate)]
     );
 
     return result.rows;
@@ -210,7 +238,8 @@ module.exports = {
     findPartnerById,
     lockPartner,
     lockPartnersShared,
-    findActiveRidersByPartnerRiderIds,
+    mappingCoversDate,
+    findRidersForEntries,
     findRidersWithMappings,
     countRidersByMapping,
     findRiderWithMappings,
