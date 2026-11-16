@@ -14,7 +14,7 @@ Daily KM uploads, weekly billing and weekly payouts.
 | Not charged | Days without a bike, days after the rider's termination date, days after today, and approved inactive days. |
 | Energy | ₹1.50 per KM, from **Validated** Daily KM records only. A bike shared by two riders that day needs review first. |
 | Billing week | Monday to Sunday. |
-| Payout | Saves each rider's deductions (rental + energy) for an ended week. It can be re-triggered after corrections, and then only riders whose amounts changed are updated. |
+| Payout | Saves each rider's earnings, deductions and net payout for an ended week. Weeks are paid in order once payouts have started. It can be re-triggered after corrections, and then only riders whose amounts changed are updated. |
 | Close week | Saves the week's bills as billed. Later corrections are still allowed and show as changes since close. |
 
 Rental and energy are **deductions** from the rider. A rider's net payout is
@@ -80,8 +80,8 @@ Sessions are stored in the `sessions` table and last `SESSION_TTL_HOURS` (defaul
 
 | Role | Can do |
 |---|---|
-| `admin` | Everything, including closing a billing week and triggering payouts |
-| `staff` | Everything else: riders, bikes, assignments, imports, Daily KM, viewing billing and payouts |
+| `admin` | Everything, including closing a billing week, triggering payouts, changing or removing partner IDs and moving earnings |
+| `staff` | Everything else: riders, bikes, assignments, imports, Daily KM, adding partner IDs and reviewing pending earnings, viewing billing and payouts |
 
 Admins manage users on the **Users** page: add, edit name/role, reset passwords, deactivate.
 An admin cannot change their own role or deactivate themselves, and the last active admin
@@ -105,6 +105,25 @@ Everyone can change their own password from the top bar (other browsers are sign
 - **No CORS:** no CORS headers are sent, so other sites cannot read API responses.
 - **Request bodies:** JSON bodies are limited to 100 kB (`413`); malformed JSON gets `400`;
   unknown `/api` routes get a JSON `404` (after the sign-in check).
+
+## Partner earnings
+
+Delivery partners send earnings sheets, uploaded in the **Document Hub** as *Partner Earnings*.
+The partner decides the file format; supported formats live in
+[`services/importTypes/partnerFormats/`](services/importTypes/partnerFormats/) (Blinkit and Zomato daily, Zepto weekly).
+
+| Rule | How it works |
+|---|---|
+| Mapping | Each rider has at most one ID per partner, and an ID belongs to one rider at a time (**Partner Mappings**). IDs are stored trimmed and uppercase. Staff can add IDs; only admins change or remove them. |
+| Matching by date | A row goes to the rider who held the ID **on the row's date**. A changed ID keeps its earlier earnings with the earlier rider; an ID's first mapping also covers dates before it. |
+| Re-uploads | One row per partner + ID + date. The same amount changes nothing, a new amount updates the row, and a row missing from a later file stays. Negative amounts (partner penalties) are allowed. |
+| Pending Review | Rows whose ID no rider held on that date wait in **Pending Earnings**. Resolve maps the ID and matches all its rows; Dismiss sets them aside with a reason, optionally ignoring the ID in future sheets. |
+| Rejected rows | A row that failed to import (bad amount, unreadable or future date, duplicate) is kept with its ID and date. Re-uploading the corrected row clears it; otherwise dismiss it with a note. |
+| Payout blocks | A week cannot be paid while it has pending earnings, rejected rows, or a partner sheet that does not cover it (daily sheets need all 7 days; a ₹0 row counts), or while the week before is unpaid and has something to pay. |
+| History | Every change to an earning's amount, status or rider is kept in `partner_earning_changes`, with the file or user that made it. |
+
+A payout calculates the week under a lock; imports and review actions for that week wait until it
+finishes, so a payout never pays around a change made at the same moment.
 
 ## Rider escalations
 
@@ -184,6 +203,8 @@ admin-ui/      React admin panel
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |
+| Partners and mappings | `GET /api/partners`, `GET /api/partner-mappings`, `PUT /api/partner-mappings/riders/:riderId` |
+| Partner earnings | `GET /api/partner-earnings/pending`, `POST …/pending/resolve`, `POST …/pending/dismiss`, `GET …/row-errors`, `POST …/row-errors/:errorId/dismiss`, `GET …/move-preview` and `POST …/move` (admin) |
 | Daily KM | `GET /api/daily-km`, `GET /api/daily-km/candidates`, `POST /api/daily-km/validate`, `PATCH /api/daily-km/:recordId/resolve` |
 | Billing | `GET /api/billing/bills`, `GET /api/billing/bills/export`, `GET /api/billing/riders/:riderId`, `POST /api/billing/weeks/:weekStart/close` (admin) |
 | Payouts | `GET /api/payouts/weeks/:weekStart`, `POST /api/payouts/weeks/:weekStart/run` (admin), `GET /api/payouts/recent` |

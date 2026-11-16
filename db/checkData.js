@@ -2,6 +2,7 @@
 // Usage: npm run db:check            (DATABASE_URL)
 //        NODE_ENV=test npm run db:check (TEST_DATABASE_URL)
 const { pool } = require('../db');
+const { mappingCoversDate } = require('../repositories/partnerRepository');
 
 // Each check returns the offending rows; an empty result means the check passed.
 const CHECKS = [
@@ -104,15 +105,68 @@ const CHECKS = [
                                   AND m.rider_id = pe.rider_id)`
     },
     {
-        // Saving or resolving a mapping matches its pending rows, so none should be left.
-        name: 'Pending earning for a partner ID that is mapped',
+        // An import matches every row a mapping covers, and saving a mapping matches its covered pending rows,
+        // so none should be left. Rows dated outside every mapping (before a reassigned ID moved) stay for review.
+        name: 'Pending earning dated inside a mapping of its partner ID',
         sql: `SELECT pe.earning_id, p.name AS partner, pe.partner_rider_id, m.rider_id AS mapped_to,
                      TO_CHAR(pe.earning_date, 'YYYY-MM-DD') AS earning_date
               FROM partner_earnings pe
               JOIN partners p ON p.partner_id = pe.partner_id
               JOIN rider_partner_mappings m
-                ON m.partner_id = pe.partner_id AND m.partner_rider_id = pe.partner_rider_id AND m.is_active
-              WHERE pe.status = 'Pending'`
+                ON m.partner_id = pe.partner_id AND m.partner_rider_id = pe.partner_rider_id
+              WHERE pe.status = 'Pending'
+                AND ${mappingCoversDate('m', 'pe.earning_date')}`
+    },
+    {
+        // An import matches a row to the rider who held the ID on its date. Rows a reviewer matched or moved
+        // (reviewed_by is set) are a person's decision and may fall outside, so they are left out.
+        name: 'Imported earning matched to a rider who did not hold the ID on its date',
+        sql: `SELECT pe.earning_id, p.name AS partner, pe.partner_rider_id, pe.rider_id,
+                     TO_CHAR(pe.earning_date, 'YYYY-MM-DD') AS earning_date
+              FROM partner_earnings pe
+              JOIN partners p ON p.partner_id = pe.partner_id
+              WHERE pe.status = 'Matched'
+                AND pe.reviewed_by IS NULL
+                AND NOT EXISTS (SELECT 1 FROM rider_partner_mappings m
+                                WHERE m.partner_id = pe.partner_id
+                                  AND m.partner_rider_id = pe.partner_rider_id
+                                  AND m.rider_id = pe.rider_id
+                                  AND ${mappingCoversDate('m', 'pe.earning_date')})`
+    },
+    {
+        // A failed earnings row blocks its week's payout, so a paid week should have none left open.
+        // One here arrived after the payout (or before the block existed): fix or dismiss it, then re-run.
+        name: 'Open earnings row error in a week that has been paid',
+        sql: `SELECT re.error_id, re.import_id, p.name AS partner, re.partner_rider_id,
+                     TO_CHAR(re.earning_date, 'YYYY-MM-DD') AS earning_date, re.error_message
+              FROM import_row_errors re
+              JOIN partners p ON p.partner_id = re.partner_id
+              WHERE re.resolved_at IS NULL
+                AND EXISTS (SELECT 1 FROM payout_runs r
+                            WHERE r.week_start = date_trunc('week', re.earning_date::timestamp)::date)`
+    },
+    {
+        // Weeks are paid in order once payouts have started, since a negative net is carried only from the
+        // week before. A paid week after an unpaid one that had riding, earnings or a carried balance means
+        // that balance was dropped. Pay the unpaid week, then re-run the later one.
+        name: 'Unpaid week with activity before a paid week',
+        sql: `WITH paid AS (SELECT DISTINCT week_start FROM payout_runs)
+              SELECT TO_CHAR(p.week_start - 7, 'YYYY-MM-DD') AS unpaid_week,
+                     TO_CHAR(p.week_start, 'YYYY-MM-DD') AS paid_week
+              FROM paid p
+              WHERE NOT EXISTS (SELECT 1 FROM paid x WHERE x.week_start = p.week_start - 7)
+                AND EXISTS (SELECT 1 FROM paid x WHERE x.week_start < p.week_start - 7)
+                AND (
+                    EXISTS (SELECT 1 FROM bike_assignments ba
+                            WHERE ba.assigned_at < p.week_start
+                              AND (ba.returned_at IS NULL OR ba.returned_at > p.week_start - 7))
+                    OR EXISTS (SELECT 1 FROM partner_earnings pe
+                               WHERE pe.status = 'Matched'
+                                 AND pe.earning_date BETWEEN p.week_start - 7 AND p.week_start - 1)
+                    OR EXISTS (SELECT 1 FROM payout_items i
+                               WHERE i.week_start = p.week_start - 14 AND i.net_payout < 0)
+                )
+              ORDER BY p.week_start`
     },
     {
         // Net is earnings − deductions − escalation charges + cleared balance, plus a carried
