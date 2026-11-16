@@ -36,12 +36,15 @@ export default function PayoutsPage() {
     const payout = week.data;
     // changeCount is what the next run would apply, which is the pendingCount the badge expects.
     const status = payout && getPayoutStatus({ paid: payout.paid, pendingCount: payout.changeCount });
-    // Where to fix partner earnings that block the payout: review unknown IDs, or import a missing sheet.
+    // Where to fix partner earnings that block the payout, in the order the blocker checks them:
+    // review unknown IDs, fix rows that failed to import, or import a missing sheet.
     const earningsFix = payout?.pendingEarningsCount
         ? { to: '/pending-earnings', label: 'Pending Review' }
-        : payout?.partnersWithoutEarnings.length
-            ? { to: '/documents', label: 'Document Hub' }
-            : null;
+        : payout?.rejectedEarningsCount
+            ? { to: '/pending-earnings?tab=rejected', label: 'Rejected rows' }
+            : payout?.partnersWithoutEarnings.length
+                ? { to: '/documents', label: 'Document Hub' }
+                : null;
 
     async function handleTrigger() {
         setRunning(true);

@@ -205,8 +205,12 @@ export default function BillingPage() {
                             value={<CurrencyText value={bills.totalNetPayout} />}
                             subText={bills.pendingEarningsCount
                                 ? `${bills.pendingEarningsCount} partner ID(s) with pending earnings`
-                                : `Earnings ${formatINR(bills.totalEarnings)}`}
-                            to={bills.pendingEarningsCount ? '/pending-earnings' : undefined}
+                                : bills.rejectedEarningsCount
+                                    ? `${bills.rejectedEarningsCount} earnings row(s) failed to import`
+                                    : `Earnings ${formatINR(bills.totalEarnings)}`}
+                            to={bills.pendingEarningsCount
+                                ? '/pending-earnings'
+                                : bills.rejectedEarningsCount ? '/pending-earnings?tab=rejected' : undefined}
                             linkLabel="Pending Review"
                         />
                         <StatCard

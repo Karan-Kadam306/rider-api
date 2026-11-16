@@ -42,6 +42,20 @@ export function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
     });
 }
 
+// GET /api/partner-earnings/row-errors?partnerId=&page=&limit=
+// Returns { pagination, rowErrors } — earnings rows that failed to import and still block a payout.
+export function getEarningsRowErrors(params, { signal } = {}) {
+    return request('/api/partner-earnings/row-errors', { params, signal });
+}
+
+// POST /api/partner-earnings/row-errors/:errorId/dismiss
+export function dismissEarningsRowError({ errorId, note }) {
+    return request(`/api/partner-earnings/row-errors/${errorId}/dismiss`, {
+        method: 'POST',
+        body: { note }
+    });
+}
+
 // GET /api/partner-earnings/move-preview — the ID's matched earnings in the dates held by other riders.
 // Returns { riders: [{ riderId, riderName, entries, totalAmount }] }.
 export function previewMoveEarnings(params, { signal } = {}) {

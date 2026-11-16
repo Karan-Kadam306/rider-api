@@ -27,6 +27,41 @@ function checkFile(file) {
     return null;
 }
 
+// One CSV line as trimmed cells; quoted cells may hold commas and "" for a quote.
+function parseCsvLine(line) {
+    const cells = [];
+    let cell = '';
+    let quoted = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (quoted && char === '"' && line[i + 1] === '"') {
+            cell += '"';
+            i++;
+        } else if (char === '"') {
+            quoted = !quoted;
+        } else if (char === ',' && !quoted) {
+            cells.push(cell.trim());
+            cell = '';
+        } else {
+            cell += char;
+        }
+    }
+
+    cells.push(cell.trim());
+    return cells;
+}
+
+// The file's header row, read from its first non-empty line only, so a large file is not loaded.
+// Rows are checked by the backend alone; this only catches the wrong file or partner before uploading.
+async function readHeaders(file) {
+    const text = await file.slice(0, 64 * 1024).text();
+    const firstLine = text.replace(/^\uFEFF/, '').split(/\r?\n/).find(line => line.trim() !== '');
+
+    return firstLine ? parseCsvLine(firstLine) : [];
+}
+
 // Pick a type, a work date or partner (when the type needs one) and a CSV, then upload.
 // onUploaded({ import, rowErrors }) runs after every upload the server logged,
 // including Failed ones; onViewDetails(importId) opens the details panel.
@@ -36,6 +71,9 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
     const [workDate, setWorkDate] = useState(todayInIst());
     const [partnerId, setPartnerId] = useState('');
     const [file, setFile] = useState(null);
+    // The chosen file's header row; null until read (or when it cannot be read, leaving the check to the backend).
+    const [headers, setHeaders] = useState(null);
+    const latestFileRef = useRef(null);
     const [dragging, setDragging] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(null);
@@ -45,6 +83,9 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
     // Each partner sends its own file layout, so the partner decides the columns.
     const partner = type?.partners?.find(item => String(item.partnerId) === partnerId);
     const requiredColumns = type?.requiresPartner ? partner?.requiredColumns : type?.requiredColumns;
+    const missingColumns = headers && requiredColumns
+        ? requiredColumns.filter(column => !headers.includes(column))
+        : [];
 
     function checkForm() {
         if (type?.requiresWorkDate && !workDate) {
@@ -60,8 +101,17 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
 
     function chooseFile(nextFile) {
         setFile(nextFile ?? null);
+        setHeaders(null);
         setError(null);
         setResult(null);
+        latestFileRef.current = nextFile ?? null;
+
+        if (nextFile) {
+            // Ignore a slow read of a file that has since been replaced.
+            readHeaders(nextFile)
+                .then(read => latestFileRef.current === nextFile && setHeaders(read))
+                .catch(() => {});
+        }
     }
 
     // dragover also calls preventDefault (below); without both, the browser opens the dropped file.
@@ -94,6 +144,8 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
 
             setResult(uploaded.import);
             setFile(null);
+            setHeaders(null);
+            latestFileRef.current = null;
             // Clear the input, or choosing the same file again would not fire onChange.
             fileInputRef.current.value = '';
             onUploaded(uploaded);
@@ -172,9 +224,16 @@ export default function UploadImportPanel({ types, onUploaded, onViewDetails }) 
                     )}
                 </label>
 
+                {file && missingColumns.length > 0 && (
+                    <p className="form-alert" role="alert">
+                        This file is missing {missingColumns.join(', ')}. Check that it is the right file
+                        {type?.requiresPartner ? ' and partner' : ''}.
+                    </p>
+                )}
+
                 {error && <p className="form-alert" role="alert">{error}</p>}
 
-                <button type="submit" className="button" disabled={busy || !type}>
+                <button type="submit" className="button" disabled={busy || !type || missingColumns.length > 0}>
                     <Icon name="upload" size={16} />
                     {busy ? 'Uploading…' : 'Upload'}
                 </button>
