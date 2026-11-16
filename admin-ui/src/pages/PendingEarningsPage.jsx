@@ -123,14 +123,16 @@ export default function PendingEarningsPage() {
         setReloadKey(key => key + 1);
     }
 
-    async function handleDismiss(reason) {
+    async function handleDismiss(reason, { alwaysIgnore }) {
         const result = await dismissPendingEarnings({
             partnerId: dismissing.partnerId,
             partnerRiderId: dismissing.partnerRiderId,
-            reason
+            reason,
+            alwaysIgnore
         });
 
-        showToast({ message: `${result.partnerRiderId}: ${entriesText(result.dismissedEarnings)} dismissed` });
+        const ignored = result.alwaysIgnore ? '; later rows will be ignored' : '';
+        showToast({ message: `${result.partnerRiderId}: ${entriesText(result.dismissedEarnings)} dismissed${ignored}` });
         setDismissing(null);
         setReloadKey(key => key + 1);
     }
@@ -254,8 +256,9 @@ export default function PendingEarningsPage() {
                             <span className="mono">{dismissing.partnerRiderId}</span> · {entriesText(dismissing.entries)} · <CurrencyText value={dismissing.totalAmount} />
                         </>
                     )}
-                    hint="Dismissed entries are not paid to anyone. If the partner later sends a different amount, they come back for review."
+                    hint="Dismissed entries are not paid to anyone. If the partner later sends a different amount, they come back for review, unless the ID is always ignored. Mapping the ID to a rider later still matches its new rows."
                     placeholder="e.g. Rider works for another fleet"
+                    alwaysIgnoreLabel={`Always ignore ${dismissing.partnerRiderId} in future ${dismissing.partnerName} sheets`}
                     onSubmit={handleDismiss}
                     onClose={() => setDismissing(null)}
                 />

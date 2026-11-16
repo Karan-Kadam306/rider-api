@@ -88,8 +88,9 @@ export default function PartnerMappingsPage() {
     }, [list.data, page, totalPages]);
 
     // Errors are not caught here: they reject back to the editor, which shows them.
+    // The mapping IDs the editor showed go along, so a save over someone else's newer change is refused.
     async function handleSave(rider, mappings) {
-        const result = await saveRiderMappings(rider.riderId, mappings);
+        const result = await saveRiderMappings(rider.riderId, mappings, rider.mappings.map(mapping => mapping.mappingId));
 
         const matched = result.matchedEarnings > 0
             ? `; ${result.matchedEarnings} pending ${result.matchedEarnings === 1 ? 'entry' : 'entries'} matched`

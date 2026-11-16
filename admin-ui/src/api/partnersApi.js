@@ -13,10 +13,11 @@ export function getPartnerMappings(params, { signal } = {}) {
 }
 
 // PUT /api/partner-mappings/riders/:riderId — mappings is the rider's full list of { partnerId, partnerRiderId }.
-export function saveRiderMappings(riderId, mappings) {
+// currentMappingIds are the mapping IDs the editor showed; the API refuses (409) if they changed since.
+export function saveRiderMappings(riderId, mappings, currentMappingIds) {
     return request(`/api/partner-mappings/riders/${encodeURIComponent(riderId)}`, {
         method: 'PUT',
-        body: { mappings }
+        body: { mappings, currentMappingIds }
     });
 }
 
@@ -34,11 +35,11 @@ export function resolvePendingEarnings({ partnerId, partnerRiderId, riderId }) {
     });
 }
 
-// POST /api/partner-earnings/pending/dismiss
-export function dismissPendingEarnings({ partnerId, partnerRiderId, reason }) {
+// POST /api/partner-earnings/pending/dismiss — alwaysIgnore also sets the ID's future rows aside.
+export function dismissPendingEarnings({ partnerId, partnerRiderId, reason, alwaysIgnore = false }) {
     return request('/api/partner-earnings/pending/dismiss', {
         method: 'POST',
-        body: { partnerId, partnerRiderId, reason }
+        body: { partnerId, partnerRiderId, reason, alwaysIgnore }
     });
 }
 

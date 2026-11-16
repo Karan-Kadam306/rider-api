@@ -6,10 +6,12 @@ const MAX_REASON_LENGTH = 500;
 
 // Set earnings aside with a reason: an unknown ID's pending entries, or a row that failed to import.
 // title, details (what is being dismissed) and hint describe it. Mounted only while open.
-// onSubmit(reason) must return a promise; its rejection message is shown here.
-export default function DismissEarningsDialog({ title, details, hint, placeholder, onSubmit, onClose }) {
+// alwaysIgnoreLabel, when given, adds a checkbox for setting the ID's future rows aside too.
+// onSubmit(reason, { alwaysIgnore }) must return a promise; its rejection message is shown here.
+export default function DismissEarningsDialog({ title, details, hint, placeholder, alwaysIgnoreLabel, onSubmit, onClose }) {
     const dialogRef = useRef(null);
     const [reason, setReason] = useState('');
+    const [alwaysIgnore, setAlwaysIgnore] = useState(false);
     const [reasonError, setReasonError] = useState(null);
     const [serverError, setServerError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -30,7 +32,7 @@ export default function DismissEarningsDialog({ title, details, hint, placeholde
         setServerError(null);
 
         try {
-            await onSubmit(reason.trim());
+            await onSubmit(reason.trim(), { alwaysIgnore });
         } catch (error) {
             // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
@@ -68,6 +70,17 @@ export default function DismissEarningsDialog({ title, details, hint, placeholde
                         autoFocus
                     />
                 </Field>
+
+                {alwaysIgnoreLabel && (
+                    <label className="checkbox">
+                        <input
+                            type="checkbox"
+                            checked={alwaysIgnore}
+                            onChange={event => setAlwaysIgnore(event.target.checked)}
+                        />
+                        {alwaysIgnoreLabel}
+                    </label>
+                )}
 
                 <p className="cell-sub">{hint}</p>
 

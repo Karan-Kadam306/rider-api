@@ -5,6 +5,7 @@ const SUMMARY_LABELS = {
     inserted: 'New',
     matched: 'Matched',
     pending: 'Pending review',
+    ignored: 'Ignored',
     corrected: 'Corrected',
     updated: 'Updated',
     unchanged: 'Unchanged',

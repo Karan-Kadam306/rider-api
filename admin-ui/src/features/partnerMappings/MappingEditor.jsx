@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useAuth } from '../../context/AuthContext';
 import Icon from '../../components/ui/Icon';
 
 // The backend stores IDs trimmed and uppercase; compare the same way to spot changes.
@@ -8,8 +9,10 @@ function normalize(value) {
 }
 
 // One row per partner: tick it and enter the ID that partner uses for this rider.
+// Staff can add IDs; only admins can change or remove one (the API enforces the same rule).
 // onSave(mappings) must reject with the API error, which is shown here.
 export default function MappingEditor({ rider, partners, onSave, onCancel }) {
+    const { isAdmin } = useAuth();
     const [entries, setEntries] = useState(() => Object.fromEntries(partners.map(partner => {
         const mapping = rider.mappings.find(item => item.partnerId === partner.partnerId);
         return [partner.partnerId, { checked: Boolean(mapping), value: mapping?.partnerRiderId ?? '' }];
@@ -66,6 +69,7 @@ export default function MappingEditor({ rider, partners, onSave, onCancel }) {
             {partners.map(partner => {
                 const entry = entries[partner.partnerId];
                 const invalid = showErrors && entry.checked && !entry.value.trim();
+                const locked = !isAdmin && rider.mappings.some(mapping => mapping.partnerId === partner.partnerId);
 
                 return (
                     <div
@@ -76,6 +80,7 @@ export default function MappingEditor({ rider, partners, onSave, onCancel }) {
                             <input
                                 type="checkbox"
                                 checked={entry.checked}
+                                disabled={locked}
                                 onChange={event => updateEntry(partner.partnerId, { checked: event.target.checked })}
                             />
                             {partner.name}
@@ -84,6 +89,8 @@ export default function MappingEditor({ rider, partners, onSave, onCancel }) {
                             <input
                                 type="text"
                                 value={entry.value}
+                                readOnly={locked}
+                                title={locked ? 'Only an admin can change or remove a partner ID' : undefined}
                                 maxLength={100}
                                 placeholder={`Enter ${partner.name} rider ID…`}
                                 aria-label={`${partner.name} rider ID`}
