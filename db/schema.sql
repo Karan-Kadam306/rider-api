@@ -682,7 +682,6 @@ CREATE TABLE public.partner_earnings (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT partner_earnings_entry_key UNIQUE (partner_id, partner_rider_id, earning_date),
     CONSTRAINT partner_earnings_id_format_check CHECK (((partner_rider_id)::text <> ''::text) AND ((partner_rider_id)::text = upper(btrim((partner_rider_id)::text)))),
-    CONSTRAINT partner_earnings_amount_check CHECK ((amount >= (0)::numeric)),
     CONSTRAINT partner_earnings_status_check CHECK ((status = ANY (ARRAY['Matched'::text, 'Pending'::text, 'Dismissed'::text]))),
     CONSTRAINT partner_earnings_rider_check CHECK (((status = 'Matched'::text) = (rider_id IS NOT NULL))),
     CONSTRAINT partner_earnings_dismiss_check CHECK (((status = 'Dismissed'::text) = (dismiss_reason IS NOT NULL)))
@@ -767,6 +766,21 @@ CREATE INDEX idx_escalation_events_escalation ON public.escalation_events USING 
 ALTER TABLE public.payout_items
     ADD COLUMN escalation_charges numeric(10,2),
     ADD COLUMN balance_cleared numeric(10,2);
+
+-- Earnings row errors (added by db/migrations/009_earnings_row_errors.sql; it also drops the amount >= 0 check)
+
+ALTER TABLE public.import_row_errors
+    ADD COLUMN partner_id integer REFERENCES public.partners(partner_id),
+    ADD COLUMN partner_rider_id character varying(100),
+    ADD COLUMN earning_date date,
+    ADD COLUMN resolved_at timestamp with time zone,
+    ADD COLUMN resolved_by bigint REFERENCES public.users(user_id),
+    ADD COLUMN resolve_note text,
+    ADD CONSTRAINT import_row_errors_resolved_check CHECK (((resolved_at IS NULL) = (resolve_note IS NULL)));
+
+CREATE INDEX idx_import_row_errors_open_earnings ON public.import_row_errors
+    USING btree (partner_id, partner_rider_id, earning_date)
+    WHERE ((partner_id IS NOT NULL) AND (resolved_at IS NULL));
 
 
 --

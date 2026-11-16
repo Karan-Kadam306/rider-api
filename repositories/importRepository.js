@@ -64,20 +64,25 @@ async function updateResultSummary(client, importId, resultSummary) {
 }
 
 // Save all failed rows of an import in one statement.
-async function createRowErrors(client, importId, rowErrors) {
+// partnerId is set for a partner earnings file; its errors then block the payout of their week.
+async function createRowErrors(client, { importId, partnerId, rowErrors }) {
     if (rowErrors.length === 0) {
         return;
     }
 
     await client.query(
-        `INSERT INTO import_row_errors (import_id, row_number, row_data, error_message)
-         SELECT $1, *
-         FROM UNNEST($2::int[], $3::jsonb[], $4::text[])`,
+        `INSERT INTO import_row_errors
+            (import_id, partner_id, row_number, row_data, error_message, partner_rider_id, earning_date)
+         SELECT $1, $2, *
+         FROM UNNEST($3::int[], $4::jsonb[], $5::text[], $6::varchar[], $7::date[])`,
         [
             importId,
+            partnerId,
             rowErrors.map(rowError => rowError.rowNumber),
             rowErrors.map(rowError => JSON.stringify(rowError.rowData)),
-            rowErrors.map(rowError => rowError.errorMessage)
+            rowErrors.map(rowError => rowError.errorMessage),
+            rowErrors.map(rowError => rowError.partnerRiderId ?? null),
+            rowErrors.map(rowError => rowError.earningDate ?? null)
         ]
     );
 }

@@ -48,6 +48,34 @@ async function dismissPendingEarnings(req, res, next) {
     }
 }
 
+// GET /api/partner-earnings/row-errors?partnerId=&page=&limit=
+async function listRowErrors(req, res, next) {
+    try {
+        const { partnerId, page, limit } = req.query;
+        const result = await partnerEarningsService.listRowErrors({ partnerId, page, limit });
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+// POST /api/partner-earnings/row-errors/:errorId/dismiss
+// Body: { note }
+async function dismissRowError(req, res, next) {
+    try {
+        const result = await partnerEarningsService.dismissRowError({
+            actingUserId: req.user.userId,
+            errorId: req.params.errorId,
+            note: req.body?.note
+        });
+
+        return res.status(200).json({ message: 'Row dismissed', ...result });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 // GET /api/partner-earnings/move-preview?partnerId=&partnerRiderId=&riderId=&fromDate=&toDate=
 async function previewMove(req, res, next) {
     try {
@@ -84,6 +112,8 @@ module.exports = {
     listPendingEarnings,
     resolvePendingEarnings,
     dismissPendingEarnings,
+    listRowErrors,
+    dismissRowError,
     previewMove,
     moveEarnings
 };

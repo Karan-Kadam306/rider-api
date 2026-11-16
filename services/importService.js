@@ -157,10 +157,13 @@ async function runImport({ importType, workDate, partnerId, file, uploadedBy }) 
     const errorsByIndex = handler.findRowErrors(rows, lineNumbers);
     const validRows = rows.filter((row, index) => !errorsByIndex.has(index));
 
-    const rowErrors = [...errorsByIndex].map(([index, errorMessage]) => ({
+    // An error is a message, or { message, partnerRiderId, earningDate } from a partner earnings file.
+    const rowErrors = [...errorsByIndex].map(([index, error]) => ({
         rowNumber: lineNumbers[index],
         rowData: rows[index],
-        errorMessage
+        errorMessage: typeof error === 'string' ? error : error.message,
+        partnerRiderId: error.partnerRiderId ?? null,
+        earningDate: error.earningDate ?? null
     }));
 
     let status = 'Partial';
@@ -197,7 +200,7 @@ async function saveImport(batch, rowErrors, validRows = [], handler = null) {
             await importRepository.updateResultSummary(client, importId, resultSummary);
         }
 
-        await importRepository.createRowErrors(client, importId, rowErrors);
+        await importRepository.createRowErrors(client, { importId, partnerId: batch.partnerId, rowErrors });
 
         await client.query('COMMIT');
     } catch (error) {

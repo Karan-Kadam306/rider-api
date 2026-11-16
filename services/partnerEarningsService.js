@@ -57,7 +57,8 @@ function entryKey(partnerRiderId, earningDate) {
 // Save one partner file's rows inside the caller's transaction, in a fixed number of queries.
 // New rows are Matched to the rider who held the partner ID on the row's date, otherwise Pending for review.
 // A re-uploaded row with the same amount is left alone; a new amount updates it.
-async function importEarnings(client, { partnerId, entries, importId }) {
+// Open row errors from earlier files for these partner ID + date rows are closed, since this file supplies them.
+async function importEarnings(client, { partnerId, entries, importId, uploadedBy = null }) {
     // One import per partner at a time, so two uploads of the same file cannot both insert a row.
     await partnerRepository.lockPartner(client, { partnerId });
 
@@ -108,6 +109,7 @@ async function importEarnings(client, { partnerId, entries, importId }) {
 
     await partnerEarningsRepository.insertEarnings(client, { partnerId, importId, rows: toInsert });
     await partnerEarningsRepository.updateEarnings(client, { importId, rows: toUpdate });
+    await partnerEarningsRepository.resolveRowErrors(client, { partnerId, entries, importId, resolvedBy: uploadedBy });
 
     return {
         matched: toInsert.filter(row => row.status === 'Matched').length,
@@ -257,6 +259,92 @@ async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId,
     });
 }
 
+function toRowError(row) {
+    return {
+        errorId: row.error_id,
+        importId: row.import_id,
+        fileName: row.file_name,
+        uploadedAt: row.uploaded_at,
+        partnerId: row.partner_id,
+        partnerName: row.partner_name,
+        rowNumber: row.row_number,
+        rowData: row.row_data,
+        errorMessage: row.error_message,
+        partnerRiderId: row.partner_rider_id,
+        earningDate: row.earning_date
+    };
+}
+
+// One page of earnings rows that failed to import and still block a payout.
+async function listRowErrors({ partnerId, page = 1, limit = 20 }) {
+    if (partnerId !== undefined && !isPositiveInteger(partnerId)) {
+        throw new AppError('partnerId must be a positive integer', 400);
+    }
+
+    if (!isPositiveInteger(page) || !isPositiveInteger(limit) || Number(limit) > 100) {
+        throw new AppError(
+            'Page must be a positive integer and limit must be between 1 and 100',
+            400
+        );
+    }
+
+    page = Number(page);
+    limit = Number(limit);
+
+    const offset = (page - 1) * limit;
+    const filters = { partnerId: partnerId === undefined ? null : Number(partnerId) };
+
+    const [totalRecords, rows] = await Promise.all([
+        partnerEarningsRepository.countOpenRowErrors(pool, filters),
+        partnerEarningsRepository.findOpenRowErrors(pool, { ...filters, limit, offset })
+    ]);
+
+    return {
+        pagination: {
+            page,
+            limit,
+            offset,
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit)
+        },
+        count: rows.length,
+        rowErrors: rows.map(toRowError)
+    };
+}
+
+// Set a failed row aside when no corrected file will come (a blank line, a row already paid another way, ...).
+async function dismissRowError({ actingUserId, errorId, note }) {
+    if (!isPositiveInteger(errorId)) {
+        throw new AppError('A valid errorId is required', 400);
+    }
+
+    const cleanNote = typeof note === 'string' ? note.trim() : '';
+
+    if (!cleanNote) {
+        throw new AppError('Add a note for dismissing this row', 400);
+    }
+
+    if (cleanNote.length > MAX_DISMISS_REASON_LENGTH) {
+        throw new AppError(`Note must be at most ${MAX_DISMISS_REASON_LENGTH} characters`, 400);
+    }
+
+    const dismissed = await partnerEarningsRepository.dismissRowError(pool, {
+        errorId: Number(errorId),
+        note: cleanNote,
+        resolvedBy: actingUserId
+    });
+
+    if (!dismissed) {
+        throw new AppError('No open earnings row error with this ID', 404);
+    }
+
+    return {
+        errorId: dismissed.error_id,
+        rowNumber: dismissed.row_number,
+        partnerRiderId: dismissed.partner_rider_id
+    };
+}
+
 function toRiderTotal(row) {
     return {
         riderId: row.rider_id,
@@ -335,6 +423,8 @@ module.exports = {
     listPendingEarnings,
     resolvePendingEarnings,
     dismissPendingEarnings,
+    listRowErrors,
+    dismissRowError,
     previewMove,
     moveEarnings
 };

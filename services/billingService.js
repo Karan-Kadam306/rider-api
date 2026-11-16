@@ -181,6 +181,9 @@ async function calculateWeeklyBills({ weekStart }) {
         toDate: addDays(weekStart, 6)
     });
 
+    // A sheet row that failed to import is money nobody has accounted for yet, so it blocks the payout.
+    const rejectedEarningsCount = await partnerEarningsRepository.countOpenRowErrorsForWeek(pool, { weekStart });
+
     // A partner sheet not imported yet would leave its riders unpaid, so it blocks the payout too.
     const partnersWithoutEarnings = await partnerEarningsRepository.findPartnersWithoutEarnings(pool, {
         weekStart,
@@ -278,6 +281,7 @@ async function calculateWeeklyBills({ weekStart }) {
         riderCount: riders.length,
         reviewCount: riders.filter(rider => rider.requiresReview).length,
         pendingEarningsCount,
+        rejectedEarningsCount,
         partnersWithoutEarnings,
         totalRental: roundAmount(totals.totalRental),
         totalKm: roundAmount(totals.totalKm),

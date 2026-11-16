@@ -117,7 +117,7 @@ describe('Importing a Blinkit file', () => {
             'BLK-1001,Amit Patil,27-10-2026,abc',
             'BLK-1001,Amit Patil,2026-10-28,100',
             ',No ID,28-10-2026,100',
-            'BLK-1001,Amit Patil,29-10-2026,-5',
+            'BLK-1001,Amit Patil,29-10-2026,5.555',
             'BLK-1001,Amit Patil,30-10-2026,',
             'BLK-1001,Amit Patil,31-02-2026,100'
         ]);
@@ -128,10 +128,10 @@ describe('Importing a Blinkit file', () => {
         assert.equal(res.body.import.failedRows, 6);
         assert.deepEqual(res.body.import.resultSummary, { matched: 1, pending: 2, updated: 0, unchanged: 0 });
         assert.deepEqual(res.body.rowErrors.map(row => [row.rowNumber, row.errorMessage]), [
-            [5, 'Total Earnings must be an amount of 0 or more'],
+            [5, 'Total Earnings must be an amount like 850.50'],
             [6, 'Order Date must be a date like 26-10-2026'],
             [7, 'Partner ID is required'],
-            [8, 'Total Earnings must be an amount of 0 or more'],
+            [8, 'Total Earnings must be an amount like 850.50'],
             [9, 'Total Earnings is required'],
             [10, 'Order Date must be a date like 26-10-2026']
         ]);
@@ -337,5 +337,129 @@ describe('Importing Zepto and Zomato files', () => {
         await upload('Zepto', [ZEPTO_HEADER, 'X-1,2026-10-26,2026-11-01,200']);
 
         assert.equal((await earnings()).length, 2);
+    });
+});
+
+describe('Amounts and dates', () => {
+    // "2026-11-17" -> "17-11-2026"
+    function blinkitDate(date) {
+        return date.split('-').reverse().join('-');
+    }
+
+    it('saves a negative amount, which is a partner penalty', async () => {
+        const res = await upload('Blinkit', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,-150.50']);
+
+        assert.equal(res.body.import.status, 'Completed');
+        assert.equal((await earnings())[0].amount, '-150.50');
+    });
+
+    it('rejects a date in the future, but not today', async () => {
+        const today = h.todayInIst();
+
+        const res = await upload('Blinkit', [
+            BLINKIT_HEADER,
+            `BLK-1,A,${blinkitDate(today)},100`,
+            `BLK-1,A,${blinkitDate(h.addDays(today, 1))},100`
+        ]);
+
+        assert.equal(res.body.import.successRows, 1);
+        assert.deepEqual(res.body.rowErrors.map(row => row.errorMessage), ['Order Date cannot be in the future']);
+    });
+
+    it('Zomato: reads Indian and Western thousands, any month case, and rejects stray commas', async () => {
+        const res = await upload('Zomato India Pvt Ltd', [
+            ZOMATO_HEADER,
+            'ZOM-1,A,26 OCT 2026,"1,25,000.00"',
+            'ZOM-1,A,27 oct 2026,"125,000"',
+            'ZOM-1,A,28 Oct 2026,"1,2,5"',
+            'ZOM-1,A,29 Oct 2026,"1,25"'
+        ]);
+
+        assert.deepEqual(res.body.rowErrors.map(row => [row.rowNumber, row.errorMessage]), [
+            [4, 'Payout (INR) must be an amount like 1,250.50'],
+            [5, 'Payout (INR) must be an amount like 1,250.50']
+        ]);
+        assert.deepEqual((await earnings()).map(row => [row.earning_date, row.amount]), [
+            ['2026-10-26', '125000.00'],
+            ['2026-10-27', '125000.00']
+        ]);
+    });
+
+    it('Blinkit and Zepto amounts have no commas', async () => {
+        const res = await upload('Blinkit', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,"1,250"']);
+
+        assert.equal(res.body.rowErrors[0].errorMessage, 'Total Earnings must be an amount like 850.50');
+    });
+});
+
+describe('Rows that failed to import', () => {
+    const WEEK = '2026-10-26';
+
+    async function blocker(weekStart = WEEK) {
+        return (await h.api('GET', `/api/payouts/weeks/${weekStart}`)).body.payout.blocker;
+    }
+
+    function openErrors() {
+        return h.api('GET', '/api/partner-earnings/row-errors');
+    }
+
+    // Mapped, so the saved rows are not Pending (which would block the payout first).
+    beforeEach(async () => {
+        await h.createRider('R-1');
+        await h.createRider('R-2');
+        await map('R-1', 'Blinkit', 'BLK-1');
+        await map('R-2', 'Blinkit', 'BLK-2');
+    });
+
+    it('block the payout of their week until a later file supplies the row', async () => {
+        await upload('Blinkit', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,100', 'blk-2,B,27-10-2026,abc']);
+
+        const { body } = await openErrors();
+        assert.equal(body.pagination.totalRecords, 1);
+        assert.deepEqual(
+            [body.rowErrors[0].partnerName, body.rowErrors[0].partnerRiderId, body.rowErrors[0].earningDate, body.rowErrors[0].rowNumber],
+            ['Blinkit', 'BLK-2', '2026-10-27', 3]
+        );
+        assert.equal(await blocker(), 'Cannot trigger the payout: 1 partner earnings row(s) failed to import for this week');
+        // Another week is not blocked by it.
+        assert.doesNotMatch(await blocker('2026-10-19') ?? '', /failed to import/);
+
+        await upload('Blinkit', [BLINKIT_HEADER, 'BLK-2,B,27-10-2026,120']);
+
+        assert.equal((await openErrors()).body.pagination.totalRecords, 0);
+        assert.doesNotMatch(await blocker() ?? '', /failed to import/);
+
+        const { rows: [closed] } = await h.pool.query('SELECT resolve_note FROM import_row_errors');
+        assert.equal(closed.resolve_note, 'Replaced by import #2');
+    });
+
+    it('a duplicate row in the file stays open, since its amount is unclear', async () => {
+        await upload('Blinkit', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,100', 'BLK-1,A,26-10-2026,150']);
+
+        assert.equal((await openErrors()).body.pagination.totalRecords, 1);
+    });
+
+    it('a row without a readable date blocks every week until dismissed', async () => {
+        await upload('Blinkit', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,100', 'BLK-1,A,26/10/2026,100']);
+
+        assert.match(await blocker(), /failed to import/);
+        assert.match(await blocker('2026-10-12'), /failed to import/);
+
+        const errorId = (await openErrors()).body.rowErrors[0].errorId;
+        const noNote = await h.api('POST', `/api/partner-earnings/row-errors/${errorId}/dismiss`, { note: ' ' });
+        assert.equal(noNote.status, 400);
+
+        const dismissed = await h.api('POST', `/api/partner-earnings/row-errors/${errorId}/dismiss`, { note: 'Same as line 2' });
+        assert.equal(dismissed.status, 200);
+        assert.doesNotMatch(await blocker() ?? '', /failed to import/);
+
+        const again = await h.api('POST', `/api/partner-earnings/row-errors/${errorId}/dismiss`, { note: 'Same as line 2' });
+        assert.equal(again.status, 404);
+    });
+
+    it('a file with the wrong columns logs no row errors, so it blocks nothing', async () => {
+        await upload('Zepto', [BLINKIT_HEADER, 'BLK-1,A,26-10-2026,100']);
+
+        assert.equal((await openErrors()).body.pagination.totalRecords, 0);
     });
 });

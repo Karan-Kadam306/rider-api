@@ -85,6 +85,94 @@ async function updateEarnings(client, { importId, rows }) {
     );
 }
 
+// A later file saved these partner ID + date rows, so their open row errors are fixed.
+async function resolveRowErrors(client, { partnerId, entries, importId, resolvedBy }) {
+    await client.query(
+        `UPDATE import_row_errors re
+         SET resolved_at = now(), resolved_by = $2, resolve_note = 'Replaced by import #' || $3
+         FROM UNNEST($4::text[], $5::date[]) AS e(partner_rider_id, earning_date)
+         WHERE re.partner_id = $1
+           AND re.resolved_at IS NULL
+           AND re.partner_rider_id = e.partner_rider_id
+           AND re.earning_date = e.earning_date`,
+        [
+            partnerId,
+            resolvedBy,
+            importId,
+            entries.map(entry => entry.partnerRiderId),
+            entries.map(entry => entry.earningDate)
+        ]
+    );
+}
+
+// Open earnings row errors that block the week's payout: those dated in the week,
+// and those with no readable date, which could belong to any week.
+async function countOpenRowErrorsForWeek(client, { weekStart }) {
+    const result = await client.query(
+        `SELECT COUNT(*)::int AS total
+         FROM import_row_errors
+         WHERE partner_id IS NOT NULL
+           AND resolved_at IS NULL
+           AND (earning_date IS NULL OR earning_date BETWEEN $1::date AND $1::date + 6)`,
+        [weekStart]
+    );
+
+    return result.rows[0].total;
+}
+
+// Open earnings row errors, oldest date first; undated ones come first since they block every week.
+async function findOpenRowErrors(client, { partnerId, limit, offset }) {
+    const result = await client.query(
+        `SELECT re.error_id::int AS error_id,
+                re.import_id::int AS import_id,
+                b.file_name,
+                b.created_at AS uploaded_at,
+                re.partner_id,
+                p.name AS partner_name,
+                re.row_number,
+                re.row_data,
+                re.error_message,
+                re.partner_rider_id,
+                TO_CHAR(re.earning_date, 'YYYY-MM-DD') AS earning_date
+         FROM import_row_errors re
+         JOIN import_batches b ON b.import_id = re.import_id
+         JOIN partners p ON p.partner_id = re.partner_id
+         WHERE re.resolved_at IS NULL
+           AND ($1::int IS NULL OR re.partner_id = $1)
+         ORDER BY re.earning_date NULLS FIRST, re.import_id, re.row_number
+         LIMIT $2 OFFSET $3`,
+        [partnerId, limit, offset]
+    );
+
+    return result.rows;
+}
+
+async function countOpenRowErrors(client, { partnerId }) {
+    const result = await client.query(
+        `SELECT COUNT(*)::int AS total
+         FROM import_row_errors
+         WHERE partner_id IS NOT NULL
+           AND resolved_at IS NULL
+           AND ($1::int IS NULL OR partner_id = $1)`,
+        [partnerId]
+    );
+
+    return result.rows[0].total;
+}
+
+// Set one open earnings row error aside with a note; returns the row, or null if there was none.
+async function dismissRowError(client, { errorId, note, resolvedBy }) {
+    const result = await client.query(
+        `UPDATE import_row_errors
+         SET resolved_at = now(), resolved_by = $3, resolve_note = $2
+         WHERE error_id = $1 AND partner_id IS NOT NULL AND resolved_at IS NULL
+         RETURNING error_id::int AS error_id, row_number, partner_rider_id`,
+        [errorId, note, resolvedBy]
+    );
+
+    return result.rows[0] ?? null;
+}
+
 // Pending rows grouped by partner + ID, the way they are resolved ($1 = partnerId, $2 = search pattern).
 // search matches the ID or a name printed in the sheet; a matching group keeps all its rows.
 const PENDING_GROUPS = `
@@ -260,6 +348,11 @@ module.exports = {
     moveMatchedEarnings,
     insertEarnings,
     updateEarnings,
+    resolveRowErrors,
+    countOpenRowErrorsForWeek,
+    findOpenRowErrors,
+    countOpenRowErrors,
+    dismissRowError,
     findPendingGroups,
     countPendingGroups,
     countPendingIdsInRange,

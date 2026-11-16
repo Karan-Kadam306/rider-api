@@ -13,6 +13,10 @@ router.post('/pending/resolve', partnerEarningController.resolvePendingEarnings)
 // Set all of the ID's pending earnings aside with a reason.
 router.post('/pending/dismiss', partnerEarningController.dismissPendingEarnings);
 
+// Earnings rows that failed to import; they block their week's payout until a corrected file or a dismiss.
+router.get('/row-errors', partnerEarningController.listRowErrors);
+router.post('/row-errors/:errorId/dismiss', partnerEarningController.dismissRowError);
+
 // Admins only: move an ID's matched earnings to the rider who holds the ID now, after a wrong match.
 router.get('/move-preview', requireRole('admin'), partnerEarningController.previewMove);
 router.post('/move', requireRole('admin'), partnerEarningController.moveEarnings);

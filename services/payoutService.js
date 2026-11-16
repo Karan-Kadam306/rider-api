@@ -30,7 +30,7 @@ function sumField(amounts, field) {
 }
 
 // Why a payout cannot run now, or null. Mirrored by the admin UI to explain a disabled button.
-function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, partnersWithoutEarnings, paid, changeCount }) {
+function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, rejectedEarningsCount, partnersWithoutEarnings, paid, changeCount }) {
     if (!billingService.hasWeekEnded(weekStart)) {
         return 'A payout can be triggered once the week has ended';
     }
@@ -41,6 +41,10 @@ function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, partne
 
     if (pendingEarningsCount > 0) {
         return `Cannot trigger the payout: ${pendingEarningsCount} partner ID(s) have pending earnings this week`;
+    }
+
+    if (rejectedEarningsCount > 0) {
+        return `Cannot trigger the payout: ${rejectedEarningsCount} partner earnings row(s) failed to import for this week`;
     }
 
     if (partnersWithoutEarnings.length > 0) {
@@ -103,6 +107,7 @@ async function getWeekPayout({ weekStart }) {
         liveNetPayout: summary.totalNetPayout,
         reviewCount: summary.reviewCount,
         pendingEarningsCount: summary.pendingEarningsCount,
+        rejectedEarningsCount: summary.rejectedEarningsCount,
         partnersWithoutEarnings: summary.partnersWithoutEarnings,
         changeCount: changes.length,
         changeDifference: sumField(changes, 'difference'),
@@ -111,6 +116,7 @@ async function getWeekPayout({ weekStart }) {
             weekStart,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
+            rejectedEarningsCount: summary.rejectedEarningsCount,
             partnersWithoutEarnings: summary.partnersWithoutEarnings,
             paid,
             changeCount: changes.length
@@ -141,6 +147,7 @@ async function triggerPayout({ weekStart }) {
             weekStart,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
+            rejectedEarningsCount: summary.rejectedEarningsCount,
             partnersWithoutEarnings: summary.partnersWithoutEarnings,
             paid: runs.length > 0,
             changeCount: changes.length

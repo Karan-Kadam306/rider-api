@@ -1,8 +1,9 @@
-// Blinkit daily sheet: one row per rider per day, dates like 26-10-2026.
+// Blinkit daily sheet: one row per rider per day, dates like 26-10-2026, plain amounts like 850.50.
 module.exports = {
     requiredColumns: ['Partner ID', 'Rider Name', 'Order Date', 'Total Earnings'],
     idColumn: 'Partner ID',
     nameColumn: 'Rider Name',
+    dateColumn: 'Order Date',
     amountColumn: 'Total Earnings',
     dateError: 'Order Date must be a date like 26-10-2026',
 

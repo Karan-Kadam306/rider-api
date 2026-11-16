@@ -6,6 +6,7 @@ module.exports = {
     requiredColumns: ['Zepto Rider ID', 'Week Start', 'Week End', 'Net Payable'],
     idColumn: 'Zepto Rider ID',
     nameColumn: null,
+    dateColumn: 'Week Start',
     amountColumn: 'Net Payable',
     dateError: 'Week Start must be a Monday and Week End the Sunday after it (YYYY-MM-DD)',
 
