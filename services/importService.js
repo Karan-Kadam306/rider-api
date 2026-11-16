@@ -3,6 +3,7 @@ const { parse } = require('csv-parse/sync');
 const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const importRepository = require('../repositories/importRepository');
+const payoutRepository = require('../repositories/payoutRepository');
 const importTypes = require('./importTypes');
 const validateUsageDate = require('../utils/validateUsageDate');
 
@@ -198,6 +199,13 @@ async function saveImport(batch, rowErrors, validRows = [], handler = null) {
         if (validRows.length > 0) {
             const resultSummary = await handler.importRows(client, validRows, { ...batch, importId });
             await importRepository.updateResultSummary(client, importId, resultSummary);
+        }
+
+        // A partner earnings row error blocks the payout of its week, so wait for any payout of those weeks.
+        if (batch.partnerId) {
+            await payoutRepository.lockWeeksShared(client, {
+                dates: rowErrors.map(rowError => rowError.earningDate).filter(Boolean)
+            });
         }
 
         await importRepository.createRowErrors(client, { importId, partnerId: batch.partnerId, rowErrors });

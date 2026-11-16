@@ -79,6 +79,34 @@ async function lockWeek(client, { weekStart }) {
     await client.query(`SELECT pg_advisory_xact_lock(hashtext('payout:' || $1::text))`, [weekStart]);
 }
 
+// Taken by anything that changes a week's earnings, for each week the dates fall in: it waits for a
+// running payout of that week, and a payout waits for it. Shared, so these writes do not wait on each other.
+// Weeks are locked in date order, and always after any partner or rider lock.
+async function lockWeeksShared(client, { dates }) {
+    const result = await client.query(
+        `SELECT DISTINCT TO_CHAR(date_trunc('week', d::timestamp), 'YYYY-MM-DD') AS week_start
+         FROM UNNEST($1::date[]) AS d
+         ORDER BY week_start`,
+        [dates]
+    );
+
+    for (const { week_start: weekStart } of result.rows) {
+        await client.query(`SELECT pg_advisory_xact_lock_shared(hashtext('payout:' || $1::text))`, [weekStart]);
+    }
+}
+
+// Whether any earlier week has been paid, and whether the week before this one has.
+async function findPreviousWeekStatus(client, { weekStart }) {
+    const result = await client.query(
+        `SELECT TO_CHAR($1::date - 7, 'YYYY-MM-DD') AS previous_week,
+                EXISTS (SELECT 1 FROM payout_runs WHERE week_start < $1::date) AS has_earlier_run,
+                EXISTS (SELECT 1 FROM payout_runs WHERE week_start = $1::date - 7) AS previous_paid`,
+        [weekStart]
+    );
+
+    return result.rows[0];
+}
+
 async function insertRun(client, { weekStart, runNumber, riderCount, updatedCount, totalAmount, totalEarnings, totalNetPayout }) {
     const result = await client.query(
         `INSERT INTO payout_runs
@@ -170,6 +198,8 @@ module.exports = {
     countRiderItems,
     findCarriedBalances,
     lockWeek,
+    lockWeeksShared,
+    findPreviousWeekStatus,
     insertRun,
     upsertItem
 };

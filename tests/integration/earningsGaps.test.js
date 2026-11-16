@@ -2,6 +2,7 @@ const h = require('../helpers');
 const { describe, it, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 const billingService = require('../../services/billingService');
+const payoutRepository = require('../../repositories/payoutRepository');
 
 // Gaps found in the partner earnings review. Each test states the behaviour we want,
 // so it fails today and passes once the gap is fixed.
@@ -201,6 +202,29 @@ describe('Gap 3: a negative balance is lost when a week is skipped', () => {
 
         assert.equal(res.status, 409);
         assert.match(res.body.error, new RegExp(NEXT_WEEK));
+
+        const { payout } = (await h.api('GET', `/api/payouts/weeks/${WEEK_AFTER}`)).body;
+        assert.equal(payout.unpaidPreviousWeek, NEXT_WEEK);
+        assert.equal(payout.blocker, `Cannot trigger the payout: pay the week of ${NEXT_WEEK} first`);
+
+        // Paid in order, both go through.
+        assert.equal((await triggerPayout(NEXT_WEEK)).status, 201);
+        assert.equal((await triggerPayout(WEEK_AFTER)).status, 201);
+    });
+
+    it('a previous week with nothing to pay does not block', async () => {
+        await seedPriya();
+        assert.equal((await triggerPayout(WEEK)).status, 201);
+
+        // PRIYA returns her bike before NEXT_WEEK and nets ₹0 that week; MEERA earns in WEEK_AFTER only.
+        await h.pool.query(`UPDATE bike_assignments SET returned_at = '2026-10-18 20:00'`);
+        await h.pool.query(`UPDATE payout_items SET net_payout = 0`);
+        await h.createRider('MEERA');
+        await map('MEERA', 'BLK-2');
+        await upload(['BLK-2,Meera,27-10-2026,500']);
+
+        assert.equal((await h.api('GET', `/api/payouts/weeks/${WEEK_AFTER}`)).body.payout.unpaidPreviousWeek, null);
+        assert.equal((await triggerPayout(WEEK_AFTER)).status, 201);
     });
 });
 
@@ -250,5 +274,70 @@ describe('Gap 4: the payout checks bills read before taking its lock', () => {
             assert.equal(res.status, 409);
             assert.match(res.body.error, /pending earnings/);
         }
+    });
+
+    // Holds WEEK's payout lock the way a running payout does, until release() is called.
+    async function holdPayoutLock() {
+        const client = await h.pool.connect();
+        await client.query('BEGIN');
+        await payoutRepository.lockWeek(client, { weekStart: WEEK });
+
+        return async () => {
+            await client.query('COMMIT');
+            client.release();
+        };
+    }
+
+    // Whether the promise is still unsettled after a short wait.
+    async function isWaiting(promise) {
+        const waiting = Symbol('waiting');
+        const result = await Promise.race([
+            promise.then(() => null, () => null),
+            new Promise(resolve => setTimeout(() => resolve(waiting), 300))
+        ]);
+
+        return result === waiting;
+    }
+
+    it('an import for a week waits while that week is being paid; other weeks do not', async () => {
+        await seedPriya();
+        const release = await holdPayoutLock();
+
+        // One partner's imports run one at a time, so the other week's file goes first.
+        const otherWeek = upload(['BLK-1,Priya,20-10-2026,200']);
+        let sameWeek;
+
+        try {
+            assert.equal(await isWaiting(otherWeek), false);
+
+            sameWeek = upload(['BLK-1,Priya,14-10-2026,200']);
+            assert.equal(await isWaiting(sameWeek), true);
+        } finally {
+            await release();
+        }
+
+        await sameWeek;
+        assert.equal((await earning('BLK-1', '2026-10-14')).amount, 200);
+    });
+
+    it('resolving pending earnings of a week waits while that week is being paid', async () => {
+        await seedPriya();
+        await h.createRider('RAVI');
+        await upload(['BLK-404,Ravi,14-10-2026,50']);
+        const release = await holdPayoutLock();
+
+        const resolving = h.api('POST', '/api/partner-earnings/pending/resolve', {
+            partnerId: await getBlinkitId(),
+            partnerRiderId: 'BLK-404',
+            riderId: 'RAVI'
+        });
+
+        try {
+            assert.equal(await isWaiting(resolving), true);
+        } finally {
+            await release();
+        }
+
+        assert.equal((await resolving).status, 200);
     });
 });

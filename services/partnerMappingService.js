@@ -2,6 +2,7 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
+const payoutRepository = require('../repositories/payoutRepository');
 
 const VIEWS = ['unmapped', 'mapped'];
 const RIDER_STATUSES = ['Active', 'Inactive', 'Terminated'];
@@ -184,6 +185,15 @@ async function saveRiderMappings({ actingUserId, riderId, mappings }) {
                 deactivatedBy: actingUserId
             });
         }
+
+        // Matching pending rows changes their weeks' payouts; wait for any payout of those weeks.
+        const pendingDates = [];
+
+        for (const mapping of toAdd) {
+            pendingDates.push(...await partnerEarningsRepository.findEarningDates(client, { ...mapping, status: 'Pending' }));
+        }
+
+        await payoutRepository.lockWeeksShared(client, { dates: pendingDates });
 
         let matchedEarnings = 0;
 

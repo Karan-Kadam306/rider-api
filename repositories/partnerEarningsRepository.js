@@ -85,6 +85,22 @@ async function updateEarnings(client, { importId, rows }) {
     );
 }
 
+// The dates of one partner ID's rows in a status, optionally dated fromDate..toDate and not held by notRiderId:
+// the rows a review action is about to change, so their weeks can be locked first.
+async function findEarningDates(client, { partnerId, partnerRiderId, status, fromDate = null, toDate = null, notRiderId = null }) {
+    const result = await client.query(
+        `SELECT DISTINCT TO_CHAR(earning_date, 'YYYY-MM-DD') AS earning_date
+         FROM partner_earnings
+         WHERE partner_id = $1 AND partner_rider_id = $2 AND status = $3
+           AND ($4::date IS NULL OR earning_date >= $4)
+           AND ($5::date IS NULL OR earning_date <= $5)
+           AND ($6::varchar IS NULL OR rider_id <> $6)`,
+        [partnerId, partnerRiderId, status, fromDate, toDate, notRiderId]
+    );
+
+    return result.rows.map(row => row.earning_date);
+}
+
 // A later file saved these partner ID + date rows, so their open row errors are fixed.
 async function resolveRowErrors(client, { partnerId, entries, importId, resolvedBy }) {
     await client.query(
@@ -343,6 +359,7 @@ async function moveMatchedEarnings(client, { partnerId, partnerRiderId, riderId,
 
 module.exports = {
     findEarningsForUpdate,
+    findEarningDates,
     findPartnersWithoutEarnings,
     findMatchedWithOtherRiders,
     moveMatchedEarnings,

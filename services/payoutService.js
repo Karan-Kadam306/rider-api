@@ -30,9 +30,22 @@ function sumField(amounts, field) {
 }
 
 // Why a payout cannot run now, or null. Mirrored by the admin UI to explain a disabled button.
-function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, rejectedEarningsCount, partnersWithoutEarnings, paid, changeCount }) {
+function getPayoutBlocker({
+    weekStart,
+    unpaidPreviousWeek,
+    reviewCount,
+    pendingEarningsCount,
+    rejectedEarningsCount,
+    partnersWithoutEarnings,
+    paid,
+    changeCount
+}) {
     if (!billingService.hasWeekEnded(weekStart)) {
         return 'A payout can be triggered once the week has ended';
+    }
+
+    if (unpaidPreviousWeek) {
+        return `Cannot trigger the payout: pay the week of ${unpaidPreviousWeek} first`;
     }
 
     if (reviewCount > 0) {
@@ -62,6 +75,22 @@ function getPayoutBlocker({ weekStart, reviewCount, pendingEarningsCount, reject
     return null;
 }
 
+// The week before weekStart if it must be paid first, otherwise null.
+// A negative net is carried only from the week before, so paying out of order would drop it.
+// The first payout ever has no earlier week to wait for, and a week with nothing to pay never blocks.
+async function findUnpaidPreviousWeek(client, { weekStart }) {
+    const status = await payoutRepository.findPreviousWeekStatus(client, { weekStart });
+
+    if (!status.has_earlier_run || status.previous_paid) {
+        return null;
+    }
+
+    const previous = await billingService.calculateWeeklyBills({ weekStart: status.previous_week });
+    const hasBills = previous.reviewCount > 0 || diffPayout(previous.riders, new Map()).length > 0;
+
+    return hasBills ? status.previous_week : null;
+}
+
 // The changes a payout run would write for the week, against the current payout.
 async function findPayoutChanges({ weekStart }) {
     const [summary, items] = await Promise.all([
@@ -79,9 +108,10 @@ async function findPayoutChanges({ weekStart }) {
 
 // A week's payout: status, what the next run would change, and every run so far.
 async function getWeekPayout({ weekStart }) {
-    const [{ summary, items, changes }, runRows] = await Promise.all([
+    const [{ summary, items, changes }, runRows, unpaidPreviousWeek] = await Promise.all([
         findPayoutChanges({ weekStart }),
-        payoutRepository.findRuns(pool, { weekStart })
+        payoutRepository.findRuns(pool, { weekStart }),
+        findUnpaidPreviousWeek(pool, { weekStart })
     ]);
 
     const runs = runRows.map(toRun);
@@ -112,8 +142,10 @@ async function getWeekPayout({ weekStart }) {
         changeCount: changes.length,
         changeDifference: sumField(changes, 'difference'),
         changeNetDifference: sumField(changes, 'netDifference'),
+        unpaidPreviousWeek,
         blocker: getPayoutBlocker({
             weekStart,
+            unpaidPreviousWeek,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
             rejectedEarningsCount: summary.rejectedEarningsCount,
@@ -129,15 +161,20 @@ async function getWeekPayout({ weekStart }) {
 // Trigger the week's payout. The first run pays every rider; a later run only
 // updates riders whose amounts changed. Riders that match keep their payout.
 async function triggerPayout({ weekStart }) {
-    const summary = await billingService.calculateWeeklyBills({ weekStart });
+    let summary;
 
     const result = await inTransaction(async client => {
-        // Read the current payout under the lock, so two runs cannot both apply the same change.
+        // Calculate under the lock: earnings writes for this week wait until the payout commits,
+        // so the bills and blockers cannot change between reading and paying them.
+        // Two runs cannot both apply the same change either.
         await payoutRepository.lockWeek(client, { weekStart });
 
-        const [runs, items] = await Promise.all([
+        summary = await billingService.calculateWeeklyBills({ weekStart });
+
+        const [runs, items, unpaidPreviousWeek] = await Promise.all([
             payoutRepository.findRuns(client, { weekStart }),
-            payoutRepository.findItems(client, { weekStart })
+            payoutRepository.findItems(client, { weekStart }),
+            findUnpaidPreviousWeek(client, { weekStart })
         ]);
 
         const paidByRider = new Map(items.map(item => [item.rider_id, toPaidAmounts(item)]));
@@ -145,6 +182,7 @@ async function triggerPayout({ weekStart }) {
 
         const blocker = getPayoutBlocker({
             weekStart,
+            unpaidPreviousWeek,
             reviewCount: summary.reviewCount,
             pendingEarningsCount: summary.pendingEarningsCount,
             rejectedEarningsCount: summary.rejectedEarningsCount,

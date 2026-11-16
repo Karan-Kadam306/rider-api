@@ -2,6 +2,7 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const partnerEarningsRepository = require('../repositories/partnerEarningsRepository');
+const payoutRepository = require('../repositories/payoutRepository');
 const { normalizePartnerRiderId } = require('./partnerMappingService');
 const validateUsageDate = require('../utils/validateUsageDate');
 
@@ -50,6 +51,13 @@ async function lockExistingPartner(client, partnerId) {
     return partner;
 }
 
+// Lock the weeks of the rows a review action is about to change (see payoutRepository.lockWeeksShared).
+// Called after the partner lock, which keeps imports from adding rows to that set meanwhile.
+async function lockWeeksOfEarnings(client, query) {
+    const dates = await partnerEarningsRepository.findEarningDates(client, query);
+    await payoutRepository.lockWeeksShared(client, { dates });
+}
+
 function entryKey(partnerRiderId, earningDate) {
     return `${partnerRiderId}|${earningDate}`;
 }
@@ -61,6 +69,7 @@ function entryKey(partnerRiderId, earningDate) {
 async function importEarnings(client, { partnerId, entries, importId, uploadedBy = null }) {
     // One import per partner at a time, so two uploads of the same file cannot both insert a row.
     await partnerRepository.lockPartner(client, { partnerId });
+    await payoutRepository.lockWeeksShared(client, { dates: entries.map(entry => entry.earningDate) });
 
     const [existingRows, riderRows] = await Promise.all([
         partnerEarningsRepository.findEarningsForUpdate(client, { partnerId, entries }),
@@ -201,6 +210,8 @@ async function resolvePendingEarnings({ actingUserId, partnerId, partnerRiderId,
             );
         }
 
+        await lockWeeksOfEarnings(client, { ...key, status: 'Pending' });
+
         const matchedEarnings = await partnerEarningsRepository.matchPendingEarnings(client, {
             ...key,
             riderId: rider.rider_id,
@@ -240,6 +251,7 @@ async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId,
 
     return inTransaction(async client => {
         const partner = await lockExistingPartner(client, key.partnerId);
+        await lockWeeksOfEarnings(client, { ...key, status: 'Pending' });
 
         const dismissedEarnings = await partnerEarningsRepository.dismissPendingEarnings(client, {
             ...key,
@@ -395,6 +407,15 @@ async function moveEarnings({ actingUserId, ...request }) {
         if (!holdsId) {
             throw new AppError(`Map ${partner.name} ID ${move.partnerRiderId} to ${rider.name} first`, 409);
         }
+
+        await lockWeeksOfEarnings(client, {
+            partnerId: move.partnerId,
+            partnerRiderId: move.partnerRiderId,
+            status: 'Matched',
+            fromDate: move.fromDate,
+            toDate: move.toDate,
+            notRiderId: move.riderId
+        });
 
         const fromRiders = await partnerEarningsRepository.findMatchedWithOtherRiders(client, move);
 
