@@ -3,6 +3,7 @@ const validateUsageDate = require('../../../utils/validateUsageDate');
 // Zepto weekly sheet: one row per rider per Monday-Sunday week, no rider name.
 // The week's total is stored on its Monday.
 module.exports = {
+    period: 'weekly',
     requiredColumns: ['Zepto Rider ID', 'Week Start', 'Week End', 'Net Payable'],
     idColumn: 'Zepto Rider ID',
     nameColumn: null,

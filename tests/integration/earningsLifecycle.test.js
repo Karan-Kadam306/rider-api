@@ -63,7 +63,7 @@ describe('Partner earnings through a payout', () => {
             'BLK-2002,Rider Two,14-10-2026,300'
         ]);
 
-        assert.deepEqual(first.resultSummary, { matched: 1, pending: 1, updated: 0, unchanged: 0 });
+        assert.deepEqual(first.resultSummary, { matched: 1, pending: 1, ignored: 0, updated: 0, unchanged: 0 });
 
         // ---- Pending earnings block the payout ----
         assert.equal((await weekPayout()).pendingEarningsCount, 1);
@@ -106,7 +106,7 @@ describe('Partner earnings through a payout', () => {
             'BLK-2002,Rider Two,15-10-2026,200'
         ]);
 
-        assert.deepEqual(corrected.resultSummary, { matched: 1, pending: 0, updated: 1, unchanged: 1 });
+        assert.deepEqual(corrected.resultSummary, { matched: 1, pending: 0, ignored: 0, updated: 1, unchanged: 1 });
 
         // R-1 now owes more than they earned.
         assert.equal((await billOf('R-1')).netPayout, -13);

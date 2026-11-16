@@ -61,7 +61,7 @@ function getPayoutBlocker({
     }
 
     if (partnersWithoutEarnings.length > 0) {
-        return `Cannot trigger the payout: no earnings imported this week from ${partnersWithoutEarnings.join(', ')}`;
+        return `Cannot trigger the payout: partner sheets missing this week from ${partnersWithoutEarnings.join(', ')}`;
     }
 
     if (paid && changeCount === 0) {

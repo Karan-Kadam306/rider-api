@@ -1,5 +1,6 @@
 // Blinkit daily sheet: one row per rider per day, dates like 26-10-2026, plain amounts like 850.50.
 module.exports = {
+    period: 'daily',
     requiredColumns: ['Partner ID', 'Rider Name', 'Order Date', 'Total Earnings'],
     idColumn: 'Partner ID',
     nameColumn: 'Rider Name',

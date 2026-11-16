@@ -3,6 +3,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 // Zomato daily sheet: dates like "26 Oct 2026", amounts with thousands commas
 // in Western ("1,250.50", "125,000") or Indian ("1,25,000") grouping.
 module.exports = {
+    period: 'daily',
     requiredColumns: ['Delivery Partner ID', 'Partner Name', 'Date', 'Payout (INR)'],
     idColumn: 'Delivery Partner ID',
     nameColumn: 'Partner Name',

@@ -185,10 +185,15 @@ async function calculateWeeklyBills({ weekStart }) {
     const rejectedEarningsCount = await partnerEarningsRepository.countOpenRowErrorsForWeek(pool, { weekStart });
 
     // A partner sheet not imported yet would leave its riders unpaid, so it blocks the payout too.
-    const partnersWithoutEarnings = await partnerEarningsRepository.findPartnersWithoutEarnings(pool, {
+    // A daily sheet missing some days is named with how many it has, e.g. "Blinkit (3 of 7 days)".
+    const partnerCoverage = await partnerEarningsRepository.findPartnersWithoutEarnings(pool, {
         weekStart,
-        partnerCodes: Object.keys(partnerFormats)
+        partnerCodes: Object.keys(partnerFormats),
+        dailyCodes: Object.keys(partnerFormats).filter(code => partnerFormats[code].period === 'daily')
     });
+    const partnersWithoutEarnings = partnerCoverage.map(row => (row.days_imported > 0
+        ? `${row.name} (${row.days_imported} of ${row.days_needed} days)`
+        : row.name));
 
     const carriedRows = await payoutRepository.findCarriedBalances(pool, { weekStart });
     const balanceByRider = new Map(carriedRows.map(row => [row.rider_id, row.balance]));

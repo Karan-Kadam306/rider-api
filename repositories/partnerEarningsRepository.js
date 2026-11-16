@@ -35,11 +35,12 @@ async function insertEarnings(client, { partnerId, importId, rows }) {
             status,
             rider_id,
             name_in_file,
-            import_id
+            import_id,
+            dismiss_reason
          )
-         SELECT $1, e.partner_rider_id, e.earning_date, e.amount, e.status, e.rider_id, e.name_in_file, $2
-         FROM UNNEST($3::text[], $4::date[], $5::numeric[], $6::text[], $7::varchar[], $8::text[])
-             AS e(partner_rider_id, earning_date, amount, status, rider_id, name_in_file)`,
+         SELECT $1, e.partner_rider_id, e.earning_date, e.amount, e.status, e.rider_id, e.name_in_file, $2, e.dismiss_reason
+         FROM UNNEST($3::text[], $4::date[], $5::numeric[], $6::text[], $7::varchar[], $8::text[], $9::text[])
+             AS e(partner_rider_id, earning_date, amount, status, rider_id, name_in_file, dismiss_reason)`,
         [
             partnerId,
             importId,
@@ -48,13 +49,14 @@ async function insertEarnings(client, { partnerId, importId, rows }) {
             rows.map(row => row.amount),
             rows.map(row => row.status),
             rows.map(row => row.riderId),
-            rows.map(row => row.nameInFile)
+            rows.map(row => row.nameInFile),
+            rows.map(row => row.dismissReason ?? null)
         ]
     );
 }
 
-// New amounts from a later file, in one statement. Clears any dismiss reason, since the row is reviewed again.
-// The reviewer stays only while the status does (pe.status is the old value).
+// New amounts from a later file, in one statement. The dismiss reason is replaced too: empty unless the row
+// stays Dismissed because its ID is ignored. The reviewer stays only while the status does (pe.status is the old value).
 async function updateEarnings(client, { importId, rows }) {
     if (rows.length === 0) {
         return;
@@ -66,13 +68,13 @@ async function updateEarnings(client, { importId, rows }) {
              name_in_file = u.name_in_file,
              status = u.status,
              rider_id = u.rider_id,
-             dismiss_reason = NULL,
+             dismiss_reason = u.dismiss_reason,
              reviewed_by = CASE WHEN pe.status = u.status THEN pe.reviewed_by END,
              reviewed_at = CASE WHEN pe.status = u.status THEN pe.reviewed_at END,
              import_id = $1,
              updated_at = now()
-         FROM UNNEST($2::bigint[], $3::numeric[], $4::text[], $5::text[], $6::varchar[])
-             AS u(earning_id, amount, name_in_file, status, rider_id)
+         FROM UNNEST($2::bigint[], $3::numeric[], $4::text[], $5::text[], $6::varchar[], $7::text[])
+             AS u(earning_id, amount, name_in_file, status, rider_id, dismiss_reason)
          WHERE pe.earning_id = u.earning_id`,
         [
             importId,
@@ -80,8 +82,32 @@ async function updateEarnings(client, { importId, rows }) {
             rows.map(row => row.amount),
             rows.map(row => row.nameInFile),
             rows.map(row => row.status),
-            rows.map(row => row.riderId)
+            rows.map(row => row.riderId),
+            rows.map(row => row.dismissReason ?? null)
         ]
+    );
+}
+
+// The ignore reason for each of these partner IDs that is always ignored: [{ partner_rider_id, reason }].
+async function findIgnoredIds(client, { partnerId, partnerRiderIds }) {
+    const result = await client.query(
+        `SELECT partner_rider_id, reason
+         FROM partner_ignored_ids
+         WHERE partner_id = $1 AND partner_rider_id = ANY($2::text[])`,
+        [partnerId, partnerRiderIds]
+    );
+
+    return result.rows;
+}
+
+// Always ignore this partner ID from now on; a second ignore keeps the newest reason.
+async function saveIgnoredId(client, { partnerId, partnerRiderId, reason, createdBy }) {
+    await client.query(
+        `INSERT INTO partner_ignored_ids (partner_id, partner_rider_id, reason, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (partner_id, partner_rider_id)
+         DO UPDATE SET reason = EXCLUDED.reason, created_by = EXCLUDED.created_by, created_at = now()`,
+        [partnerId, partnerRiderId, reason, createdBy]
     );
 }
 
@@ -297,33 +323,40 @@ async function dismissPendingEarnings(client, { partnerId, partnerRiderId, reaso
     return result.rowCount;
 }
 
-// Partners (of partnerCodes, the ones with a file format) whose sheet for the week has not been imported:
-// a rider who held a bike that week was mapped to them during the week, but they have no earnings dated in it.
-// A ₹0 row counts as imported.
-async function findPartnersWithoutEarnings(client, { weekStart, partnerCodes }) {
+// Partners (of partnerCodes, the ones with a file format) whose sheets for the week are not all imported:
+// a rider who held a bike that week was mapped to them during the week, but the partner's rows do not
+// cover the week. Partners in dailyCodes need a row on each of the 7 dates; others a row on any date
+// (weekly sheets are stored on the Monday). A ₹0 row counts as imported.
+// Returns [{ name, days_imported, days_needed }].
+async function findPartnersWithoutEarnings(client, { weekStart, partnerCodes, dailyCodes }) {
     const result = await client.query(
-        `SELECT DISTINCT p.name
-         FROM rider_partner_mappings m
-         JOIN partners p ON p.partner_id = m.partner_id
+        `SELECT p.name,
+                cover.days_imported,
+                CASE WHEN p.code = ANY($3::text[]) THEN 7 ELSE 1 END AS days_needed
+         FROM partners p
+         CROSS JOIN LATERAL (
+             SELECT COUNT(DISTINCT pe.earning_date)::int AS days_imported
+             FROM partner_earnings pe
+             WHERE pe.partner_id = p.partner_id
+               AND pe.earning_date BETWEEN $1::date AND $1::date + 6
+         ) cover
          WHERE p.code = ANY($2::text[])
-           AND m.created_at < $1::date + 7
-           AND (m.deactivated_at IS NULL OR m.deactivated_at >= $1::date)
+           AND cover.days_imported < CASE WHEN p.code = ANY($3::text[]) THEN 7 ELSE 1 END
            AND EXISTS (
-               SELECT 1 FROM bike_assignments ba
-               WHERE ba.rider_id = m.rider_id
+               SELECT 1
+               FROM rider_partner_mappings m
+               JOIN bike_assignments ba ON ba.rider_id = m.rider_id
+               WHERE m.partner_id = p.partner_id
+                 AND m.created_at < $1::date + 7
+                 AND (m.deactivated_at IS NULL OR m.deactivated_at >= $1::date)
                  AND ba.assigned_at < $1::date + 7
                  AND (ba.returned_at IS NULL OR ba.returned_at > $1::date)
            )
-           AND NOT EXISTS (
-               SELECT 1 FROM partner_earnings pe
-               WHERE pe.partner_id = m.partner_id
-                 AND pe.earning_date BETWEEN $1::date AND $1::date + 6
-           )
          ORDER BY p.name`,
-        [weekStart, partnerCodes]
+        [weekStart, partnerCodes, dailyCodes]
     );
 
-    return result.rows.map(row => row.name);
+    return result.rows;
 }
 
 // Matched rows of one partner ID held by riders other than $3, dated $4..$5, totalled per rider.
@@ -365,6 +398,8 @@ module.exports = {
     moveMatchedEarnings,
     insertEarnings,
     updateEarnings,
+    findIgnoredIds,
+    saveIgnoredId,
     resolveRowErrors,
     countOpenRowErrorsForWeek,
     findOpenRowErrors,

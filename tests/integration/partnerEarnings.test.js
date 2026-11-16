@@ -126,7 +126,7 @@ describe('Importing a Blinkit file', () => {
         assert.equal(res.body.import.status, 'Partial');
         assert.equal(res.body.import.successRows, 3);
         assert.equal(res.body.import.failedRows, 6);
-        assert.deepEqual(res.body.import.resultSummary, { matched: 1, pending: 2, updated: 0, unchanged: 0 });
+        assert.deepEqual(res.body.import.resultSummary, { matched: 1, pending: 2, ignored: 0, updated: 0, unchanged: 0 });
         assert.deepEqual(res.body.rowErrors.map(row => [row.rowNumber, row.errorMessage]), [
             [5, 'Total Earnings must be an amount like 850.50'],
             [6, 'Order Date must be a date like 26-10-2026'],
@@ -177,7 +177,7 @@ describe('Importing a Blinkit file', () => {
             'BLK-1001,Amit Patil,27-10-2026,980.50'
         ]);
 
-        assert.deepEqual(res.body.import.resultSummary, { matched: 0, pending: 0, updated: 1, unchanged: 1 });
+        assert.deepEqual(res.body.import.resultSummary, { matched: 0, pending: 0, ignored: 0, updated: 1, unchanged: 1 });
         assert.deepEqual((await earnings()).map(row => [row.partner_rider_id, row.earning_date, row.amount]), [
             ['BLK-1001', '2026-10-26', '850.00'],
             ['BLK-1001', '2026-10-27', '980.50'],
@@ -300,7 +300,7 @@ describe('Importing Zepto and Zomato files', () => {
         ]);
 
         assert.equal(res.body.import.status, 'Partial');
-        assert.deepEqual(res.body.import.resultSummary, { matched: 1, pending: 1, updated: 0, unchanged: 0 });
+        assert.deepEqual(res.body.import.resultSummary, { matched: 1, pending: 1, ignored: 0, updated: 0, unchanged: 0 });
         assert.deepEqual(res.body.rowErrors.map(row => row.errorMessage), [
             'Zepto Rider ID is required',
             'Week Start must be a Monday and Week End the Sunday after it (YYYY-MM-DD)',

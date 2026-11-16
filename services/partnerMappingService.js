@@ -12,6 +12,14 @@ function isPositiveInteger(value) {
     return Number.isSafeInteger(Number(value)) && Number(value) > 0;
 }
 
+// Whether two lists hold the same IDs, in any order.
+function sameIds(a, b) {
+    const sortedA = a.map(Number).sort((x, y) => x - y);
+    const sortedB = b.map(Number).sort((x, y) => x - y);
+
+    return sortedA.length === sortedB.length && sortedA.every((id, index) => id === sortedB[index]);
+}
+
 // Partner sheets are not consistent about case or spaces, so IDs are stored trimmed and uppercase.
 function normalizePartnerRiderId(value) {
     return String(value).trim().toUpperCase();
@@ -136,8 +144,15 @@ function cleanMappings(mappings, partnerById) {
 // Replace a rider's partner IDs with the given list. A partner left out is unmapped;
 // a changed ID ends the old mapping and starts a new one. Unchanged mappings are kept as they are.
 // Pending earnings of a newly added ID, dated inside the new mapping, are matched to the rider in the same transaction.
-// actingUserId is recorded as who made each change.
-async function saveRiderMappings({ actingUserId, riderId, mappings }) {
+// actingUserId is recorded as who made each change. Only admins may change or remove an ID, since that
+// moves future earnings to someone else; staff may add IDs.
+// currentMappingIds (optional) are the mapping IDs the editor showed: if the rider's mappings have changed
+// since, the save is refused instead of silently undoing the other change.
+async function saveRiderMappings({ actingUserId, actingUserRole, riderId, mappings, currentMappingIds }) {
+    if (currentMappingIds !== undefined && (!Array.isArray(currentMappingIds) || !currentMappingIds.every(isPositiveInteger))) {
+        throw new AppError('currentMappingIds must be a list of mapping IDs', 400);
+    }
+
     const partners = await partnerRepository.findPartners(pool);
     const wanted = cleanMappings(mappings, new Map(partners.map(partner => [partner.partner_id, partner])));
 
@@ -152,6 +167,15 @@ async function saveRiderMappings({ actingUserId, riderId, mappings }) {
 
         if (!rider) {
             throw new AppError(`Rider not found: ${riderId}`, 404);
+        }
+
+        const current = await partnerRepository.findActiveMappingsByRider(client, { riderId });
+
+        if (currentMappingIds !== undefined && !sameIds(currentMappingIds, current.map(mapping => mapping.mapping_id))) {
+            throw new AppError(
+                `Mappings for ${rider.name} changed since you opened them. Reload and try again.`,
+                409
+            );
         }
 
         if (wanted.length > 0) {
@@ -169,14 +193,16 @@ async function saveRiderMappings({ actingUserId, riderId, mappings }) {
             }
         }
 
-        const current = await partnerRepository.findActiveMappingsByRider(client, { riderId });
-
         const isKept = mapping => wanted.some(item =>
             item.partnerId === mapping.partner_id && item.partnerRiderId === mapping.partner_rider_id);
 
         const toEnd = current.filter(mapping => !isKept(mapping));
         const toAdd = wanted.filter(item => !current.some(mapping =>
             mapping.partner_id === item.partnerId && mapping.partner_rider_id === item.partnerRiderId));
+
+        if (toEnd.length > 0 && actingUserRole !== 'admin') {
+            throw new AppError('Only an admin can change or remove a partner ID', 403);
+        }
 
         // End old mappings first: the new ID for the same partner would clash with them.
         if (toEnd.length > 0) {

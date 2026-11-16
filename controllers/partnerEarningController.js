@@ -31,15 +31,16 @@ async function resolvePendingEarnings(req, res, next) {
 }
 
 // POST /api/partner-earnings/pending/dismiss
-// Body: { partnerId, partnerRiderId, reason }
+// Body: { partnerId, partnerRiderId, reason, alwaysIgnore? }
 async function dismissPendingEarnings(req, res, next) {
     try {
-        const { partnerId, partnerRiderId, reason } = req.body ?? {};
+        const { partnerId, partnerRiderId, reason, alwaysIgnore } = req.body ?? {};
         const result = await partnerEarningsService.dismissPendingEarnings({
             actingUserId: req.user.userId,
             partnerId,
             partnerRiderId,
-            reason
+            reason,
+            alwaysIgnore
         });
 
         return res.status(200).json({ message: 'Earnings dismissed', ...result });

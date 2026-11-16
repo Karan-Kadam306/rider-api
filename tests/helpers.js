@@ -25,6 +25,8 @@ const TABLES = [
     'users',
     'payout_items',
     'payout_runs',
+    'partner_earning_changes',
+    'partner_ignored_ids',
     'partner_earnings',
     'rider_partner_mappings',
     'import_row_errors',

@@ -231,17 +231,23 @@ describe('Partner sheets missing for the week', () => {
         // Mapped before the week, as they would be in real use.
         await h.pool.query(`UPDATE rider_partner_mappings SET created_at = '2026-10-01'`);
 
+        // Blinkit is daily and seedWeek imported 2 of its 7 days; Zepto is weekly and has nothing.
         const { payout } = (await weekPayout()).body;
-        assert.equal(payout.partnersWithoutEarnings.join(), 'Zepto');
-        assert.equal(payout.blocker, 'Cannot trigger the payout: no earnings imported this week from Zepto');
+        assert.deepEqual(payout.partnersWithoutEarnings, ['Blinkit (2 of 7 days)', 'Zepto']);
+        assert.equal(
+            payout.blocker,
+            'Cannot trigger the payout: partner sheets missing this week from Blinkit (2 of 7 days), Zepto'
+        );
         assert.equal((await triggerPayout()).status, 409);
 
-        // A ₹0 row is enough to show the sheet was imported.
+        // A ₹0 row is enough to show a sheet was imported: the weekly Zepto row, and one per missing Blinkit day.
         const form = new FormData();
         form.append('type', 'partner_earnings');
         form.append('partnerId', String(partners.get('Zepto')));
         form.append('file', new Blob(['Zepto Rider ID,Week Start,Week End,Net Payable\nZPT-1,2026-10-12,2026-10-18,0']), 'zepto.csv');
         assert.equal((await h.api('POST', '/api/imports', form)).status, 201);
+
+        await upload(['12', '14', '15', '16', '17'].map(day => `BLK-1,Priya,${day}-10-2026,0`));
 
         assert.deepEqual((await weekPayout()).body.payout.partnersWithoutEarnings, []);
         assert.equal((await triggerPayout()).status, 201);

@@ -62,22 +62,40 @@ function entryKey(partnerRiderId, earningDate) {
     return `${partnerRiderId}|${earningDate}`;
 }
 
+// Where a row from a sheet goes: to its rider, set aside because its ID is always ignored, or to review.
+function placeEarning(riderId, ignoreReason) {
+    if (riderId) {
+        return { status: 'Matched', riderId, dismissReason: null };
+    }
+
+    if (ignoreReason) {
+        return { status: 'Dismissed', riderId: null, dismissReason: ignoreReason };
+    }
+
+    return { status: 'Pending', riderId: null, dismissReason: null };
+}
+
 // Save one partner file's rows inside the caller's transaction, in a fixed number of queries.
-// New rows are Matched to the rider who held the partner ID on the row's date, otherwise Pending for review.
-// A re-uploaded row with the same amount is left alone; a new amount updates it.
+// New rows are Matched to the rider who held the partner ID on the row's date; otherwise Dismissed if the ID is
+// always ignored, or Pending for review. A re-uploaded row with the same amount is left alone; a new amount updates it.
 // Open row errors from earlier files for these partner ID + date rows are closed, since this file supplies them.
 async function importEarnings(client, { partnerId, entries, importId, uploadedBy = null }) {
     // One import per partner at a time, so two uploads of the same file cannot both insert a row.
     await partnerRepository.lockPartner(client, { partnerId });
     await payoutRepository.lockWeeksShared(client, { dates: entries.map(entry => entry.earningDate) });
 
-    const [existingRows, riderRows] = await Promise.all([
+    const [existingRows, riderRows, ignoredRows] = await Promise.all([
         partnerEarningsRepository.findEarningsForUpdate(client, { partnerId, entries }),
-        partnerRepository.findRidersForEntries(client, { partnerId, entries })
+        partnerRepository.findRidersForEntries(client, { partnerId, entries }),
+        partnerEarningsRepository.findIgnoredIds(client, {
+            partnerId,
+            partnerRiderIds: [...new Set(entries.map(entry => entry.partnerRiderId))]
+        })
     ]);
 
     const existingByKey = new Map(existingRows.map(row => [entryKey(row.partner_rider_id, row.earning_date), row]));
     const riderIdByKey = new Map(riderRows.map(row => [entryKey(row.partner_rider_id, row.earning_date), row.rider_id]));
+    const ignoreReasonById = new Map(ignoredRows.map(row => [row.partner_rider_id, row.reason]));
 
     const toInsert = [];
     const toUpdate = [];
@@ -86,14 +104,11 @@ async function importEarnings(client, { partnerId, entries, importId, uploadedBy
     for (const entry of entries) {
         const key = entryKey(entry.partnerRiderId, entry.earningDate);
         const mappedRiderId = riderIdByKey.get(key) ?? null;
+        const ignoreReason = ignoreReasonById.get(entry.partnerRiderId) ?? null;
         const existing = existingByKey.get(key);
 
         if (!existing) {
-            toInsert.push({
-                ...entry,
-                status: mappedRiderId ? 'Matched' : 'Pending',
-                riderId: mappedRiderId
-            });
+            toInsert.push({ ...entry, ...placeEarning(mappedRiderId, ignoreReason) });
             continue;
         }
 
@@ -104,15 +119,15 @@ async function importEarnings(client, { partnerId, entries, importId, uploadedBy
         }
 
         // A matched row stays with its rider even if the mapping has changed since.
-        // Pending and Dismissed rows are matched again, so a dismissed row with a new amount comes back for review.
+        // Pending and Dismissed rows are placed again, so a dismissed row with a new amount comes back for review
+        // (unless its ID is always ignored).
         const riderId = existing.status === 'Matched' ? existing.rider_id : mappedRiderId;
 
         toUpdate.push({
             earningId: existing.earning_id,
             amount: entry.amount,
             nameInFile: entry.nameInFile,
-            status: riderId ? 'Matched' : 'Pending',
-            riderId
+            ...placeEarning(riderId, ignoreReason)
         });
     }
 
@@ -120,9 +135,12 @@ async function importEarnings(client, { partnerId, entries, importId, uploadedBy
     await partnerEarningsRepository.updateEarnings(client, { importId, rows: toUpdate });
     await partnerEarningsRepository.resolveRowErrors(client, { partnerId, entries, importId, resolvedBy: uploadedBy });
 
+    const countInserted = status => toInsert.filter(row => row.status === status).length;
+
     return {
-        matched: toInsert.filter(row => row.status === 'Matched').length,
-        pending: toInsert.filter(row => row.status === 'Pending').length,
+        matched: countInserted('Matched'),
+        pending: countInserted('Pending'),
+        ignored: countInserted('Dismissed'),
         updated: toUpdate.length,
         unchanged
     };
@@ -237,7 +255,12 @@ async function resolvePendingEarnings({ actingUserId, partnerId, partnerRiderId,
 }
 
 // Set an ID's pending earnings aside (test rows, another fleet's rider, ...). The reason and actingUserId are kept.
-async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId, reason }) {
+// alwaysIgnore also sets the ID's future unmatched rows aside with the same reason, so they never wait in review.
+async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId, reason, alwaysIgnore = false }) {
+    if (typeof alwaysIgnore !== 'boolean') {
+        throw new AppError('alwaysIgnore must be true or false', 400);
+    }
+
     const key = cleanPendingKey({ partnerId, partnerRiderId });
     const cleanReason = typeof reason === 'string' ? reason.trim() : '';
 
@@ -263,10 +286,15 @@ async function dismissPendingEarnings({ actingUserId, partnerId, partnerRiderId,
             throw new AppError(`No pending ${partner.name} earnings for ${key.partnerRiderId}`, 404);
         }
 
+        if (alwaysIgnore) {
+            await partnerEarningsRepository.saveIgnoredId(client, { ...key, reason: cleanReason, createdBy: actingUserId });
+        }
+
         return {
             partnerName: partner.name,
             partnerRiderId: key.partnerRiderId,
-            dismissedEarnings
+            dismissedEarnings,
+            alwaysIgnore
         };
     });
 }

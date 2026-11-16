@@ -24,13 +24,16 @@ async function listRiderMappings(req, res, next) {
 }
 
 // PUT /api/partner-mappings/riders/:riderId
-// Body: { mappings: [{ partnerId, partnerRiderId }] } — the rider's full list; an empty list unmaps them.
+// Body: { mappings: [{ partnerId, partnerRiderId }], currentMappingIds? } — the rider's full list; an empty
+// list unmaps them. currentMappingIds are the mapping IDs the editor showed, to refuse a save over a newer one.
 async function saveRiderMappings(req, res, next) {
     try {
         const result = await partnerMappingService.saveRiderMappings({
             actingUserId: req.user.userId,
+            actingUserRole: req.user.role,
             riderId: req.params.riderId,
-            mappings: req.body?.mappings
+            mappings: req.body?.mappings,
+            currentMappingIds: req.body?.currentMappingIds
         });
 
         return res.status(200).json({ message: 'Mappings saved', ...result });
