@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rider Admin</title>
+    <script>
+      // Applies the saved theme (or the system setting) before the first paint, so dark mode
+      // never flashes light. src/hooks/useTheme.js uses the same storage key.
+      (function () {
+        var theme = null;
+        try {
+          theme = localStorage.getItem('rider-admin-theme');
+        } catch (error) {
+          // Storage blocked; fall back to the system setting.
+        }
+        if (theme !== 'dark' && theme !== 'light') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

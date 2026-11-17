@@ -7,6 +7,7 @@ import ChangePasswordDialog from '../../features/account/ChangePasswordDialog';
 
 import { useAuth } from '../../context/AuthContext';
 import { useWeek } from '../../context/WeekContext';
+import { useTheme } from '../../hooks/useTheme';
 import { NAV_ITEMS } from './navItems';
 import WeekPicker from './WeekPicker';
 import Icon from '../ui/Icon';
@@ -24,8 +25,10 @@ export default function TopBar() {
     const { refresh } = useWeek();
     const { user, signOut } = useAuth();
     const showToast = useToast();
+    const { theme, toggleTheme } = useTheme();
     const [changingPassword, setChangingPassword] = useState(false);
     const navItem = findNavItem(pathname);
+    const themeLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 
     // A failure rejects back to the dialog, which stays open and shows the message.
     async function handleChangePassword(values) {
@@ -42,6 +45,15 @@ export default function TopBar() {
                 <button type="button" className="button button--secondary" onClick={refresh}>
                     <Icon name="refresh" size={16} />
                     Refresh
+                </button>
+                <button
+                    type="button"
+                    className="button button--secondary theme-toggle"
+                    onClick={toggleTheme}
+                    aria-label={themeLabel}
+                    title={themeLabel}
+                >
+                    <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
                 </button>
                 <div className="top-bar__user">
                     <span className="top-bar__user-name">{user.name}</span>
