@@ -2,6 +2,8 @@
 // adminOnly items are listed under Administration and shown to admins only.
 export const NAV_ITEMS = [
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true, usesWeek: true },
+    // Analytics ends its range at the selected week.
+    { to: '/analytics', label: 'Analytics', icon: 'chart', usesWeek: true },
     { to: '/riders', label: 'Rider Management', icon: 'users' },
     { to: '/bikes', label: 'Bike Management', icon: 'bike' },
     { to: '/partner-mappings', label: 'Partner Mappings', icon: 'link' },

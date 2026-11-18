@@ -8,6 +8,12 @@ const PATHS = {
             <rect x="3" y="16" width="7" height="5" rx="1" />
         </>
     ),
+    chart: (
+        <>
+            <path d="M3 3v18h18" />
+            <path d="M7 16v-4M12 16V8M17 16v-7" />
+        </>
+    ),
     users: (
         <>
             <circle cx="9" cy="8" r="4" />
