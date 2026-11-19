@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const userController = require('../controllers/userController');
+const teamLeaderController = require('../controllers/teamLeaderController');
 const { requireRole } = require('../middleware/requireRole');
 
 // Managing admin panel users is for admins only.
@@ -9,6 +10,9 @@ router.use(requireRole('admin'));
 
 // Users for one status tab (?status=active|inactive&search=), with tab counts.
 router.get('/', userController.listUsers);
+
+// Active team leaders, for assigning them to riders.
+router.get('/team-leaders', teamLeaderController.listTeamLeaders);
 
 // Add a user with a starting password.
 router.post('/', userController.createUser);

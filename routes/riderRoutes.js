@@ -14,6 +14,7 @@ const {
 } = require('../controllers/riderController');
 const inactivePeriodController = require('../controllers/inactivePeriodController');
 const escalationController = require('../controllers/escalationController');
+const teamLeaderController = require('../controllers/teamLeaderController');
 const { requireRole } = require('../middleware/requireRole');
 const { validateRaiseEscalation } = require('../middleware/validateEscalation');
 const { validateRiderQuery } = require('../middleware/validateRiderQuery');
@@ -43,6 +44,11 @@ router.get('/:riderId/assignments', getRiderAssignments);
 // Escalations: anyone signed in can see them; only admins raise one.
 router.get('/:riderId/escalations', escalationController.listEscalations);
 router.post('/:riderId/escalations', requireRole('admin'), validateRaiseEscalation, escalationController.raiseEscalation);
+
+// Team leaders: a rider can have several; only admins change them.
+router.get('/:riderId/team-leaders', teamLeaderController.getRiderTeamLeaders);
+router.post('/:riderId/team-leaders', requireRole('admin'), teamLeaderController.assignTeamLeader);
+router.delete('/:riderId/team-leaders/:userId', requireRole('admin'), teamLeaderController.removeTeamLeader);
 
 // Inactive periods: approved days are not charged rental, even if a bike was assigned.
 router.get('/:riderId/inactive-periods', inactivePeriodController.listPeriods);

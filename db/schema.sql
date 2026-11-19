@@ -606,7 +606,7 @@ CREATE TABLE public.users (
     last_login_at timestamp with time zone,
     CONSTRAINT users_email_key UNIQUE (email),
     CONSTRAINT users_email_lowercase_check CHECK (((email)::text = lower((email)::text))),
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['admin'::character varying, 'staff'::character varying])::text[])))
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['admin'::character varying, 'staff'::character varying, 'team_leader'::character varying])::text[])))
 );
 
 CREATE TABLE public.sessions (
@@ -835,6 +835,24 @@ CREATE TABLE public.partner_ignored_ids (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     PRIMARY KEY (partner_id, partner_rider_id)
 );
+
+--
+-- Team leaders (added by db/migrations/011_team_leaders.sql; it also adds team_leader to users_role_check)
+--
+
+CREATE TABLE public.team_leader_riders (
+    link_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES public.users(user_id),
+    rider_id character varying(30) NOT NULL REFERENCES public.riders(rider_id),
+    assigned_at timestamp with time zone DEFAULT now() NOT NULL,
+    assigned_by bigint REFERENCES public.users(user_id),
+    removed_at timestamp with time zone,
+    removed_by bigint REFERENCES public.users(user_id),
+    CONSTRAINT team_leader_riders_removed_check CHECK (((removed_at IS NULL) = (removed_by IS NULL)))
+);
+
+CREATE UNIQUE INDEX idx_team_leader_riders_active ON public.team_leader_riders USING btree (user_id, rider_id) WHERE (removed_at IS NULL);
+CREATE INDEX idx_team_leader_riders_rider ON public.team_leader_riders USING btree (rider_id) WHERE (removed_at IS NULL);
 
 
 --
