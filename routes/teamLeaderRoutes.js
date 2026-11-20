@@ -9,5 +9,6 @@ const { requireRole } = require('../middleware/requireRole');
 router.use(requireRole('team_leader'));
 
 router.get('/riders', teamLeaderController.listMyRiders);
+router.get('/queue', teamLeaderController.getMyQueue);
 
 module.exports = router;

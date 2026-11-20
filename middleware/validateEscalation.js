@@ -16,7 +16,7 @@ const ESCALATION_REASONS = [
 // Validate the body for raising an escalation: { reasons, amount?, comment? }.
 // No amount makes it a Record. For Payment Due the amount is ignored; the service sets it.
 function validateRaiseEscalation(req, res, next) {
-    const { reasons, amount, comment } = req.body ?? {};
+    const { reasons, amount, comment, confirmPromiseOverride } = req.body ?? {};
 
     if (
         !Array.isArray(reasons) ||
@@ -46,8 +46,20 @@ function validateRaiseEscalation(req, res, next) {
     req.body = {
         reasons,
         amount: reasons.includes('Payment Due') ? null : amount ?? null,
-        comment: comment?.trim() || null
+        comment: comment?.trim() || null,
+        // Set when the admin saw the rider's payment promise and locks the bike anyway.
+        confirmPromiseOverride: confirmPromiseOverride === true
     };
+
+    return next();
+}
+
+// Use after validateRaiseEscalation. A team leader may raise only a Record: no amount, and not
+// Payment Due (which collects the balance). Both lock the bike, which stays an admin decision.
+function limitTeamLeaderEscalation(req, res, next) {
+    if (req.user?.role === 'team_leader' && (req.body.amount != null || req.body.reasons.includes('Payment Due'))) {
+        return next(new AppError('Team leaders can only record an escalation: no amount and not Payment Due', 403));
+    }
 
     return next();
 }
@@ -79,6 +91,7 @@ function validateEscalationId(req, res, next) {
 module.exports = {
     ESCALATION_REASONS,
     validateRaiseEscalation,
+    limitTeamLeaderEscalation,
     validateEscalationText,
     validateEscalationId
 };

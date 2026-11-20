@@ -17,6 +17,7 @@ import FleetPanel from '../features/analytics/panels/FleetPanel';
 import TopBikesPanel from '../features/analytics/panels/TopBikesPanel';
 import CollectionsPanel from '../features/analytics/panels/CollectionsPanel';
 import DataHealthPanel from '../features/analytics/panels/DataHealthPanel';
+import TeamLeaderPanel from '../features/analytics/panels/TeamLeaderPanel';
 
 const RANGES = [4, 8, 12];
 const DEFAULT_RANGE = 8;
@@ -106,6 +107,7 @@ export default function AnalyticsPage() {
                         <TopBikesPanel bikes={analytics.topBikes} />
                         <FleetPanel bikes={analytics.bikes} riders={analytics.riders} />
                         <DataHealthPanel analytics={analytics} weekCount={weekCount} />
+                        <TeamLeaderPanel teamLeaders={data.teamLeaders} />
                     </div>
                 </>
             )}

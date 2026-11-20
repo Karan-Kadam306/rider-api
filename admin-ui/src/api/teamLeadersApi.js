@@ -9,6 +9,11 @@ export function getMyRiders(params, { signal } = {}) {
     return request('/api/tl/riders', { params, signal });
 }
 
+// GET /api/tl/queue — the signed-in team leader's critical riders, worst first. Returns { riders }.
+export function getMyQueue({ signal } = {}) {
+    return request('/api/tl/queue', { signal });
+}
+
 // GET /api/users/team-leaders — admins: active team leaders with their rider counts.
 export async function getTeamLeaders({ signal } = {}) {
     const data = await request('/api/users/team-leaders', { signal });

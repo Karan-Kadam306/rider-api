@@ -1,3 +1,4 @@
+import { getTeamLeaderStats } from '../api/analyticsApi';
 import { getBillingSummary } from '../api/billingApi';
 import { getBikeSummary } from '../api/bikesApi';
 import { getDailyKmRecords } from '../api/dailyKmApi';
@@ -53,24 +54,26 @@ export function getRangeWeeks(weekStart, weekCount) {
     return Array.from({ length: weekCount }, (_, index) => addDays(weekStart, -7 * (weekCount - 1 - index)));
 }
 
-// Everything the Analytics page shows, built only from existing endpoints:
-// one billing summary per week, the km records for the range, and the current fleet, rider and import summaries.
+// Everything the Analytics page shows: one billing summary per week, the km records for the range,
+// the current fleet, rider and import summaries, and the team leader figures (the one analytics-only endpoint).
 export function useAnalytics(weekCount) {
     const { weekStart, refreshKey } = useWeek();
 
     return useApi(
         async ({ signal }) => {
             const weekStarts = getRangeWeeks(weekStart, weekCount);
+            const range = { from: weekStarts[0], to: addDays(weekStart, 6) };
 
-            const [weeks, dailyKm, bikes, riders, imports] = await Promise.all([
+            const [weeks, dailyKm, bikes, riders, imports, teamLeaders] = await Promise.all([
                 mapWithLimit(weekStarts, PARALLEL_REQUESTS, week => getBillingSummary(week, { signal })),
-                getAllDailyKm({ fromDate: weekStarts[0], toDate: addDays(weekStart, 6) }, { signal }),
+                getAllDailyKm({ fromDate: range.from, toDate: range.to }, { signal }),
                 getBikeSummary({ signal }),
                 getRiderSummary({ signal }),
-                getImportSummary({ signal })
+                getImportSummary({ signal }),
+                getTeamLeaderStats(range, { signal })
             ]);
 
-            return { weekStarts, weeks, dailyKm, bikes, riders, imports };
+            return { weekStarts, weeks, dailyKm, bikes, riders, imports, teamLeaders };
         },
         [weekStart, weekCount, refreshKey]
     );

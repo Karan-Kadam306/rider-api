@@ -4,9 +4,10 @@ const riderRepository = require('../repositories/riderRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
 const payoutRepository = require('../repositories/payoutRepository');
 const escalationRepository = require('../repositories/escalationRepository');
+const followUpRepository = require('../repositories/followUpRepository');
 const iotLockClient = require('./integrations/iotLockClient');
 const paymentLinkClient = require('./integrations/paymentLinkClient');
-const { currentWeekStart } = require('./billingService');
+const { currentWeekStart, todayInIst } = require('./billingService');
 
 function toEscalation(row) {
     return {
@@ -120,7 +121,9 @@ async function releaseAfterResolve(resolved, userId, reason) {
 // Raise an escalation. Payment Due collects the outstanding balance; any other reason with an
 // amount is a Charge; without an amount it is a Record (no lock or link).
 // Charges and collections lock the rider's bike and get a payment link.
-async function raiseEscalation({ riderId, reasons, amount, comment, userId }) {
+// While a payment promise is still due, locking needs confirmPromiseOverride; the override is kept
+// on the Raised event so the timeline shows the admin knew.
+async function raiseEscalation({ riderId, reasons, amount, comment, confirmPromiseOverride = false, userId }) {
     const rider = await riderRepository.findById(riderId);
 
     if (!rider) {
@@ -157,6 +160,16 @@ async function raiseEscalation({ riderId, reasons, amount, comment, userId }) {
         return toEscalation(await escalationRepository.findById(pool, { escalationId }));
     }
 
+    const promise = await followUpRepository.findActivePromise(pool, { riderId, today: todayInIst() });
+
+    if (promise && !confirmPromiseOverride) {
+        const promisedAmount = promise.promise_amount === null ? '' : ` ₹${promise.promise_amount}`;
+        throw new AppError(
+            `${promise.user_name} logged a promise to pay${promisedAmount} by ${promise.promise_date}. Confirm to lock the bike anyway.`,
+            409
+        );
+    }
+
     const assignment = await bikeAssignmentRepository.findActiveAssignmentByRider(pool, riderId);
     const bikeId = assignment?.bike_id ?? null;
     const { token, url } = await paymentLinkClient.createLink();
@@ -168,7 +181,8 @@ async function raiseEscalation({ riderId, reasons, amount, comment, userId }) {
             lockStatus: bikeId ? 'Failed' : 'NoBike', bikeId, paymentToken: token, createdBy: userId
         });
 
-        await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'Raised', detail: { amount }, userId });
+        const detail = promise ? { amount, promiseOverridden: { promiseDate: promise.promise_date } } : { amount };
+        await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'Raised', detail, userId });
         await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'LinkSent', detail: { url }, userId });
         return id;
     });

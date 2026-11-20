@@ -1,3 +1,5 @@
+const { OPEN_PROMISE } = require('./followUpRepository');
+
 // A user, if they exist; role and is_active tell the service whether they can lead riders.
 async function findUser(client, { userId }) {
     const result = await client.query(
@@ -134,6 +136,66 @@ async function findMyRiders(client, { userId, search, limit, offset }) {
     return result.rows;
 }
 
+// Everything the critical queue rules need, one row per rider the team leader holds.
+// km is the rider's total over [kmFrom, kmTo]; the service ranks it.
+async function findQueueRows(client, { userId, kmFrom, kmTo }) {
+    const result = await client.query(
+        `SELECT r.rider_id, r.name, r.phone, r.status,
+                payout.net_payout AS last_net_payout,
+                money.open_count AS open_money_escalations,
+                money.open_amount AS open_money_amount,
+                money.locked,
+                promise.promise_date,
+                promise.promise_amount,
+                last_call.created_at AS last_follow_up_at,
+                bike.has_bike,
+                km.total_km
+         FROM team_leader_riders l
+         JOIN riders r ON r.rider_id = l.rider_id
+         LEFT JOIN LATERAL (
+             SELECT p.net_payout::float8 AS net_payout
+             FROM payout_items p
+             WHERE p.rider_id = r.rider_id
+             ORDER BY p.week_start DESC
+             LIMIT 1
+         ) payout ON true
+         LEFT JOIN LATERAL (
+             SELECT COUNT(*)::int AS open_count,
+                    SUM(e.amount)::float8 AS open_amount,
+                    COALESCE(bool_or(e.lock_status = 'Locked'), false) AS locked
+             FROM rider_escalations e
+             WHERE e.rider_id = r.rider_id AND e.status = 'Open' AND e.kind <> 'Record'
+         ) money ON true
+         LEFT JOIN LATERAL (
+             SELECT TO_CHAR(f.promise_date, 'YYYY-MM-DD') AS promise_date, f.promise_amount::float8 AS promise_amount
+             FROM rider_follow_ups f
+             WHERE f.rider_id = r.rider_id AND ${OPEN_PROMISE}
+             ORDER BY f.created_at DESC, f.follow_up_id DESC
+             LIMIT 1
+         ) promise ON true
+         LEFT JOIN LATERAL (
+             SELECT MAX(f.created_at) AS created_at
+             FROM rider_follow_ups f
+             WHERE f.rider_id = r.rider_id
+         ) last_call ON true
+         LEFT JOIN LATERAL (
+             SELECT EXISTS (
+                 SELECT 1 FROM bike_assignments a
+                 WHERE a.rider_id = r.rider_id AND a.returned_at IS NULL
+             ) AS has_bike
+         ) bike ON true
+         LEFT JOIN LATERAL (
+             SELECT COALESCE(SUM(d.daily_km), 0)::float8 AS total_km
+             FROM daily_km_records d
+             WHERE d.rider_id = r.rider_id AND d.usage_date BETWEEN $2 AND $3
+         ) km ON true
+         WHERE l.user_id = $1 AND l.removed_at IS NULL`,
+        [userId, kmFrom, kmTo]
+    );
+
+    return result.rows;
+}
+
 async function countMyRiders(client, { userId, search }) {
     const result = await client.query(
         `SELECT COUNT(*)::int AS total ${MY_RIDERS_FROM} ${MY_RIDERS_WHERE}`,
@@ -152,5 +214,6 @@ module.exports = {
     findRiderTeamLeaders,
     findTeamLeaders,
     findMyRiders,
-    countMyRiders
+    countMyRiders,
+    findQueueRows
 };

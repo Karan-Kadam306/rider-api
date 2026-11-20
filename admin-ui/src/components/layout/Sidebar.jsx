@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
+import { useQueueAlerts } from '../../hooks/useQueueAlerts';
 import Icon from '../ui/Icon';
 import { getNavItems } from './navItems';
 
 // One sidebar link. NavLink reports whether it matches the current page, for the highlight.
-function NavItem({ item }) {
+// badge is a count shown after the label, e.g. riders in the critical queue.
+function NavItem({ item, badge }) {
     return (
         <NavLink
             to={item.to}
@@ -16,6 +18,7 @@ function NavItem({ item }) {
         >
             <Icon name={item.icon} />
             <span>{item.label}</span>
+            {badge > 0 && <span className="sidebar__badge" aria-label={`${badge} riders`}>{badge}</span>}
         </NavLink>
     );
 }
@@ -23,9 +26,11 @@ function NavItem({ item }) {
 // Links come from navItems (team leaders get their own short list); the Administration section
 // only appears for admins.
 export default function Sidebar() {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, isTeamLeader } = useAuth();
     const navItems = getNavItems(user);
     const adminItems = isAdmin ? navItems.filter(item => item.adminOnly) : [];
+    // The sidebar is on every page, so the queue check (badge and toasts) runs from here.
+    const queueCount = useQueueAlerts(isTeamLeader);
 
     return (
         <aside className="sidebar">
@@ -36,7 +41,7 @@ export default function Sidebar() {
             <nav className="sidebar__nav" aria-label="Main">
                 <p className="sidebar__section">Management</p>
                 {navItems.filter(item => !item.adminOnly).map(item => (
-                    <NavItem key={item.to} item={item} />
+                    <NavItem key={item.to} item={item} badge={item.showsQueueCount ? queueCount : null} />
                 ))}
                 {adminItems.length > 0 && (
                     <>

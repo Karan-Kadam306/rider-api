@@ -62,7 +62,18 @@ async function listMyRiders(req, res, next) {
     }
 }
 
+// GET /api/tl/queue — the signed-in team leader's critical riders, worst first.
+async function getMyQueue(req, res, next) {
+    try {
+        const queue = await teamLeaderService.getMyQueue({ userId: req.user.userId });
+        return res.status(200).json(queue);
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
+    getMyQueue,
     listTeamLeaders,
     getRiderTeamLeaders,
     assignTeamLeader,

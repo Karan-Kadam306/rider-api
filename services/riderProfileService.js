@@ -3,6 +3,7 @@ const AppError = require('../errors/AppError');
 const partnerRepository = require('../repositories/partnerRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
 const payoutRepository = require('../repositories/payoutRepository');
+const followUpRepository = require('../repositories/followUpRepository');
 const billingService = require('./billingService');
 const escalationService = require('./escalationService');
 
@@ -57,10 +58,11 @@ async function findCurrentWeekBill(riderId) {
 async function getRiderProfile(riderId) {
     const rider = await findRiderOrThrow(riderId);
 
-    const [[latestAssignment], currentWeekBill, openEscalations] = await Promise.all([
+    const [[latestAssignment], currentWeekBill, openEscalations, promise] = await Promise.all([
         bikeAssignmentRepository.findRiderAssignmentHistory(pool, riderId, 1, 0),
         findCurrentWeekBill(riderId),
-        escalationService.listEscalations({ riderId, openOnly: true })
+        escalationService.listEscalations({ riderId, openOnly: true }),
+        followUpRepository.findActivePromise(pool, { riderId, today: billingService.todayInIst() })
     ]);
 
     // Last week's negative net carried into this week, less what Payment Due cleared, as a positive amount owed.
@@ -83,7 +85,14 @@ async function getRiderProfile(riderId) {
         partnerMappings: rider.mappings ?? [],
         currentWeekBill,
         outstandingBalance,
-        openEscalations
+        openEscalations,
+        // The latest payment promise that is still due, so nobody locks the bike without knowing.
+        activePromise: promise && {
+            promiseDate: promise.promise_date,
+            promiseAmount: promise.promise_amount,
+            loggedBy: promise.user_name,
+            loggedAt: promise.created_at
+        }
     };
 }
 
