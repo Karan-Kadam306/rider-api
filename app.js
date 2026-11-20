@@ -18,6 +18,7 @@ const partnerEarningRoutes = require('./routes/partnerEarningRoutes');
 const escalationRoutes = require('./routes/escalationRoutes');
 const { webhookRouter, mockPayRouter } = require('./routes/paymentRoutes');
 const teamLeaderRoutes = require('./routes/teamLeaderRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { restrictTeamLeader } = require('./middleware/restrictTeamLeader');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
@@ -64,6 +65,7 @@ app.use('/api/partners', partnerRoutes);
 app.use('/api/partner-mappings', partnerMappingRoutes);
 app.use('/api/partner-earnings', partnerEarningRoutes);
 app.use('/api/escalations', escalationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Unknown API paths get a JSON 404 instead of Express's HTML page.
 app.use('/api', (req, res, next) => {

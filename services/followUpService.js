@@ -12,10 +12,14 @@ const MAX_NOTE_LENGTH = 1000;
 const MAX_PROMISE_DAYS = 30;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// A real calendar day: 2026-02-30 and 2026-13-01 match the pattern but are not.
 function isValidDate(value) {
-    return typeof value === 'string' &&
-        DATE_PATTERN.test(value) &&
-        new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
+    if (typeof value !== 'string' || !DATE_PATTERN.test(value)) {
+        return false;
+    }
+
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function isAmount(value) {

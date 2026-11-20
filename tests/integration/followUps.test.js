@@ -58,6 +58,7 @@ describe('POST /api/riders/:riderId/follow-ups', () => {
             { promiseDate: h.addDays(today, -1) },
             { promiseDate: h.addDays(today, 31) },
             { promiseDate: '2026-02-30' },
+            { promiseDate: '2026-13-01' },
             { promiseDate: today, promiseAmount: 0 },
             { promiseDate: today, promiseAmount: 10.123 }
         ]) {
