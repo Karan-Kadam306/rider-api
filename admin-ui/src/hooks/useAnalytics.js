@@ -70,7 +70,14 @@ export function useAnalytics(weekCount) {
                 getBikeSummary({ signal }),
                 getRiderSummary({ signal }),
                 getImportSummary({ signal }),
-                getTeamLeaderStats(range, { signal })
+                // Only this panel depends on the analytics endpoint, so its failure stays in the panel.
+                getTeamLeaderStats(range, { signal }).catch(error => {
+                    if (error.name === 'AbortError') {
+                        throw error;
+                    }
+
+                    return { error };
+                })
             ]);
 
             return { weekStarts, weeks, dailyKm, bikes, riders, imports, teamLeaders };

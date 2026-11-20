@@ -1,7 +1,7 @@
 const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const analyticsRepository = require('../repositories/analyticsRepository');
-const { todayInIst, addDays } = require('./billingService');
+const { todayInIst, addDays, currentWeekStart } = require('./billingService');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // The Analytics page asks for at most 12 weeks; a year is plenty of headroom.
@@ -23,7 +23,9 @@ async function getTeamLeaderStats({ from, to }) {
         throw new AppError(`from and to must be dates (YYYY-MM-DD), from first, at most ${MAX_RANGE_DAYS} days apart`, 400);
     }
 
-    const rows = await analyticsRepository.findTeamLeaderStats(pool, { from, to, today: todayInIst() });
+    const rows = await analyticsRepository.findTeamLeaderStats(pool, {
+        from, to, today: todayInIst(), weekStart: currentWeekStart()
+    });
 
     return {
         from,

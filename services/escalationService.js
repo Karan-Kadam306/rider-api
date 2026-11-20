@@ -166,7 +166,8 @@ async function raiseEscalation({ riderId, reasons, amount, comment, confirmPromi
         const promisedAmount = promise.promise_amount === null ? '' : ` ₹${promise.promise_amount}`;
         throw new AppError(
             `${promise.user_name} logged a promise to pay${promisedAmount} by ${promise.promise_date}. Confirm to lock the bike anyway.`,
-            409
+            409,
+            'PROMISE_ACTIVE'
         );
     }
 

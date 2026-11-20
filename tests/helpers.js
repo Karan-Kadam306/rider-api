@@ -205,10 +205,13 @@ function currentWeekStart() {
 }
 
 // A payout for the rider in the given week with only a net, e.g. a negative net carried forward.
+// Several riders in the same week share that week's run.
 async function createPayoutItem(riderId, weekStart, netPayout) {
     const { rows: [run] } = await pool.query(
         `INSERT INTO payout_runs (week_start, run_number, rider_count, updated_count, total_amount)
          VALUES ($1, 1, 1, 1, 0)
+         ON CONFLICT ON CONSTRAINT payout_runs_week_run_key
+         DO UPDATE SET rider_count = payout_runs.rider_count + 1
          RETURNING run_id`,
         [weekStart]
     );

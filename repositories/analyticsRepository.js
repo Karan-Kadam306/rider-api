@@ -1,7 +1,10 @@
+const { PROMISE_KEPT } = require('./followUpRepository');
+const { outstandingBalancesSql } = require('./payoutRepository');
+
 // One row per active team leader for the dates [from, to] (IST days), including leaders with no activity.
 // Calls and promises are what the leader logged. Recovered dues count escalations marked Paid while the
-// leader held the rider. Owing now is about the riders they hold today.
-async function findTeamLeaderStats(client, { from, to, today }) {
+// leader held the rider. Owing now is about the riders they hold today (weekStart: this week's Monday).
+async function findTeamLeaderStats(client, { from, to, today, weekStart }) {
     const result = await client.query(
         `WITH period AS (
              SELECT ($1::date)::timestamp AT TIME ZONE 'Asia/Kolkata' AS start_at,
@@ -29,14 +32,7 @@ async function findTeamLeaderStats(client, { from, to, today }) {
                     COUNT(*) FILTER (WHERE NOT paid.kept AND f.promise_date < $3)::int AS broken
              FROM rider_follow_ups f
              CROSS JOIN period
-             CROSS JOIN LATERAL (
-                 SELECT EXISTS (
-                     SELECT 1 FROM rider_follow_ups later
-                     WHERE later.rider_id = f.rider_id
-                       AND later.created_at > f.created_at
-                       AND later.outcome = 'Paid'
-                 ) AS kept
-             ) paid
+             CROSS JOIN LATERAL (SELECT ${PROMISE_KEPT} AS kept) paid
              WHERE f.outcome = 'Promised to Pay'
                AND f.created_at >= period.start_at AND f.created_at < period.end_at
              GROUP BY f.user_id
@@ -54,16 +50,10 @@ async function findTeamLeaderStats(client, { from, to, today }) {
              GROUP BY l.user_id
          ),
          owing AS (
-             SELECT l.user_id, COUNT(*)::int AS count, SUM(-last.net_payout)::float8 AS amount
+             SELECT l.user_id, COUNT(*)::int AS count, SUM(owed.outstanding)::float8 AS amount
              FROM team_leader_riders l
-             JOIN LATERAL (
-                 SELECT p.net_payout
-                 FROM payout_items p
-                 WHERE p.rider_id = l.rider_id
-                 ORDER BY p.week_start DESC
-                 LIMIT 1
-             ) last ON true
-             WHERE l.removed_at IS NULL AND last.net_payout < 0
+             JOIN (${outstandingBalancesSql('$4')}) owed ON owed.rider_id = l.rider_id
+             WHERE l.removed_at IS NULL
              GROUP BY l.user_id
          )
          SELECT leaders.user_id::int AS user_id, leaders.name,
@@ -84,7 +74,7 @@ async function findTeamLeaderStats(client, { from, to, today }) {
          LEFT JOIN recovered ON recovered.user_id = leaders.user_id
          LEFT JOIN owing ON owing.user_id = leaders.user_id
          ORDER BY leaders.name, leaders.user_id`,
-        [from, to, today]
+        [from, to, today, weekStart]
     );
 
     return result.rows;

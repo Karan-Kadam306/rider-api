@@ -190,7 +190,26 @@ async function countRiderItems(client, { riderId }) {
     return result.rows[0].total;
 }
 
+// What each rider owes now, as SQL to join on rider_id; weekStart is the placeholder for the
+// current week's Monday (e.g. '$2'). Same rule as escalationService.getOutstandingBalance:
+// last week's negative net payout, less Payment Due paid or waived this week. Only riders who still owe.
+function outstandingBalancesSql(weekStart) {
+    return `
+        SELECT p.rider_id, (-p.net_payout - COALESCE(cleared.amount, 0))::float8 AS outstanding
+        FROM payout_items p
+        LEFT JOIN LATERAL (
+            SELECT SUM(e.amount) AS amount
+            FROM rider_escalations e
+            WHERE e.rider_id = p.rider_id
+              AND e.kind = 'Collection' AND e.status IN ('Paid', 'Waived')
+              AND e.resolved_at >= ${weekStart}::date AND e.resolved_at < ${weekStart}::date + 7
+        ) cleared ON true
+        WHERE p.week_start = ${weekStart}::date - 7
+          AND -p.net_payout - COALESCE(cleared.amount, 0) > 0`;
+}
+
 module.exports = {
+    outstandingBalancesSql,
     findRuns,
     findRecentRuns,
     findItems,

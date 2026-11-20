@@ -30,12 +30,15 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
     const [amount, setAmount] = useState('');
     const [comment, setComment] = useState('');
     const [overridePromise, setOverridePromise] = useState(false);
+    // Set when the API reports a promise this page did not know about (logged after it loaded).
+    const [promiseNotice, setPromiseNotice] = useState(null);
     const [errors, setErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [busy, setBusy] = useState(false);
 
     const paymentDue = reasons.includes('Payment Due');
     const locksBike = !recordOnly && (paymentDue || amount.trim() !== '');
+    const promiseKnown = Boolean(activePromise || promiseNotice);
 
     useEffect(() => {
         dialogRef.current.showModal();
@@ -65,7 +68,7 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
             fieldErrors.amount = 'Amount must be more than zero';
         }
 
-        if (locksBike && activePromise && !overridePromise) {
+        if (locksBike && promiseKnown && !overridePromise) {
             fieldErrors.promise = 'Tick the box to lock the bike despite the promise';
         }
 
@@ -94,7 +97,13 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
                 confirmPromiseOverride: locksBike && overridePromise
             });
         } catch (error) {
-            setServerError(error.message);
+            // A promise logged since the page loaded: show it with the checkbox instead of a dead end.
+            if (error.details?.code === 'PROMISE_ACTIVE') {
+                setPromiseNotice(error.message);
+            } else {
+                setServerError(error.message);
+            }
+
             setBusy(false);
         }
     }
@@ -160,12 +169,16 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
                         </>
                     )}
 
-                    {locksBike && activePromise && (
+                    {locksBike && promiseKnown && (
                         <div className={`promise-confirm${errors.promise ? ' field--invalid' : ''}`}>
-                            <p className="promise-banner">
-                                {activePromise.loggedBy} logged a promise to pay
-                                {activePromise.promiseAmount !== null && ` ${formatINR(activePromise.promiseAmount)}`}
-                                {' by '}{formatDate(activePromise.promiseDate)}.
+                            <p className="promise-banner" role="status">
+                                {activePromise ? (
+                                    <>
+                                        {activePromise.loggedBy} logged a promise to pay
+                                        {activePromise.promiseAmount !== null && ` ${formatINR(activePromise.promiseAmount)}`}
+                                        {' by '}{formatDate(activePromise.promiseDate)}.
+                                    </>
+                                ) : promiseNotice}
                             </p>
                             <label className="checkbox">
                                 <input

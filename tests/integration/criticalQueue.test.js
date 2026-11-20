@@ -76,9 +76,8 @@ describe('GET /api/tl/queue', () => {
     it('shows a promise that is still due and marks a follow-up as due after 2 days', async () => {
         await riderOf('YS-001');
         await riderOf('YS-002');
-        // createPayoutItem makes a payout run per call, so the riders use different weeks.
         await h.createPayoutItem('YS-001', lastWeek(), -100);
-        await h.createPayoutItem('YS-002', h.addDays(lastWeek(), -7), -100);
+        await h.createPayoutItem('YS-002', lastWeek(), -100);
         await h.api('POST', '/api/riders/YS-001/follow-ups', {
             reason: 'Payment Due', outcome: 'Promised to Pay', note: 'Friday', promiseDate: h.addDays(h.todayInIst(), 2)
         });
@@ -112,6 +111,48 @@ describe('GET /api/tl/queue', () => {
         assert.equal(res.body.riders[0].followUpDue, false);
     });
 
+    it('drops a rider once their Payment Due is paid, before the next payout', async () => {
+        await riderOf('YS-001');
+        await h.createPayoutItem('YS-001', lastWeek(), -300);
+        const collection = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Payment Due'] });
+
+        const before = await getQueue();
+        await h.api('POST', `/api/escalations/${collection.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
+        const after = await getQueue();
+        const myRiders = await h.api('GET', '/api/tl/riders', undefined, tl.cookie);
+
+        assert.equal(before.body.riders[0].severity, 'Critical');
+        assert.deepEqual(after.body.riders, []);
+        assert.equal(myRiders.body.riders[0].outstandingBalance, 0);
+    });
+
+    it('leaves riders on approved leave or new to their bike out of the low km ranking', async () => {
+        const today = h.todayInIst();
+        const yesterday = h.addDays(today, -1);
+
+        for (const [riderId, km, assignedAt] of [
+            ['YS-001', 10, '2026-10-01 09:00'],
+            ['YS-002', 50, '2026-10-01 09:00'],
+            ['YS-003', 0, '2026-10-01 09:00'],
+            ['YS-004', 0, `${h.addDays(today, -2)} 09:00`]
+        ]) {
+            await riderOf(riderId);
+            const bikeId = await h.createBike(`VIN-${riderId}`);
+            await h.createAssignment(bikeId, riderId, assignedAt);
+            await h.createKmRecord({ vin: `VIN-${riderId}`, bikeId, riderId, usageDate: yesterday, dailyKm: km, status: 'Validated' });
+        }
+
+        await h.pool.query(
+            `INSERT INTO rider_inactive_periods (rider_id, start_date, end_date, approved) VALUES ('YS-003', $1, $2, true)`,
+            [h.addDays(today, -5), h.addDays(today, -3)]
+        );
+
+        const res = await getQueue();
+
+        // Only YS-001 and YS-002 can be compared fairly; half of two is one.
+        assert.deepEqual(res.body.riders.map(rider => rider.riderId), ['YS-001']);
+    });
+
     it('is empty for a team leader without riders, and not for other roles', async () => {
         const empty = await getQueue();
         const asAdmin = await h.api('GET', '/api/tl/queue');
@@ -143,6 +184,7 @@ describe('Payment promise before locking a bike', () => {
         });
 
         assert.equal(refused.status, 409);
+        assert.equal(refused.body.code, 'PROMISE_ACTIVE');
         assert.match(refused.body.error, /promise to pay/);
         assert.equal(confirmed.status, 201);
         assert.deepEqual(confirmed.body.escalation.events[0].detail.promiseOverridden, { promiseDate: h.addDays(h.todayInIst(), 3) });
@@ -152,6 +194,18 @@ describe('Payment promise before locking a bike', () => {
         const res = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Safety Concern'] });
 
         assert.equal(res.status, 201);
+    });
+
+    it('ends once the rider actually pays, even if nobody logs it', async () => {
+        await h.createPayoutItem('YS-001', lastWeek(), -400);
+        const collection = await h.api('POST', '/api/riders/YS-001/escalations', {
+            reasons: ['Payment Due'], confirmPromiseOverride: true
+        });
+        await h.api('POST', `/api/escalations/${collection.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
+
+        const profile = await h.api('GET', '/api/riders/YS-001/profile');
+
+        assert.equal(profile.body.activePromise, null);
     });
 
     it('stops applying once the rider refuses', async () => {
