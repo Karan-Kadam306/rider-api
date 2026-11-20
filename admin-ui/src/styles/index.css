@@ -2283,3 +2283,28 @@ a:hover {
     flex: 1 1 220px;
     min-width: 0;
 }
+
+/* ---------- Follow-ups ---------- */
+/* Two fields side by side in a dialog; they stack on a phone. */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.follow-up__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.follow-up__note {
+    margin: 4px 0;
+    white-space: pre-wrap;
+}
+
+.follow-up__promise {
+    margin: 0 0 4px;
+    font-size: 0.875rem;
+}

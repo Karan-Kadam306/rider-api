@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { getRiderProfile } from '../api/ridersApi';
 import { raiseEscalation } from '../api/escalationsApi';
+import { logFollowUp } from '../api/followUpsApi';
 import { useApi } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { useWeek } from '../context/WeekContext';
@@ -19,12 +20,15 @@ import RiderHistoryTab from '../features/riders/RiderHistoryTab';
 import RiderEscalationsTab from '../features/riders/RiderEscalationsTab';
 import EscalateDialog from '../features/riders/EscalateDialog';
 import TeamLeadersPanel from '../features/riders/TeamLeadersPanel';
+import RiderFollowUpsTab from '../features/riders/RiderFollowUpsTab';
+import FollowUpDialog from '../features/riders/FollowUpDialog';
 
 const TABS = [
     { value: 'overview', label: 'Overview', icon: 'users' },
     { value: 'earnings', label: 'Earnings', icon: 'wallet' },
     { value: 'history', label: 'History', icon: 'clock' },
-    { value: 'escalations', label: 'Escalations', icon: 'shield' }
+    { value: 'escalations', label: 'Escalations', icon: 'shield' },
+    { value: 'follow-ups', label: 'Follow-ups', icon: 'edit' }
 ];
 
 // One rider's page, opened from Details in the riders list. The tab lives in the URL
@@ -43,10 +47,13 @@ export default function RiderDetailPage() {
     // Bumped after an escalation changes, so the balance, banner and list all reload.
     const [reloadKey, setReloadKey] = useState(0);
     const [escalating, setEscalating] = useState(false);
+    const [loggingFollowUp, setLoggingFollowUp] = useState(false);
 
     const profile = useApi(options => getRiderProfile(riderId, options), [riderId, refreshKey, reloadKey]);
     const rider = profile.data?.rider;
     const openEscalations = profile.data?.openEscalations ?? [];
+    // Admins raise any escalation; team leaders only a Record (no lock, no payment link).
+    const canEscalate = (isAdmin || isTeamLeader) && rider && rider.status !== 'Terminated';
 
     const reload = () => setReloadKey(key => key + 1);
     const openTab = next => setSearchParams(next === 'overview' ? {} : { tab: next }, { replace: true });
@@ -63,6 +70,16 @@ export default function RiderDetailPage() {
         openTab('escalations');
     }
 
+    // Errors reject back to the dialog, as above.
+    async function handleLogFollowUp(values) {
+        await logFollowUp(riderId, values);
+
+        showToast({ message: 'Follow-up saved' });
+        setLoggingFollowUp(false);
+        reload();
+        openTab('follow-ups');
+    }
+
     return (
         <>
             <PageHeader
@@ -77,11 +94,19 @@ export default function RiderDetailPage() {
                     </span>
                 }
                 subtitle={rider && <span className="mono">{rider.riderId} · {rider.phone}</span>}
-                actions={isAdmin && rider && rider.status !== 'Terminated' && (
-                    <button type="button" className="button button--danger" onClick={() => setEscalating(true)}>
-                        <Icon name="shield" size={16} />
-                        Escalate
-                    </button>
+                actions={rider && (
+                    <>
+                        <button type="button" className="button button--secondary" onClick={() => setLoggingFollowUp(true)}>
+                            <Icon name="edit" size={16} />
+                            Log follow-up
+                        </button>
+                        {canEscalate && (
+                            <button type="button" className="button button--danger" onClick={() => setEscalating(true)}>
+                                <Icon name="shield" size={16} />
+                                {isTeamLeader ? 'Record escalation' : 'Escalate'}
+                            </button>
+                        )}
+                    </>
                 )}
             />
 
@@ -120,6 +145,7 @@ export default function RiderDetailPage() {
                     {tab === 'escalations' && (
                         <RiderEscalationsTab riderId={riderId} reloadKey={reloadKey} onChanged={reload} />
                     )}
+                    {tab === 'follow-ups' && <RiderFollowUpsTab riderId={riderId} reloadKey={reloadKey} />}
                 </>
             )}
 
@@ -127,8 +153,19 @@ export default function RiderDetailPage() {
                 <EscalateDialog
                     rider={rider}
                     outstandingBalance={profile.data.outstandingBalance}
+                    recordOnly={isTeamLeader}
                     onSubmit={handleEscalate}
                     onClose={() => setEscalating(false)}
+                />
+            )}
+
+            {loggingFollowUp && profile.data && (
+                <FollowUpDialog
+                    rider={rider}
+                    outstandingBalance={profile.data.outstandingBalance}
+                    openEscalations={openEscalations}
+                    onSubmit={handleLogFollowUp}
+                    onClose={() => setLoggingFollowUp(false)}
                 />
             )}
         </>

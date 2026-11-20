@@ -6,7 +6,9 @@ const teamLeaderService = require('../services/teamLeaderService');
 // riderScoped routes also need the rider to be assigned to the team leader.
 const TEAM_LEADER_ROUTES = [
     { method: 'GET', pattern: /^\/tl\/riders\/?$/ },
-    { method: 'GET', pattern: /^\/riders\/([^/]+)\/(profile|payouts|assignments|escalations)\/?$/, riderScoped: true }
+    { method: 'GET', pattern: /^\/riders\/([^/]+)\/(profile|payouts|assignments|escalations|follow-ups)\/?$/, riderScoped: true },
+    // The escalation route itself limits team leaders to a Record (limitTeamLeaderEscalation).
+    { method: 'POST', pattern: /^\/riders\/([^/]+)\/(escalations|follow-ups)\/?$/, riderScoped: true }
 ];
 
 function findRoute(method, path) {

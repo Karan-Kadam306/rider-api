@@ -15,8 +15,9 @@ const {
 const inactivePeriodController = require('../controllers/inactivePeriodController');
 const escalationController = require('../controllers/escalationController');
 const teamLeaderController = require('../controllers/teamLeaderController');
+const followUpController = require('../controllers/followUpController');
 const { requireRole } = require('../middleware/requireRole');
-const { validateRaiseEscalation } = require('../middleware/validateEscalation');
+const { validateRaiseEscalation, limitTeamLeaderEscalation } = require('../middleware/validateEscalation');
 const { validateRiderQuery } = require('../middleware/validateRiderQuery');
 const { validateCreateRider } = require('../middleware/validateCreateRider');
 const { validateUpdateRider } = require('../middleware/validateUpdateRider');
@@ -41,9 +42,19 @@ router.get('/:riderId/profile', getRiderProfile);
 router.get('/:riderId/payouts', getRiderPayouts);
 router.get('/:riderId/assignments', getRiderAssignments);
 
-// Escalations: anyone signed in can see them; only admins raise one.
+// Escalations: anyone signed in can see them; admins raise any kind, team leaders only a Record.
 router.get('/:riderId/escalations', escalationController.listEscalations);
-router.post('/:riderId/escalations', requireRole('admin'), validateRaiseEscalation, escalationController.raiseEscalation);
+router.post(
+    '/:riderId/escalations',
+    requireRole('admin', 'team_leader'),
+    validateRaiseEscalation,
+    limitTeamLeaderEscalation,
+    escalationController.raiseEscalation
+);
+
+// Follow-ups: what the rider said when called. Anyone who can open the rider can log one.
+router.get('/:riderId/follow-ups', followUpController.listFollowUps);
+router.post('/:riderId/follow-ups', followUpController.logFollowUp);
 
 // Team leaders: a rider can have several; only admins change them.
 router.get('/:riderId/team-leaders', teamLeaderController.getRiderTeamLeaders);

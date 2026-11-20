@@ -634,6 +634,8 @@ module.exports = {
     getWeeklyBillingSummary,
     calculateWeeklyBills,
     addPayouts,
+    todayInIst,
+    addDays,
     currentWeekStart,
     hasWeekEnded,
     listWeeklyBills,

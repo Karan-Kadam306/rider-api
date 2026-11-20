@@ -213,7 +213,6 @@ describe('Team leader access', () => {
             ['DELETE', '/api/riders/YS-001'],
             ['GET', '/api/riders/YS-001/team-leaders'],
             ['POST', '/api/riders/YS-001/team-leaders'],
-            ['POST', '/api/riders/YS-001/escalations'],
             ['GET', '/api/riders/YS-001/inactive-periods'],
             ['POST', '/api/riders/YS-001/inactive-periods'],
             ['GET', '/api/bikes'],

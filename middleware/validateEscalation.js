@@ -52,6 +52,16 @@ function validateRaiseEscalation(req, res, next) {
     return next();
 }
 
+// Use after validateRaiseEscalation. A team leader may raise only a Record: no amount, and not
+// Payment Due (which collects the balance). Both lock the bike, which stays an admin decision.
+function limitTeamLeaderEscalation(req, res, next) {
+    if (req.user?.role === 'team_leader' && (req.body.amount != null || req.body.reasons.includes('Payment Due'))) {
+        return next(new AppError('Team leaders can only record an escalation: no amount and not Payment Due', 403));
+    }
+
+    return next();
+}
+
 // Validate a required text field on an escalation action, e.g. the waive reason.
 function validateEscalationText(field) {
     return (req, res, next) => {
@@ -79,6 +89,7 @@ function validateEscalationId(req, res, next) {
 module.exports = {
     ESCALATION_REASONS,
     validateRaiseEscalation,
+    limitTeamLeaderEscalation,
     validateEscalationText,
     validateEscalationId
 };

@@ -20,8 +20,9 @@ const REASONS = [
 // Raise an escalation for a rider. Mounted only while open, so each opening starts fresh.
 // Payment Due collects the outstanding balance, so its amount is fixed. Leaving the amount
 // empty makes a Record: kept for history, with no bike lock or payment link.
+// recordOnly (team leaders) hides Payment Due and the amount, since both lock the bike.
 // onSubmit(values) must return a promise; its rejection message is shown in the form.
-export default function EscalateDialog({ rider, outstandingBalance, onSubmit, onClose }) {
+export default function EscalateDialog({ rider, outstandingBalance, recordOnly = false, onSubmit, onClose }) {
     const dialogRef = useRef(null);
     const [reasons, setReasons] = useState([]);
     const [amount, setAmount] = useState('');
@@ -108,7 +109,7 @@ export default function EscalateDialog({ rider, outstandingBalance, onSubmit, on
                 <div className="form-fields">
                     <fieldset className={`reason-grid${errors.reasons ? ' field--invalid' : ''}`}>
                         <legend className="field__label">Reasons</legend>
-                        {REASONS.map(reason => (
+                        {REASONS.filter(reason => !recordOnly || reason !== 'Payment Due').map(reason => (
                             <label key={reason} className="checkbox reason-option">
                                 <input
                                     type="checkbox"
@@ -121,26 +122,34 @@ export default function EscalateDialog({ rider, outstandingBalance, onSubmit, on
                         ))}
                         {errors.reasons && <span className="field__error">{errors.reasons}</span>}
                     </fieldset>
-                    {!(outstandingBalance > 0) && (
-                        <p className="form-note muted">Payment Due needs an outstanding balance; this rider owes nothing.</p>
-                    )}
+                    {recordOnly ? (
+                        <p className="form-note muted">
+                            Recorded only, with no bike lock or payment link. An admin decides on any charge.
+                        </p>
+                    ) : (
+                        <>
+                            {!(outstandingBalance > 0) && (
+                                <p className="form-note muted">Payment Due needs an outstanding balance; this rider owes nothing.</p>
+                            )}
 
-                    <Field label="Amount (₹)" error={errors.amount}>
-                        <input
-                            value={paymentDue ? String(outstandingBalance) : amount}
-                            onChange={event => setAmount(event.target.value)}
-                            readOnly={paymentDue}
-                            inputMode="decimal"
-                            placeholder="Leave empty to only record it"
-                        />
-                    </Field>
-                    <p className="form-note muted">
-                        {paymentDue
-                            ? `Collects the outstanding balance of ${formatINR(outstandingBalance)}.`
-                            : amount.trim()
-                                ? 'Locks the bike and sends a payment link. Deducted from this week\'s payout if not paid.'
-                                : 'No amount: recorded only, with no bike lock or payment link.'}
-                    </p>
+                            <Field label="Amount (₹)" error={errors.amount}>
+                                <input
+                                    value={paymentDue ? String(outstandingBalance) : amount}
+                                    onChange={event => setAmount(event.target.value)}
+                                    readOnly={paymentDue}
+                                    inputMode="decimal"
+                                    placeholder="Leave empty to only record it"
+                                />
+                            </Field>
+                            <p className="form-note muted">
+                                {paymentDue
+                                    ? `Collects the outstanding balance of ${formatINR(outstandingBalance)}.`
+                                    : amount.trim()
+                                        ? 'Locks the bike and sends a payment link. Deducted from this week\'s payout if not paid.'
+                                        : 'No amount: recorded only, with no bike lock or payment link.'}
+                            </p>
+                        </>
+                    )}
 
                     <Field label="Comment" error={errors.comment}>
                         <textarea
