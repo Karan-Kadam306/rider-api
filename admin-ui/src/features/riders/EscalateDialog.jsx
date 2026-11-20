@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import Field from '../../components/ui/Field';
 import { formatINR } from '../../utils/formatCurrency';
+import { formatDate } from '../../utils/formatDate';
 
 // Same list and order as the API.
 const REASONS = [
@@ -21,17 +22,20 @@ const REASONS = [
 // Payment Due collects the outstanding balance, so its amount is fixed. Leaving the amount
 // empty makes a Record: kept for history, with no bike lock or payment link.
 // recordOnly (team leaders) hides Payment Due and the amount, since both lock the bike.
+// activePromise: while the rider's payment promise is still due, locking needs a tick to confirm.
 // onSubmit(values) must return a promise; its rejection message is shown in the form.
-export default function EscalateDialog({ rider, outstandingBalance, recordOnly = false, onSubmit, onClose }) {
+export default function EscalateDialog({ rider, outstandingBalance, recordOnly = false, activePromise = null, onSubmit, onClose }) {
     const dialogRef = useRef(null);
     const [reasons, setReasons] = useState([]);
     const [amount, setAmount] = useState('');
     const [comment, setComment] = useState('');
+    const [overridePromise, setOverridePromise] = useState(false);
     const [errors, setErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [busy, setBusy] = useState(false);
 
     const paymentDue = reasons.includes('Payment Due');
+    const locksBike = !recordOnly && (paymentDue || amount.trim() !== '');
 
     useEffect(() => {
         dialogRef.current.showModal();
@@ -61,6 +65,10 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
             fieldErrors.amount = 'Amount must be more than zero';
         }
 
+        if (locksBike && activePromise && !overridePromise) {
+            fieldErrors.promise = 'Tick the box to lock the bike despite the promise';
+        }
+
         return fieldErrors;
     }
 
@@ -82,7 +90,8 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
                 // Keep the API's order, whatever order they were ticked in.
                 reasons: REASONS.filter(reason => reasons.includes(reason)),
                 amount: paymentDue || !amount.trim() ? null : Number(amount),
-                comment: comment.trim() || null
+                comment: comment.trim() || null,
+                confirmPromiseOverride: locksBike && overridePromise
             });
         } catch (error) {
             setServerError(error.message);
@@ -149,6 +158,28 @@ export default function EscalateDialog({ rider, outstandingBalance, recordOnly =
                                         : 'No amount: recorded only, with no bike lock or payment link.'}
                             </p>
                         </>
+                    )}
+
+                    {locksBike && activePromise && (
+                        <div className={`promise-confirm${errors.promise ? ' field--invalid' : ''}`}>
+                            <p className="promise-banner">
+                                {activePromise.loggedBy} logged a promise to pay
+                                {activePromise.promiseAmount !== null && ` ${formatINR(activePromise.promiseAmount)}`}
+                                {' by '}{formatDate(activePromise.promiseDate)}.
+                            </p>
+                            <label className="checkbox">
+                                <input
+                                    type="checkbox"
+                                    checked={overridePromise}
+                                    onChange={event => {
+                                        setOverridePromise(event.target.checked);
+                                        setErrors(current => ({ ...current, promise: undefined }));
+                                    }}
+                                />
+                                Lock the bike anyway
+                            </label>
+                            {errors.promise && <span className="field__error">{errors.promise}</span>}
+                        </div>
                     )}
 
                     <Field label="Comment" error={errors.comment}>

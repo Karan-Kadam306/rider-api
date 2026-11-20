@@ -53,7 +53,34 @@ async function countByRider(client, { riderId }) {
     return result.rows[0].total;
 }
 
+// A promise stands until a later follow-up says the rider Paid or Refused.
+const OPEN_PROMISE = `
+    f.outcome = 'Promised to Pay'
+    AND NOT EXISTS (
+        SELECT 1 FROM rider_follow_ups later
+        WHERE later.rider_id = f.rider_id
+          AND later.created_at > f.created_at
+          AND later.outcome IN ('Paid', 'Refused')
+    )`;
+
+// The rider's latest promise that is still due (date today or later), or null.
+async function findActivePromise(client, { riderId, today }) {
+    const result = await client.query(
+        `SELECT ${FOLLOW_UP_COLUMNS}
+         FROM rider_follow_ups f
+         JOIN users u ON u.user_id = f.user_id
+         WHERE f.rider_id = $1 AND f.promise_date >= $2 AND ${OPEN_PROMISE}
+         ORDER BY f.created_at DESC, f.follow_up_id DESC
+         LIMIT 1`,
+        [riderId, today]
+    );
+
+    return result.rows[0] ?? null;
+}
+
 module.exports = {
+    OPEN_PROMISE,
+    findActivePromise,
     insertFollowUp,
     findById,
     findByRider,

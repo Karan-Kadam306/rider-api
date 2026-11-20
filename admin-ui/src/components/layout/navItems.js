@@ -16,8 +16,10 @@ export const NAV_ITEMS = [
     { to: '/users', label: 'Users', icon: 'shield', adminOnly: true }
 ];
 
-// Team leaders see only their own riders. alsoMatches gives the rider page the same title.
+// Team leaders see only their own riders; the critical queue is their home page.
+// alsoMatches gives the rider page the same title.
 export const TEAM_LEADER_NAV_ITEMS = [
+    { to: '/queue', label: 'Critical Queue', icon: 'shield', showsQueueCount: true },
     { to: '/my-riders', label: 'My Riders', icon: 'users', alsoMatches: ['/riders/'] }
 ];
 

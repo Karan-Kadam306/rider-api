@@ -16,6 +16,7 @@ import LoadingSkeleton from '../../components/feedback/LoadingSkeleton';
 import CurrencyText from '../../components/ui/CurrencyText';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDateTime, formatWeekRange } from '../../utils/week';
+import { formatDate } from '../../utils/formatDate';
 import EscalationActionDialog from './EscalationActionDialog';
 
 const EVENT_LABELS = {
@@ -70,6 +71,11 @@ const ACTIONS = {
 // What a detail of an event adds to its timeline line, e.g. the payment reference or waive reason.
 function eventNote(event) {
     const detail = event.detail ?? {};
+
+    if (detail.promiseOverridden) {
+        return `Raised despite a payment promise due ${formatDate(detail.promiseOverridden.promiseDate)}`;
+    }
+
     return detail.paymentRef ?? detail.paymentId ?? detail.note ?? detail.reason ?? detail.error ?? null;
 }
 

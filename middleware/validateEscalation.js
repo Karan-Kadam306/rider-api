@@ -16,7 +16,7 @@ const ESCALATION_REASONS = [
 // Validate the body for raising an escalation: { reasons, amount?, comment? }.
 // No amount makes it a Record. For Payment Due the amount is ignored; the service sets it.
 function validateRaiseEscalation(req, res, next) {
-    const { reasons, amount, comment } = req.body ?? {};
+    const { reasons, amount, comment, confirmPromiseOverride } = req.body ?? {};
 
     if (
         !Array.isArray(reasons) ||
@@ -46,7 +46,9 @@ function validateRaiseEscalation(req, res, next) {
     req.body = {
         reasons,
         amount: reasons.includes('Payment Due') ? null : amount ?? null,
-        comment: comment?.trim() || null
+        comment: comment?.trim() || null,
+        // Set when the admin saw the rider's payment promise and locks the bike anyway.
+        confirmPromiseOverride: confirmPromiseOverride === true
     };
 
     return next();

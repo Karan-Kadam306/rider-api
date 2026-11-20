@@ -2,6 +2,7 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const riderRepository = require('../repositories/riderRepository');
 const teamLeaderRepository = require('../repositories/teamLeaderRepository');
+const { todayInIst, addDays } = require('./billingService');
 
 function parseUserId(userId) {
     const id = Number(userId);
@@ -130,7 +131,98 @@ async function listMyRiders({ userId, search, page = 1, limit = 20 }) {
     };
 }
 
+// Queue rules. Severity orders the queue; a rider appears once, with every reason that applies.
+const SEVERITY_ORDER = { Critical: 3, High: 2, Low: 1 };
+// A rider with a money problem should be called at least this often.
+const FOLLOW_UP_DUE_DAYS = 2;
+// Lowest km riders flagged per team leader, but never more than half of their riders on a bike.
+const LOW_KM_COUNT = 3;
+const KM_WINDOW_DAYS = 7;
+
+const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
+// "21 Nov" for a YYYY-MM-DD date, without any time zone shift.
+const shortDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short' });
+const formatDay = date => shortDate.format(new Date(`${date}T00:00:00.000Z`));
+
+function daysSince(timestamp, now) {
+    return timestamp ? (now - new Date(timestamp)) / (24 * 60 * 60 * 1000) : Infinity;
+}
+
+// The riders a team leader should act on now, worst first.
+async function getMyQueue({ userId }) {
+    const today = todayInIst();
+    // Complete days only: today's km file may not be uploaded yet.
+    const kmFrom = addDays(today, -KM_WINDOW_DAYS);
+    const kmTo = addDays(today, -1);
+    const rows = await teamLeaderRepository.findQueueRows(pool, { userId, kmFrom, kmTo });
+    const now = Date.now();
+
+    const withBike = rows.filter(row => row.has_bike).sort((a, b) => a.total_km - b.total_km);
+    const lowKmCount = Math.min(LOW_KM_COUNT, Math.floor(withBike.length / 2));
+    const lowKmIds = new Set(withBike.slice(0, lowKmCount).map(row => row.rider_id));
+
+    const riders = [];
+
+    for (const row of rows) {
+        const reasons = [];
+        const owes = row.open_money_escalations > 0 || row.last_net_payout < 0;
+
+        if (owes && row.promise_date && row.promise_date < today) {
+            const amount = row.promise_amount === null ? '' : ` ${inr.format(row.promise_amount)}`;
+            reasons.push({ type: 'promiseBroken', severity: 'Critical', label: `Promised to pay${amount} by ${formatDay(row.promise_date)}, not paid` });
+        }
+
+        if (row.open_money_escalations > 0) {
+            reasons.push({
+                type: 'openEscalation',
+                severity: 'Critical',
+                label: `${row.locked ? 'Bike locked: ' : ''}open escalation of ${inr.format(row.open_money_amount)}`
+            });
+        }
+
+        if (row.last_net_payout < 0) {
+            reasons.push({ type: 'negativePayout', severity: 'High', label: `Owes ${inr.format(-row.last_net_payout)} from the last payout` });
+        }
+
+        if (lowKmIds.has(row.rider_id)) {
+            reasons.push({ type: 'lowKm', severity: 'Low', label: `Lowest km: ${Math.round(row.total_km)} km in the last ${KM_WINDOW_DAYS} days` });
+        }
+
+        if (!reasons.length) {
+            continue;
+        }
+
+        const severity = reasons.reduce(
+            (worst, reason) => (SEVERITY_ORDER[reason.severity] > SEVERITY_ORDER[worst] ? reason.severity : worst),
+            'Low'
+        );
+
+        riders.push({
+            riderId: row.rider_id,
+            name: row.name,
+            phone: row.phone,
+            status: row.status,
+            severity,
+            reasons,
+            lastFollowUpAt: row.last_follow_up_at,
+            // Money problems need a call every few days; low km alone does not.
+            followUpDue: severity !== 'Low' && daysSince(row.last_follow_up_at, now) >= FOLLOW_UP_DUE_DAYS,
+            activePromise: row.promise_date && row.promise_date >= today
+                ? { promiseDate: row.promise_date, promiseAmount: row.promise_amount }
+                : null
+        });
+    }
+
+    riders.sort((a, b) =>
+        SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] ||
+        Number(b.followUpDue) - Number(a.followUpDue) ||
+        a.name.localeCompare(b.name));
+
+    return { riders };
+}
+
 module.exports = {
+    getMyQueue,
     listTeamLeaders,
     getRiderTeamLeaders,
     assignTeamLeader,

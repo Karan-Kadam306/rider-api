@@ -23,6 +23,7 @@ import BillingPage from './pages/BillingPage';
 import PayoutsPage from './pages/PayoutsPage';
 import UsersPage from './pages/UsersPage';
 import MyRidersPage from './pages/MyRidersPage';
+import QueuePage from './pages/QueuePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Providers sit above the router so every page can reach the user, selected week and toasts.
@@ -56,6 +57,7 @@ export default function App() {
                                         </Route>
                                     </Route>
                                     <Route element={<RequireTeamLeader />}>
+                                        <Route path="queue" element={<QueuePage />} />
                                         <Route path="my-riders" element={<MyRidersPage />} />
                                     </Route>
                                     {/* Shared: the API lets a team leader open only their own riders. */}

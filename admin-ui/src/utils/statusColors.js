@@ -24,7 +24,12 @@ const STATUS_TONES = {
     'Promised to Pay': 'info',
     'Will Improve': 'success',
     Unreachable: 'warning',
-    Refused: 'danger'
+    Refused: 'danger',
+    // Critical queue priority.
+    Critical: 'danger',
+    High: 'warning',
+    Low: 'neutral',
+    'Call due': 'warning'
 };
 
 // Unknown statuses fall back to neutral, so a new backend status still renders.

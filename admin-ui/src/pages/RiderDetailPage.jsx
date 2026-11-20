@@ -13,6 +13,8 @@ import ErrorState from '../components/feedback/ErrorState';
 import LoadingSkeleton from '../components/feedback/LoadingSkeleton';
 import Icon from '../components/ui/Icon';
 import StatusBadge from '../components/ui/StatusBadge';
+import CurrencyText from '../components/ui/CurrencyText';
+import { formatDate } from '../utils/formatDate';
 import StatusTabs from '../components/ui/StatusTabs';
 import RiderOverview from '../features/riders/RiderOverview';
 import RiderEarningsTab from '../features/riders/RiderEarningsTab';
@@ -52,6 +54,7 @@ export default function RiderDetailPage() {
     const profile = useApi(options => getRiderProfile(riderId, options), [riderId, refreshKey, reloadKey]);
     const rider = profile.data?.rider;
     const openEscalations = profile.data?.openEscalations ?? [];
+    const activePromise = profile.data?.activePromise ?? null;
     // Admins raise any escalation; team leaders only a Record (no lock, no payment link).
     const canEscalate = (isAdmin || isTeamLeader) && rider && rider.status !== 'Terminated';
 
@@ -122,6 +125,15 @@ export default function RiderDetailPage() {
 
             {profile.data && (
                 <>
+                    {activePromise && (
+                        <p className="promise-banner" role="status">
+                            Promised to pay
+                            {activePromise.promiseAmount !== null && <> <CurrencyText value={activePromise.promiseAmount} /></>}
+                            {' by '}<strong>{formatDate(activePromise.promiseDate)}</strong>
+                            {' — logged by '}{activePromise.loggedBy}
+                        </p>
+                    )}
+
                     {openEscalations.length > 0 && tab !== 'escalations' && (
                         <p className="escalation-banner" role="status">
                             {openEscalations.length === 1 ? '1 open escalation' : `${openEscalations.length} open escalations`}
@@ -154,6 +166,7 @@ export default function RiderDetailPage() {
                     rider={rider}
                     outstandingBalance={profile.data.outstandingBalance}
                     recordOnly={isTeamLeader}
+                    activePromise={activePromise}
                     onSubmit={handleEscalate}
                     onClose={() => setEscalating(false)}
                 />
