@@ -21,7 +21,8 @@ function errorHandler(error, req, res, next) {
         }
 
         return res.status(error.statusCode).json({
-            error: error.message
+            error: error.message,
+            ...(error.code ? { code: error.code } : {})
         });
     }
 

@@ -2,7 +2,7 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const riderRepository = require('../repositories/riderRepository');
 const teamLeaderRepository = require('../repositories/teamLeaderRepository');
-const { todayInIst, addDays } = require('./billingService');
+const { todayInIst, addDays, currentWeekStart } = require('./billingService');
 
 function parseUserId(userId) {
     const id = Number(userId);
@@ -108,7 +108,9 @@ async function listMyRiders({ userId, search, page = 1, limit = 20 }) {
     const term = typeof search === 'string' && search.trim() ? `%${search.trim()}%` : null;
 
     const [rows, totalRecords] = await Promise.all([
-        teamLeaderRepository.findMyRiders(pool, { userId, search: term, limit: pagination.limit, offset: pagination.offset }),
+        teamLeaderRepository.findMyRiders(pool, {
+            userId, search: term, limit: pagination.limit, offset: pagination.offset, weekStart: currentWeekStart()
+        }),
         teamLeaderRepository.countMyRiders(pool, { userId, search: term })
     ]);
 
@@ -125,6 +127,8 @@ async function listMyRiders({ userId, search, page = 1, limit = 20 }) {
                 : null,
             lastPaidWeek: row.last_paid_week,
             lastNetPayout: row.last_net_payout,
+            // What the rider owes now, the same amount as the rider page; 0 when nothing.
+            outstandingBalance: row.outstanding_balance ?? 0,
             openEscalations: row.open_escalations,
             openEscalationAmount: row.open_escalation_amount
         }))
@@ -154,10 +158,10 @@ async function getMyQueue({ userId }) {
     // Complete days only: today's km file may not be uploaded yet.
     const kmFrom = addDays(today, -KM_WINDOW_DAYS);
     const kmTo = addDays(today, -1);
-    const rows = await teamLeaderRepository.findQueueRows(pool, { userId, kmFrom, kmTo });
+    const rows = await teamLeaderRepository.findQueueRows(pool, { userId, kmFrom, kmTo, weekStart: currentWeekStart() });
     const now = Date.now();
 
-    const withBike = rows.filter(row => row.has_bike).sort((a, b) => a.total_km - b.total_km);
+    const withBike = rows.filter(row => row.km_comparable).sort((a, b) => a.total_km - b.total_km);
     const lowKmCount = Math.min(LOW_KM_COUNT, Math.floor(withBike.length / 2));
     const lowKmIds = new Set(withBike.slice(0, lowKmCount).map(row => row.rider_id));
 
@@ -165,7 +169,7 @@ async function getMyQueue({ userId }) {
 
     for (const row of rows) {
         const reasons = [];
-        const owes = row.open_money_escalations > 0 || row.last_net_payout < 0;
+        const owes = row.open_money_escalations > 0 || row.outstanding_balance > 0;
 
         if (owes && row.promise_date && row.promise_date < today) {
             const amount = row.promise_amount === null ? '' : ` ${inr.format(row.promise_amount)}`;
@@ -180,8 +184,8 @@ async function getMyQueue({ userId }) {
             });
         }
 
-        if (row.last_net_payout < 0) {
-            reasons.push({ type: 'negativePayout', severity: 'High', label: `Owes ${inr.format(-row.last_net_payout)} from the last payout` });
+        if (row.outstanding_balance > 0) {
+            reasons.push({ type: 'negativePayout', severity: 'High', label: `Owes ${inr.format(row.outstanding_balance)} from the last payout` });
         }
 
         if (lowKmIds.has(row.rider_id)) {

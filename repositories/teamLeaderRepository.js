@@ -1,4 +1,5 @@
 const { OPEN_PROMISE } = require('./followUpRepository');
+const { outstandingBalancesSql } = require('./payoutRepository');
 
 // A user, if they exist; role and is_active tell the service whether they can lead riders.
 async function findUser(client, { userId }) {
@@ -97,16 +98,18 @@ const MY_RIDERS_WHERE = `
       AND ($2::text IS NULL OR r.rider_id ILIKE $2 OR r.name ILIKE $2 OR r.phone ILIKE $2)`;
 
 // The team leader's riders with their bike, last paid week and open escalations.
-// Riders whose last payout was negative (they owe money) come first.
-async function findMyRiders(client, { userId, search, limit, offset }) {
+// Riders who owe money now come first. weekStart is the current week's Monday.
+async function findMyRiders(client, { userId, search, limit, offset, weekStart }) {
     const result = await client.query(
         `SELECT r.rider_id, r.name, r.phone, r.status, l.assigned_at,
                 bike.bike_id, bike.chassis_number, bike.registration_number,
                 payout.week_start AS last_paid_week,
                 payout.net_payout AS last_net_payout,
+                owed.outstanding AS outstanding_balance,
                 escalation.open_count AS open_escalations,
                 escalation.open_amount AS open_escalation_amount
          ${MY_RIDERS_FROM}
+         LEFT JOIN (${outstandingBalancesSql('$5')}) owed ON owed.rider_id = r.rider_id
          LEFT JOIN LATERAL (
              SELECT b.bike_id, b.chassis_number, b.registration_number
              FROM bike_assignments a
@@ -128,37 +131,32 @@ async function findMyRiders(client, { userId, search, limit, offset }) {
              WHERE e.rider_id = r.rider_id AND e.status = 'Open'
          ) escalation ON true
          ${MY_RIDERS_WHERE}
-         ORDER BY COALESCE(payout.net_payout, 0) < 0 DESC, r.name, r.rider_id
+         ORDER BY owed.outstanding IS NOT NULL DESC, r.name, r.rider_id
          LIMIT $3 OFFSET $4`,
-        [userId, search, limit, offset]
+        [userId, search, limit, offset, weekStart]
     );
 
     return result.rows;
 }
 
 // Everything the critical queue rules need, one row per rider the team leader holds.
-// km is the rider's total over [kmFrom, kmTo]; the service ranks it.
-async function findQueueRows(client, { userId, kmFrom, kmTo }) {
+// km is the rider's total over [kmFrom, kmTo]; the service ranks it among riders who can be compared
+// fairly: holding a bike since before kmFrom, with no approved leave in the window.
+async function findQueueRows(client, { userId, kmFrom, kmTo, weekStart }) {
     const result = await client.query(
         `SELECT r.rider_id, r.name, r.phone, r.status,
-                payout.net_payout AS last_net_payout,
+                owed.outstanding AS outstanding_balance,
                 money.open_count AS open_money_escalations,
                 money.open_amount AS open_money_amount,
                 money.locked,
                 promise.promise_date,
                 promise.promise_amount,
                 last_call.created_at AS last_follow_up_at,
-                bike.has_bike,
+                bike.has_bike AND bike.held_all_window AND NOT leave.on_leave AS km_comparable,
                 km.total_km
          FROM team_leader_riders l
          JOIN riders r ON r.rider_id = l.rider_id
-         LEFT JOIN LATERAL (
-             SELECT p.net_payout::float8 AS net_payout
-             FROM payout_items p
-             WHERE p.rider_id = r.rider_id
-             ORDER BY p.week_start DESC
-             LIMIT 1
-         ) payout ON true
+         LEFT JOIN (${outstandingBalancesSql('$4')}) owed ON owed.rider_id = r.rider_id
          LEFT JOIN LATERAL (
              SELECT COUNT(*)::int AS open_count,
                     SUM(e.amount)::float8 AS open_amount,
@@ -180,17 +178,31 @@ async function findQueueRows(client, { userId, kmFrom, kmTo }) {
          ) last_call ON true
          LEFT JOIN LATERAL (
              SELECT EXISTS (
-                 SELECT 1 FROM bike_assignments a
-                 WHERE a.rider_id = r.rider_id AND a.returned_at IS NULL
-             ) AS has_bike
+                        SELECT 1 FROM bike_assignments a
+                        WHERE a.rider_id = r.rider_id AND a.returned_at IS NULL
+                    ) AS has_bike,
+                    -- A bike swap still counts: any assignment held at the window's first moment.
+                    EXISTS (
+                        SELECT 1 FROM bike_assignments a
+                        WHERE a.rider_id = r.rider_id
+                          AND a.assigned_at <= ($2::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
+                          AND (a.returned_at IS NULL OR a.returned_at > ($2::date)::timestamp AT TIME ZONE 'Asia/Kolkata')
+                    ) AS held_all_window
          ) bike ON true
+         LEFT JOIN LATERAL (
+             SELECT EXISTS (
+                 SELECT 1 FROM rider_inactive_periods p
+                 WHERE p.rider_id = r.rider_id AND p.approved
+                   AND p.start_date <= $3 AND p.end_date >= $2
+             ) AS on_leave
+         ) leave ON true
          LEFT JOIN LATERAL (
              SELECT COALESCE(SUM(d.daily_km), 0)::float8 AS total_km
              FROM daily_km_records d
              WHERE d.rider_id = r.rider_id AND d.usage_date BETWEEN $2 AND $3
          ) km ON true
          WHERE l.user_id = $1 AND l.removed_at IS NULL`,
-        [userId, kmFrom, kmTo]
+        [userId, kmFrom, kmTo, weekStart]
     );
 
     return result.rows;

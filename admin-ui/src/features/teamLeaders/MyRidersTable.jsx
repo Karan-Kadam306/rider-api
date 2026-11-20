@@ -23,7 +23,7 @@ export default function MyRidersTable({ riders }) {
                         <th>Phone</th>
                         <th>Status</th>
                         <th>Bike</th>
-                        <th className="num">Last net payout</th>
+                        <th className="num">Owes now</th>
                         <th className="num">Open escalations</th>
                         <th className="actions-col">Actions</th>
                     </tr>
@@ -48,13 +48,13 @@ export default function MyRidersTable({ riders }) {
                                 {rider.currentBike ? bikeLabel(rider.currentBike) : 'None'}
                             </td>
                             <td className="num">
-                                {rider.lastPaidWeek ? (
-                                    <>
-                                        <CurrencyText value={rider.lastNetPayout} />
-                                        <span className="person__sub">{formatWeekRange(rider.lastPaidWeek)}</span>
-                                    </>
+                                {rider.outstandingBalance > 0 ? (
+                                    <CurrencyText value={-rider.outstandingBalance} />
                                 ) : (
-                                    <span className="muted">Not paid yet</span>
+                                    <span className="muted">Nothing</span>
+                                )}
+                                {rider.lastPaidWeek && (
+                                    <span className="person__sub">Last paid {formatWeekRange(rider.lastPaidWeek)}</span>
                                 )}
                             </td>
                             <td className="num">

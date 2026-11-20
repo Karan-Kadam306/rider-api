@@ -1,8 +1,10 @@
 import EmptyState from '../../../components/feedback/EmptyState';
+import ErrorState from '../../../components/feedback/ErrorState';
 import CurrencyText from '../../../components/ui/CurrencyText';
 
 // What each team leader did in the range. Recovered counts charges and Payment Due marked Paid while
 // they held the rider; owing now is about the riders they hold today.
+// teamLeaders is the list, or { error } when only this request failed.
 export default function TeamLeaderPanel({ teamLeaders }) {
     return (
         <section className="card panel analytics__wide">
@@ -11,7 +13,9 @@ export default function TeamLeaderPanel({ teamLeaders }) {
                 <span className="panel__meta">Calls and collections in the range · owing as of today</span>
             </div>
 
-            {teamLeaders.length === 0 ? (
+            {teamLeaders.error ? (
+                <ErrorState title="Could not load team leader figures" error={teamLeaders.error} />
+            ) : teamLeaders.length === 0 ? (
                 <EmptyState message="No active team leaders. Add one on the Users page." />
             ) : (
                 <div className="table-wrap">

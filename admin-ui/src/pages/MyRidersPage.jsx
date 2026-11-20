@@ -61,7 +61,7 @@ export default function MyRidersPage() {
         <>
             <PageHeader
                 title="My Riders"
-                subtitle="Riders assigned to you. Riders who owe money are listed first."
+                subtitle="Riders assigned to you. Riders who owe money now are listed first."
             />
 
             <div className="search-box">

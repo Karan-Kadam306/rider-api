@@ -38,14 +38,14 @@ describe('GET /api/analytics/team-leaders', () => {
         const tl = await createTeamLeader('tl@test.local', ['YS-001', 'YS-002']);
         await createTeamLeader('idle@test.local', ['YS-003']);
 
-        // Calls: three follow-ups on two riders, two of them promises.
+        // Recovered: a charge on a held rider, marked paid (before the promise below, so it does not keep it).
+        const charge = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Bike Misuse'], amount: 500 });
+        await h.api('POST', `/api/escalations/${charge.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
+
+        // Calls: three follow-ups on two riders, two of them promises: YS-001's broken, YS-002's kept.
         await insertPromise('YS-001', tl.userId, h.addDays(today, -1));
         await insertPromise('YS-002', tl.userId, h.addDays(today, 5));
         await h.api('POST', '/api/riders/YS-002/follow-ups', { reason: 'Payment Due', outcome: 'Paid', note: 'Paid by UPI' }, tl.cookie);
-
-        // Recovered: a charge on a held rider, marked paid.
-        const charge = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Bike Misuse'], amount: 500 });
-        await h.api('POST', `/api/escalations/${charge.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
 
         // Owing now: YS-001's last payout was negative.
         await h.createPayoutItem('YS-001', h.addDays(h.currentWeekStart(), -7), -250);
@@ -67,6 +67,19 @@ describe('GET /api/analytics/team-leaders', () => {
         assert.equal(idle.riders, 1);
         assert.equal(idle.calls, 0);
         assert.deepEqual(idle.recovered, { count: 0, amount: 0 });
+    });
+
+    it('counts a promise as kept when the rider pays, even if nobody logs Paid', async () => {
+        const today = h.todayInIst();
+        await h.createRider('YS-001');
+        const tl = await createTeamLeader('tl@test.local', ['YS-001']);
+        await insertPromise('YS-001', tl.userId, h.addDays(today, -1));
+        const charge = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Bike Misuse'], amount: 500 });
+        await h.api('POST', `/api/escalations/${charge.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
+
+        const res = await getStats(h.addDays(today, -6), today);
+
+        assert.deepEqual(res.body.teamLeaders[0].promises, { made: 1, kept: 1, broken: 0 });
     });
 
     it('leaves out activity outside the dates', async () => {

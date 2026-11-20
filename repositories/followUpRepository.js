@@ -53,14 +53,27 @@ async function countByRider(client, { riderId }) {
     return result.rows[0].total;
 }
 
-// A promise stands until a later follow-up says the rider Paid or Refused.
+// A promise (alias f) is kept when the rider paid after making it: a later Paid follow-up, or a
+// charge or Payment Due marked Paid afterwards (payment link or admin), even if nobody logged it.
+const PROMISE_KEPT = `(
+    EXISTS (
+        SELECT 1 FROM rider_follow_ups later
+        WHERE later.rider_id = f.rider_id AND later.created_at > f.created_at AND later.outcome = 'Paid'
+    )
+    OR EXISTS (
+        SELECT 1 FROM rider_escalations paid
+        WHERE paid.rider_id = f.rider_id AND paid.kind <> 'Record'
+          AND paid.status = 'Paid' AND paid.resolved_at > f.created_at
+    )
+)`;
+
+// A promise stands until it is kept or a later follow-up says the rider Refused.
 const OPEN_PROMISE = `
     f.outcome = 'Promised to Pay'
+    AND NOT ${PROMISE_KEPT}
     AND NOT EXISTS (
         SELECT 1 FROM rider_follow_ups later
-        WHERE later.rider_id = f.rider_id
-          AND later.created_at > f.created_at
-          AND later.outcome IN ('Paid', 'Refused')
+        WHERE later.rider_id = f.rider_id AND later.created_at > f.created_at AND later.outcome = 'Refused'
     )`;
 
 // The rider's latest promise that is still due (date today or later), or null.
@@ -79,6 +92,7 @@ async function findActivePromise(client, { riderId, today }) {
 }
 
 module.exports = {
+    PROMISE_KEPT,
     OPEN_PROMISE,
     findActivePromise,
     insertFollowUp,
