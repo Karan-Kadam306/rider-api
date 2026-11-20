@@ -199,6 +199,9 @@ admin-ui/      React admin panel
 | Riders | `GET/POST /api/riders`, `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` |
 | Rider page | `GET /api/riders/:riderId/profile`, `GET /api/riders/:riderId/payouts`, `GET /api/riders/:riderId/assignments` |
 | Escalations | `GET/POST /api/riders/:riderId/escalations` (POST admin), `POST /api/escalations/:escalationId/mark-paid`, `…/waive`, `…/close`, `…/retry-lock` (admin) |
+| Team leaders | `GET /api/users/team-leaders` (admin), `GET/POST /api/riders/:riderId/team-leaders`, `DELETE /api/riders/:riderId/team-leaders/:userId` (POST/DELETE admin), `GET /api/tl/riders` (team leader) |
+
+A `team_leader` user can call only `GET /api/tl/riders` and the four rider page reads above (profile, payouts, assignments, escalations) for riders assigned to them; everything else answers 403 (see `middleware/restrictTeamLeader.js`).
 | Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |

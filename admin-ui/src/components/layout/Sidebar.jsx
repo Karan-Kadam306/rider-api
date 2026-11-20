@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
 import Icon from '../ui/Icon';
-import { NAV_ITEMS } from './navItems';
+import { getNavItems } from './navItems';
 
 // One sidebar link. NavLink reports whether it matches the current page, for the highlight.
 function NavItem({ item }) {
@@ -20,10 +20,12 @@ function NavItem({ item }) {
     );
 }
 
-// Links come from navItems; the Administration section only appears for admins.
+// Links come from navItems (team leaders get their own short list); the Administration section
+// only appears for admins.
 export default function Sidebar() {
-    const { isAdmin } = useAuth();
-    const adminItems = isAdmin ? NAV_ITEMS.filter(item => item.adminOnly) : [];
+    const { user, isAdmin } = useAuth();
+    const navItems = getNavItems(user);
+    const adminItems = isAdmin ? navItems.filter(item => item.adminOnly) : [];
 
     return (
         <aside className="sidebar">
@@ -33,7 +35,7 @@ export default function Sidebar() {
             </div>
             <nav className="sidebar__nav" aria-label="Main">
                 <p className="sidebar__section">Management</p>
-                {NAV_ITEMS.filter(item => !item.adminOnly).map(item => (
+                {navItems.filter(item => !item.adminOnly).map(item => (
                     <NavItem key={item.to} item={item} />
                 ))}
                 {adminItems.length > 0 && (

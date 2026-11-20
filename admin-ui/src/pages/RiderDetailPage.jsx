@@ -18,6 +18,7 @@ import RiderEarningsTab from '../features/riders/RiderEarningsTab';
 import RiderHistoryTab from '../features/riders/RiderHistoryTab';
 import RiderEscalationsTab from '../features/riders/RiderEscalationsTab';
 import EscalateDialog from '../features/riders/EscalateDialog';
+import TeamLeadersPanel from '../features/riders/TeamLeadersPanel';
 
 const TABS = [
     { value: 'overview', label: 'Overview', icon: 'users' },
@@ -34,7 +35,9 @@ export default function RiderDetailPage() {
     const requestedTab = searchParams.get('tab');
     const tab = TABS.some(item => item.value === requestedTab) ? requestedTab : 'overview';
 
-    const { isAdmin } = useAuth();
+    const { isAdmin, isTeamLeader } = useAuth();
+    // Team leaders reach this page from My Riders, not from Rider Management.
+    const backTo = isTeamLeader ? { label: 'My Riders', to: '/my-riders' } : { label: 'Riders', to: '/riders' };
     const { refreshKey } = useWeek();
     const showToast = useToast();
     // Bumped after an escalation changes, so the balance, banner and list all reload.
@@ -63,10 +66,10 @@ export default function RiderDetailPage() {
     return (
         <>
             <PageHeader
-                breadcrumbs={[{ label: 'Riders', to: '/riders' }, { label: rider?.name ?? riderId }]}
+                breadcrumbs={[backTo, { label: rider?.name ?? riderId }]}
                 title={
                     <span className="rider-title">
-                        <Link to="/riders" className="button button--icon" aria-label="Back to riders">
+                        <Link to={backTo.to} className="button button--icon" aria-label={`Back to ${backTo.label}`}>
                             <Icon name="chevronLeft" size={16} />
                         </Link>
                         {rider?.name ?? riderId}
@@ -106,7 +109,12 @@ export default function RiderDetailPage() {
 
                     <StatusTabs label="Rider sections" tabs={TABS} value={tab} onChange={openTab} />
 
-                    {tab === 'overview' && <RiderOverview profile={profile.data} />}
+                    {tab === 'overview' && (
+                        <>
+                            <RiderOverview profile={profile.data} showStaffLinks={!isTeamLeader} />
+                            {!isTeamLeader && <TeamLeadersPanel rider={rider} isAdmin={isAdmin} />}
+                        </>
+                    )}
                     {tab === 'earnings' && <RiderEarningsTab riderId={riderId} />}
                     {tab === 'history' && <RiderHistoryTab riderId={riderId} />}
                     {tab === 'escalations' && (

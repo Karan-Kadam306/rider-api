@@ -7,7 +7,8 @@ import { formatDate } from '../../utils/formatDate';
 import { formatDateTime, formatWeekRange } from '../../utils/week';
 
 // The Overview tab: what is owed, this week's bill, the bike and partner IDs, and the rider's details.
-export default function RiderOverview({ profile }) {
+// showStaffLinks is false for team leaders, who cannot open Billing or Partner Mappings.
+export default function RiderOverview({ profile, showStaffLinks = true }) {
     const { rider, currentAssignment, partnerMappings, currentWeekBill: bill, outstandingBalance } = profile;
 
     return (
@@ -22,7 +23,7 @@ export default function RiderOverview({ profile }) {
                     label="Net payout this week"
                     value={bill.requiresReview ? '—' : <CurrencyText value={bill.netPayout} />}
                     subText={bill.requiresReview ? bill.reason : formatWeekRange(bill.weekStart)}
-                    to="/billing"
+                    to={showStaffLinks ? '/billing' : undefined}
                     linkLabel="Billing"
                 />
                 <StatCard
@@ -105,7 +106,9 @@ export default function RiderOverview({ profile }) {
 
                     <div className="panel__header">
                         <h3 className="panel__title">Partner IDs</h3>
-                        <Link to="/partner-mappings" className="panel__meta">Edit in Partner Mappings</Link>
+                        {showStaffLinks && (
+                            <Link to="/partner-mappings" className="panel__meta">Edit in Partner Mappings</Link>
+                        )}
                     </div>
                     {partnerMappings.length ? (
                         <div className="mapping-chips">
