@@ -17,7 +17,9 @@ const partnerMappingRoutes = require('./routes/partnerMappingRoutes');
 const partnerEarningRoutes = require('./routes/partnerEarningRoutes');
 const escalationRoutes = require('./routes/escalationRoutes');
 const { webhookRouter, mockPayRouter } = require('./routes/paymentRoutes');
+const teamLeaderRoutes = require('./routes/teamLeaderRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
+const { restrictTeamLeader } = require('./middleware/restrictTeamLeader');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
 const AppError = require('./errors/AppError');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -43,7 +45,10 @@ app.use('/api', rejectCrossSite);
 app.use('/api/auth', authRoutes);
 app.use('/api/mock-pay', mockPayRouter);
 app.use('/api', requireAuth);
+// Team leaders get an allowlist (their own riders only); other roles pass through.
+app.use('/api', restrictTeamLeader);
 
+app.use('/api/tl', teamLeaderRoutes);
 app.use('/api/riders', riderRoutes);
 app.use('/api/bike-assignments', bikeAssignmentRoutes);
 app.use('/api/bikes', bikeRoutes);

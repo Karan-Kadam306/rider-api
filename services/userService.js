@@ -2,9 +2,11 @@ const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const userRepository = require('../repositories/userRepository');
 const sessionRepository = require('../repositories/sessionRepository');
+const teamLeaderRepository = require('../repositories/teamLeaderRepository');
 const { hashPassword } = require('../utils/password');
 
-const ROLES = ['admin', 'staff'];
+// team_leader sees only the riders assigned to them (see middleware/restrictTeamLeader).
+const ROLES = ['admin', 'staff', 'team_leader'];
 const STATUSES = ['active', 'inactive'];
 const MIN_PASSWORD_LENGTH = 8;
 // Long enough for any passphrase; stops huge values being hashed.
@@ -149,6 +151,11 @@ async function updateUser({ actingUserId, userId, name, role, isActive }) {
         }
 
         const updated = await userRepository.updateUser(client, { userId: targetId, ...next });
+
+        // Someone who stops being a team leader no longer holds any riders.
+        if (user.role === 'team_leader' && next.role !== 'team_leader') {
+            await teamLeaderRepository.removeAllForUser(client, { userId: targetId, removedBy: actingUserId });
+        }
 
         // A deactivated user is signed out everywhere straight away.
         if (!next.isActive) {

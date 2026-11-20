@@ -15,3 +15,21 @@ export const NAV_ITEMS = [
     { to: '/payouts', label: 'Payouts', icon: 'wallet', usesWeek: true },
     { to: '/users', label: 'Users', icon: 'shield', adminOnly: true }
 ];
+
+// Team leaders see only their own riders. alsoMatches gives the rider page the same title.
+export const TEAM_LEADER_NAV_ITEMS = [
+    { to: '/my-riders', label: 'My Riders', icon: 'users', alsoMatches: ['/riders/'] }
+];
+
+export function getNavItems(user) {
+    return user?.role === 'team_leader' ? TEAM_LEADER_NAV_ITEMS : NAV_ITEMS;
+}
+
+// The nav item for the current URL. No match means the not-found page.
+export function findNavItem(items, pathname) {
+    return items.find(nav =>
+        nav.end
+            ? pathname === nav.to
+            : [nav.to, ...(nav.alsoMatches ?? [])].some(path => pathname.startsWith(path))
+    );
+}

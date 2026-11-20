@@ -8,16 +8,10 @@ import ChangePasswordDialog from '../../features/account/ChangePasswordDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useWeek } from '../../context/WeekContext';
 import { useTheme } from '../../hooks/useTheme';
-import { NAV_ITEMS } from './navItems';
+import { findNavItem, getNavItems } from './navItems';
 import WeekPicker from './WeekPicker';
 import Icon from '../ui/Icon';
-
-// The nav item for the current URL. No match means the not-found page.
-function findNavItem(pathname) {
-    return NAV_ITEMS.find(nav =>
-        nav.end ? pathname === nav.to : pathname.startsWith(nav.to)
-    );
-}
+import { roleLabel } from '../../utils/roleLabel';
 
 // Page title, week picker (on pages that use it), Refresh, the signed-in user and account actions.
 export default function TopBar() {
@@ -27,7 +21,7 @@ export default function TopBar() {
     const showToast = useToast();
     const { theme, toggleTheme } = useTheme();
     const [changingPassword, setChangingPassword] = useState(false);
-    const navItem = findNavItem(pathname);
+    const navItem = findNavItem(getNavItems(user), pathname);
     const themeLabel = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 
     // A failure rejects back to the dialog, which stays open and shows the message.
@@ -57,7 +51,7 @@ export default function TopBar() {
                 </button>
                 <div className="top-bar__user">
                     <span className="top-bar__user-name">{user.name}</span>
-                    <span className="top-bar__user-role">{user.role}</span>
+                    <span className="top-bar__user-role">{roleLabel(user.role)}</span>
                 </div>
                 <button
                     type="button"

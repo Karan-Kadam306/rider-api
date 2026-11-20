@@ -58,14 +58,21 @@ export function AuthProvider({ children }) {
 
     // Memoised so consumers re-render only when the user changes.
     const value = useMemo(
-        () => ({ user, isAdmin: user?.role === 'admin', signIn, signOut, reloadUser }),
+        () => ({
+            user,
+            isAdmin: user?.role === 'admin',
+            isTeamLeader: user?.role === 'team_leader',
+            signIn,
+            signOut,
+            reloadUser
+        }),
         [user, signIn, signOut, reloadUser]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Returns { user, isAdmin, signIn, signOut, reloadUser }.
+// Returns { user, isAdmin, isTeamLeader, signIn, signOut, reloadUser }.
 export function useAuth() {
     const context = useContext(AuthContext);
 

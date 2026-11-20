@@ -18,6 +18,7 @@ if (!testDbName.endsWith('_test')) {
 
 // partners is left out on purpose: its rows come from the schema, not from a test.
 const TABLES = [
+    'team_leader_riders',
     'escalation_events',
     'rider_escalations',
     'login_failures',

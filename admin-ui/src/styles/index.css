@@ -2244,3 +2244,42 @@ a:hover {
         margin-left: 0;
     }
 }
+
+/* ---------- Team leaders ---------- */
+/* Second line under a name or amount, e.g. the rider ID or the week. */
+.person__sub {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.mapping-chip__remove {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    margin-right: -4px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.mapping-chip__remove:hover:not(:disabled) {
+    background: var(--primary-soft);
+}
+
+.tl-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.tl-picker .select {
+    flex: 1 1 220px;
+    min-width: 0;
+}

@@ -1,6 +1,9 @@
 import Icon from '../../components/ui/Icon';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDate, formatRelativeTime } from '../../utils/formatDate';
+import { roleLabel } from '../../utils/roleLabel';
+
+const ROLE_TONES = { admin: 'info', team_leader: 'success' };
 
 // "Priya Sharma" → its initials for the avatar; a single name gives one letter.
 function initials(name) {
@@ -40,8 +43,8 @@ export default function UsersTable({ users, currentUserId, onEdit, onResetPasswo
                                 </td>
                                 <td>{user.email}</td>
                                 <td>
-                                    <span className={`badge badge--${user.role === 'admin' ? 'info' : 'neutral'} badge--capitalize`}>
-                                        {user.role}
+                                    <span className={`badge badge--${ROLE_TONES[user.role] ?? 'neutral'}`}>
+                                        {roleLabel(user.role)}
                                     </span>
                                 </td>
                                 <td><StatusBadge status={user.isActive ? 'Active' : 'Inactive'} /></td>
