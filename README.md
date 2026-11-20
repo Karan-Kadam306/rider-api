@@ -153,7 +153,9 @@ To try it, set in `.env`:
 | `MOCK_IOT_FAIL=true` | Makes every lock and unlock fail, to try **Retry lock**. |
 
 `npm run demo:setup` builds `rider_demo` with an example: Meera Joshi (DM-008) owes ₹350 from
-last week, and Amit Patil (DM-001) has an open ₹750 charge with his bike locked.
+last week, and Amit Patil (DM-001) has an open ₹750 charge with his bike locked. It also adds demo
+logins (admin, staff and three team leaders, password `demo-pass-123`, listed when it finishes) and
+team leader scenarios dated from today; `demo/TEAM-LEADER-TESTING.md` walks through them.
 
 ## Commands
 
