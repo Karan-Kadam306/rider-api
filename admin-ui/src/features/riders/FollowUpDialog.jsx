@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import Field from '../../components/ui/Field';
 import { formatINR } from '../../utils/formatCurrency';
 import { addDays, todayInIst } from '../../utils/week';
+import { FOLLOW_UP_OUTCOMES, outcomeLabel } from './followUpOutcomes';
 
 // Same lists and limits as the API.
 const REASONS = ['Payment Due', 'Performance', 'Attendance', 'Other'];
-const OUTCOMES = ['Promised to Pay', 'Paid', 'Unreachable', 'Refused', 'Will Improve', 'Other'];
 const MAX_PROMISE_DAYS = 30;
 const MAX_NOTE_LENGTH = 1000;
 
@@ -126,10 +126,19 @@ export default function FollowUpDialog({ rider, outstandingBalance, openEscalati
                         <Field label="Outcome" error={errors.outcome}>
                             <select name="outcome" value={values.outcome} onChange={handleChange}>
                                 <option value="">Choose…</option>
-                                {OUTCOMES.map(outcome => <option key={outcome} value={outcome}>{outcome}</option>)}
+                                {FOLLOW_UP_OUTCOMES.map(outcome => (
+                                    <option key={outcome} value={outcome}>{outcomeLabel(outcome)}</option>
+                                ))}
                             </select>
                         </Field>
                     </div>
+
+                    {values.outcome === 'Paid' && (
+                        <p className="form-note muted">
+                            Records what the rider said. The amount stays owed until an admin records the payment
+                            with Mark as paid, or the rider pays through the link.
+                        </p>
+                    )}
 
                     {promised && (
                         <div className="form-row">

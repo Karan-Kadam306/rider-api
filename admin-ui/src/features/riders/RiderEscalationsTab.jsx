@@ -30,14 +30,16 @@ const EVENT_LABELS = {
     Recovered: 'Deducted from payout',
     Closed: 'Closed',
     BikeUnlocked: 'Bike unlocked',
-    UnlockFailed: 'Bike unlock failed'
+    UnlockFailed: 'Bike unlock failed',
+    LockSkipped: 'Bike not locked'
 };
 
 const LOCK_LABELS = {
     Locked: 'Bike locked',
     Unlocked: 'Bike unlocked',
     NoBike: 'No bike to lock',
-    Failed: 'Lock failed'
+    Failed: 'Lock failed',
+    Skipped: 'Not locked: payment promise'
 };
 
 // The text dialog each action opens.
@@ -74,6 +76,10 @@ function eventNote(event) {
 
     if (detail.promiseOverridden) {
         return `Raised despite a payment promise due ${formatDate(detail.promiseOverridden.promiseDate)}`;
+    }
+
+    if (detail.automatic) {
+        return `Raised automatically by the payout for ${formatWeekRange(detail.automatic.weekStart)}`;
     }
 
     return detail.paymentRef ?? detail.paymentId ?? detail.note ?? detail.reason ?? detail.error ?? null;
@@ -193,14 +199,17 @@ export default function RiderEscalationsTab({ riderId, reloadKey, onChanged }) {
                                         </button>
                                     </>
                                 )}
-                                {escalation.lockStatus === 'Failed' && (
+                                {/* Skipped: the payout left the bike unlocked for a promise; the admin can lock it now. */}
+                                {(escalation.lockStatus === 'Failed' || escalation.lockStatus === 'Skipped') && (
                                     <button
                                         type="button"
                                         className="pill-button"
                                         disabled={retrying === escalation.escalationId}
                                         onClick={() => handleRetryLock(escalation)}
                                     >
-                                        {retrying === escalation.escalationId ? 'Locking…' : 'Retry lock'}
+                                        {retrying === escalation.escalationId
+                                            ? 'Locking…'
+                                            : escalation.lockStatus === 'Skipped' ? 'Lock now' : 'Retry lock'}
                                     </button>
                                 )}
                             </div>

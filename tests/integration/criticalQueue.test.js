@@ -62,7 +62,7 @@ describe('GET /api/tl/queue', () => {
         assert.equal(res.body.riders[0].severity, 'Critical');
     });
 
-    it('drops a broken promise once a later follow-up says Paid', async () => {
+    it('shows "says paid" instead of a broken promise until a payment is recorded', async () => {
         await riderOf('YS-001');
         await h.createPayoutItem('YS-001', lastWeek(), -300);
         await insertPromise('YS-001', h.addDays(h.todayInIst(), -1));
@@ -70,7 +70,8 @@ describe('GET /api/tl/queue', () => {
 
         const res = await getQueue();
 
-        assert.deepEqual(res.body.riders[0].reasons.map(reason => reason.type), ['negativePayout']);
+        assert.deepEqual(res.body.riders[0].reasons.map(reason => reason.type), ['saysPaid', 'negativePayout']);
+        assert.equal(res.body.riders[0].followUpDue, false);
     });
 
     it('shows a promise that is still due and marks a follow-up as due after 2 days', async () => {

@@ -133,10 +133,11 @@ an optional amount and a comment:
 | Kind | When | What happens |
 |---|---|---|
 | Charge | An amount, without Payment Due | The bike is locked and a payment link is sent. Unless paid or waived first, it is deducted from that week's payout and marked **Recovered**. |
-| Payment Due | Payment Due is ticked | Collects the outstanding balance (last week's negative net). It is never deducted again; paying or waiving it clears the carried balance. |
+| Payment Due | Payment Due is ticked, or automatically after last week's payout run for every rider it leaves negative | Collects the outstanding balance (last week's negative net). It is never deducted again; paying or waiving it clears the carried balance. Raised automatically, it locks the bike unless a team leader's payment promise is still due (lock status Skipped; **Lock now** locks it later). |
 | Record | No amount | Kept for history only, with no lock or link. An admin closes it with a note. |
 
-A rider has at most one open Charge or Payment Due. Payments arrive through the signed webhook
+A follow-up whose outcome is Paid (shown as **Says paid**) only records what the rider said; the due
+stays until a payment is recorded. A rider has at most one open Charge or Payment Due. Payments arrive through the signed webhook
 (`POST /api/webhooks/payment`); if it did not arrive, an admin uses **Mark as paid** with a reference.
 The bike is unlocked once nothing holds it locked. A Recovered charge that leaves the net negative
 keeps the bike locked until the bike is returned to the hub.

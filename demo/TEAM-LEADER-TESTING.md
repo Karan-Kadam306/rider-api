@@ -126,16 +126,22 @@ Open **Sanjay (DM-010)**.
 | A: tick it, **Create** | Escalation raised |
 | B: refresh Critical Queue | Neha shows "open escalation of ₹200.00" (no bike, so nothing locked) and the new "Promised ₹420 by …"; the old *promise broken* line is gone |
 
-## 10. A payment clears the queue (A: admin)
-
-Open **Farhan (DM-011)**.
+## 10. "Says paid", then a real payment clears the queue (B: Ravi, A: admin)
 
 | Do | Expect |
 |---|---|
-| **Escalate**, tick *Payment Due* (no promise box: Farhan has no promise), Create | Payment Due of ₹150 raised |
+| B: open **Farhan (DM-011)**, **Log follow-up**, Outcome **Says paid** | A note under it: "Records what the rider said. The amount stays owed until an admin records the payment…" |
+| B: note `Paid cash at the hub`, Save, then refresh Critical Queue | Farhan stays (High): "Says paid on …: waiting for an admin to confirm". No **Call due**: it's the admin's turn |
+| A: open **Farhan** | Blue banner "Ravi Kumar says the rider paid (…): “Paid cash at the hub”. Check the money arrived, then use Mark as paid…" |
+| A: **Escalate**, tick *Payment Due* (no promise box: Farhan has no promise), Create | Payment Due of ₹150 raised |
 | Either **Mark as paid** (`UPI-TEST-2`), or open the payment link on the escalation and swipe to pay (needs `ENABLE_MOCK_PAY`) | Status *Paid* |
 | B (Ravi): refresh Critical Queue | Farhan is gone, even though next week's payout hasn't run |
 | B: **My Riders** | Farhan shows *Nothing* under Owes now |
+| A: refresh Farhan's page | The "says the rider paid" banner is gone |
+
+Payment Due is also raised automatically when a payout run leaves a rider negative (link and lock;
+link only while a promise is due). The demo's last-week payout is already seeded, so this part is
+covered by the automated tests (`tests/integration/autoPaymentDue.test.js`) rather than this walkthrough.
 
 ## 11. Low km fairness (A: admin)
 
@@ -151,12 +157,13 @@ Refresh **Analytics** → Team leaders.
 
 | Team leader | Riders | Calls | Promises kept / broken | Dues recovered | Owing now |
 |---|---|---|---|---|---|
-| Ravi Kumar | 7 | 6 (5 riders) | 2 / 1 of 4 | ₹730 (3 paid) | ₹420 (1 rider) |
+| Ravi Kumar | 7 | 7 (5 riders) | 2 / 1 of 4 | ₹730 (3 paid) | ₹420 (1 rider) |
 | Sunita Rao | 3 | 0 (0 riders) | 0 / 0 of 0 | ₹0 (0 paid) | ₹770 (2 riders) |
 | Imran Shaikh | 0 | 0 | 0 / 0 of 0 | ₹0 | ₹0 |
 
 Why:
-- **Calls:** Farhan (step 5) and Neha's new promise (step 9) add two calls; Neha was already called, so 5 riders.
+- **Calls:** Farhan twice (steps 5 and 10) and Neha's new promise (step 9) add three calls; those riders were already counted, so still 5 riders.
+- **"Says paid" doesn't count as a kept promise.** Only a recorded payment does.
 - **Promises kept:** Sanjay's became kept when he paid.
 - **Recovered:** Sanjay's ₹280 and Farhan's ₹150 join Kiran's ₹300. The ₹100 and ₹200 charges are still open.
 - **Owing now:** only Neha still owes.

@@ -7,7 +7,7 @@ const escalationRepository = require('../repositories/escalationRepository');
 const followUpRepository = require('../repositories/followUpRepository');
 const iotLockClient = require('./integrations/iotLockClient');
 const paymentLinkClient = require('./integrations/paymentLinkClient');
-const { currentWeekStart, todayInIst } = require('./billingService');
+const { currentWeekStart, todayInIst, addDays } = require('./billingService');
 
 function toEscalation(row) {
     return {
@@ -171,29 +171,93 @@ async function raiseEscalation({ riderId, reasons, amount, comment, confirmPromi
         );
     }
 
+    return createMoneyEscalation({
+        riderId, kind, reasons, comment, amount, userId,
+        raisedDetail: promise ? { amount, promiseOverridden: { promiseDate: promise.promise_date } } : { amount }
+    });
+}
+
+// A Charge or Collection: payment link, then the bike lock, unless skipLockReason says why not
+// (lock status Skipped; an admin can lock it later).
+async function createMoneyEscalation({ riderId, kind, reasons, comment, amount, userId, raisedDetail, skipLockReason = null }) {
     const assignment = await bikeAssignmentRepository.findActiveAssignmentByRider(pool, riderId);
     const bikeId = assignment?.bike_id ?? null;
     const { token, url } = await paymentLinkClient.createLink();
 
     // Saved as Failed until the lock below succeeds, so a crash in between still shows a retry.
+    let lockStatus = bikeId ? 'Failed' : 'NoBike';
+
+    if (bikeId && skipLockReason) {
+        lockStatus = 'Skipped';
+    }
+
     const escalationId = await inTransaction(async client => {
         const id = await escalationRepository.insertEscalation(client, {
             riderId, kind, reasons, comment, amount, weekStart: currentWeekStart(),
-            lockStatus: bikeId ? 'Failed' : 'NoBike', bikeId, paymentToken: token, createdBy: userId
+            lockStatus, bikeId, paymentToken: token, createdBy: userId
         });
 
-        const detail = promise ? { amount, promiseOverridden: { promiseDate: promise.promise_date } } : { amount };
-        await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'Raised', detail, userId });
+        await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'Raised', detail: raisedDetail, userId });
         await escalationRepository.insertEvent(client, { escalationId: id, eventType: 'LinkSent', detail: { url }, userId });
+
+        if (lockStatus === 'Skipped') {
+            await escalationRepository.insertEvent(client, {
+                escalationId: id, eventType: 'LockSkipped', detail: { bikeId, reason: skipLockReason }, userId
+            });
+        }
+
         return id;
     });
 
     // The IoT call is outside the transaction: a slow device never holds a database lock.
-    if (bikeId) {
+    if (lockStatus === 'Failed') {
         await lockBike(escalationId, bikeId, userId);
     }
 
     return toEscalation(await escalationRepository.findById(pool, { escalationId }));
+}
+
+// After the payout for last week: everyone it left owing gets Payment Due, as if an admin raised it.
+// Only last week's payout is collected now (an older week paid late carries into last week's).
+// Skipped: terminated riders and riders with an open charge or Payment Due, as for a manual raise.
+// A payment promise that is still due gets the link but no lock. One rider failing (e.g. the payment
+// provider is down) does not stop the others; failed riders are returned for an admin to raise by hand.
+async function raiseCollectionsAfterPayout({ weekStart, riderIds }) {
+    const result = { raised: [], failed: [] };
+
+    if (addDays(weekStart, 7) !== currentWeekStart()) {
+        return result;
+    }
+
+    for (const riderId of riderIds) {
+        try {
+            const rider = await riderRepository.findById(riderId);
+            const amount = await getOutstandingBalance(riderId);
+            const open = await escalationRepository.findByRider(pool, { riderId, openOnly: true });
+
+            if (!rider || rider.status === 'Terminated' || amount <= 0 || open.some(row => row.kind !== 'Record')) {
+                continue;
+            }
+
+            const promise = await followUpRepository.findActivePromise(pool, { riderId, today: todayInIst() });
+            const escalation = await createMoneyEscalation({
+                riderId,
+                kind: 'Collection',
+                reasons: ['Payment Due'],
+                comment: null,
+                amount,
+                userId: null,
+                raisedDetail: { amount, automatic: { weekStart } },
+                skipLockReason: promise ? `Payment promise due ${promise.promise_date}` : null
+            });
+
+            result.raised.push({ riderId, amount, lockStatus: escalation.lockStatus });
+        } catch (error) {
+            result.failed.push({ riderId, error: error.message });
+        }
+    }
+
+    return result;
 }
 
 async function listEscalations({ riderId, openOnly = false }) {
@@ -204,8 +268,17 @@ async function listEscalations({ riderId, openOnly = false }) {
 async function retryLock({ escalationId, userId }) {
     const escalation = await findEscalationOrThrow(escalationId);
 
-    if (escalation.status !== 'Open' || escalation.lock_status !== 'Failed') {
-        throw new AppError('Only an open escalation with a failed lock can be retried', 409);
+    if (escalation.status !== 'Open' || !['Failed', 'Skipped'].includes(escalation.lock_status)) {
+        throw new AppError('Only an open escalation with a failed or skipped lock can be locked', 409);
+    }
+
+    // A skipped lock can be days old: lock only if the rider still holds that bike.
+    if (escalation.lock_status === 'Skipped') {
+        const assignment = await bikeAssignmentRepository.findActiveAssignmentByRider(pool, escalation.rider_id);
+
+        if (String(assignment?.bike_id) !== String(escalation.bike_id)) {
+            throw new AppError('The rider no longer holds that bike', 409);
+        }
     }
 
     await lockBike(escalationId, escalation.bike_id, userId);
@@ -328,6 +401,7 @@ async function releaseLocksForReturnedBike(bikeId) {
 module.exports = {
     getOutstandingBalance,
     raiseEscalation,
+    raiseCollectionsAfterPayout,
     listEscalations,
     retryLock,
     markPaid,

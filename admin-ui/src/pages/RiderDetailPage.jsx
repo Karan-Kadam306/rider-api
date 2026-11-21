@@ -55,6 +55,7 @@ export default function RiderDetailPage() {
     const rider = profile.data?.rider;
     const openEscalations = profile.data?.openEscalations ?? [];
     const activePromise = profile.data?.activePromise ?? null;
+    const paymentClaim = profile.data?.paymentClaim ?? null;
     // Admins raise any escalation; team leaders only a Record (no lock, no payment link).
     const canEscalate = (isAdmin || isTeamLeader) && rider && rider.status !== 'Terminated';
 
@@ -131,6 +132,15 @@ export default function RiderDetailPage() {
                             {activePromise.promiseAmount !== null && <> <CurrencyText value={activePromise.promiseAmount} /></>}
                             {' by '}<strong>{formatDate(activePromise.promiseDate)}</strong>
                             {' — logged by '}{activePromise.loggedBy}
+                        </p>
+                    )}
+
+                    {paymentClaim && (
+                        <p className="promise-banner" role="status">
+                            {paymentClaim.loggedBy} says the rider paid ({formatDate(paymentClaim.loggedAt)}): “{paymentClaim.note}”.{' '}
+                            {isAdmin
+                                ? 'Check the money arrived, then use Mark as paid on the Payment Due (raise one first if there is none).'
+                                : 'Still owed until an admin confirms the payment.'}
                         </p>
                     )}
 

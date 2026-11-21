@@ -20,7 +20,8 @@ const STATUS_TONES = {
     Failed: 'danger',
     Waived: 'neutral',
     Recovered: 'info',
-    // Follow-up outcomes ('Paid' is above).
+    // Follow-up outcomes ('Paid' is shown as 'Says paid').
+    'Says paid': 'info',
     'Promised to Pay': 'info',
     'Will Improve': 'success',
     Unreachable: 'warning',

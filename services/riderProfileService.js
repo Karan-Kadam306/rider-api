@@ -58,17 +58,19 @@ async function findCurrentWeekBill(riderId) {
 async function getRiderProfile(riderId) {
     const rider = await findRiderOrThrow(riderId);
 
-    const [[latestAssignment], currentWeekBill, openEscalations, promise] = await Promise.all([
+    const [[latestAssignment], currentWeekBill, openEscalations, promise, claim] = await Promise.all([
         bikeAssignmentRepository.findRiderAssignmentHistory(pool, riderId, 1, 0),
         findCurrentWeekBill(riderId),
         escalationService.listEscalations({ riderId, openOnly: true }),
-        followUpRepository.findActivePromise(pool, { riderId, today: billingService.todayInIst() })
+        followUpRepository.findActivePromise(pool, { riderId, today: billingService.todayInIst() }),
+        followUpRepository.findLatestPaymentClaim(pool, { riderId })
     ]);
 
     // Last week's negative net carried into this week, less what Payment Due cleared, as a positive amount owed.
     const outstandingBalance = currentWeekBill.requiresReview
         ? null
         : Math.max(0, -(currentWeekBill.previousBalance + currentWeekBill.balanceCleared));
+    const owes = outstandingBalance > 0 || openEscalations.some(escalation => escalation.kind !== 'Record');
 
     return {
         rider: {
@@ -92,7 +94,10 @@ async function getRiderProfile(riderId) {
             promiseAmount: promise.promise_amount,
             loggedBy: promise.user_name,
             loggedAt: promise.created_at
-        }
+        },
+        // The latest follow-up says the rider paid, but they still owe: an admin should check and
+        // record the payment with Mark as paid.
+        paymentClaim: claim && owes ? { loggedBy: claim.user_name, loggedAt: claim.created_at, note: claim.note } : null
     };
 }
 

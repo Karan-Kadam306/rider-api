@@ -42,7 +42,8 @@ describe('GET /api/analytics/team-leaders', () => {
         const charge = await h.api('POST', '/api/riders/YS-001/escalations', { reasons: ['Bike Misuse'], amount: 500 });
         await h.api('POST', `/api/escalations/${charge.body.escalation.escalationId}/mark-paid`, { reference: 'UPI-1' });
 
-        // Calls: three follow-ups on two riders, two of them promises: YS-001's broken, YS-002's kept.
+        // Calls: three follow-ups on two riders, two of them promises: YS-001's broken; YS-002's is not
+        // kept by a follow-up saying Paid (no payment recorded) and is not due yet.
         await insertPromise('YS-001', tl.userId, h.addDays(today, -1));
         await insertPromise('YS-002', tl.userId, h.addDays(today, 5));
         await h.api('POST', '/api/riders/YS-002/follow-ups', { reason: 'Payment Due', outcome: 'Paid', note: 'Paid by UPI' }, tl.cookie);
@@ -60,7 +61,7 @@ describe('GET /api/analytics/team-leaders', () => {
             riders: 2,
             calls: 3,
             ridersCalled: 2,
-            promises: { made: 2, kept: 1, broken: 1 },
+            promises: { made: 2, kept: 0, broken: 1 },
             recovered: { count: 1, amount: 500 },
             owingNow: { count: 1, amount: 250 }
         });

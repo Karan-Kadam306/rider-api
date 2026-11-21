@@ -260,7 +260,13 @@ async function triggerPayout({ weekStart }) {
         }
     }
 
-    return payout;
+    // Riders the payout left negative are asked to pay now: Payment Due with a link and a bike lock.
+    const collections = await escalationService.raiseCollectionsAfterPayout({
+        weekStart,
+        riderIds: [...netByRider].filter(([, net]) => net < 0).map(([riderId]) => riderId)
+    });
+
+    return { ...payout, collections };
 }
 
 // The latest payout runs across all weeks.
