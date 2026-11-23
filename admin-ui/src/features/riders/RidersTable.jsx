@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import Icon from '../../components/ui/Icon';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -10,11 +10,15 @@ function initials(name) {
     return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
 }
 
-// Riders for one status tab. Details opens the rider page; terminated riders are otherwise read-only.
-export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminate, onInactiveDays }) {
+// Riders for one status tab. A row (or Details) opens the rider page, where the other actions live;
+// only Terminate stays here, and terminated riders get Details alone.
+export default function RidersTable({ riders, onTerminate }) {
+    const navigate = useNavigate();
+    const riderPath = rider => `/riders/${encodeURIComponent(rider.rider_id)}`;
+
     return (
         <div className="table-wrap">
-            <table className="table table--roomy">
+            <table className="table table--roomy table--clickable">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -27,7 +31,7 @@ export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminat
                 </thead>
                 <tbody>
                     {riders.map(rider => (
-                        <tr key={rider.rider_id}>
+                        <tr key={rider.rider_id} onClick={() => navigate(riderPath(rider))}>
                             <td>
                                 <div className="person">
                                     <span className="avatar">{initials(rider.name)}</span>
@@ -38,39 +42,23 @@ export default function RidersTable({ riders, onEdit, onToggleStatus, onTerminat
                             <td className="mono">{rider.phone}</td>
                             <td><StatusBadge status={rider.status} /></td>
                             <td className="muted">{formatDate(rider.created_at)}</td>
-                            <td className="actions-col">
+                            {/* Clicks on the buttons must not also open the row. */}
+                            <td className="actions-col" onClick={event => event.stopPropagation()}>
                                 <div className="row-actions">
-                                    <Link to={`/riders/${encodeURIComponent(rider.rider_id)}`} className="pill-button">
+                                    <Link to={riderPath(rider)} className="pill-button">
                                         <Icon name="eye" size={15} />
                                         Details
                                     </Link>
                                     {rider.status !== 'Terminated' && (
-                                        <>
-                                            <button type="button" className="pill-button" onClick={() => onEdit(rider)}>
-                                                <Icon name="edit" size={15} />
-                                                Edit
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="pill-button"
-                                                onClick={() => onToggleStatus(rider)}
-                                            >
-                                                <Icon name={rider.status === 'Active' ? 'userPause' : 'userCheck'} size={15} />
-                                                {rider.status === 'Active' ? 'Deactivate' : 'Activate'}
-                                            </button>
-                                            <button type="button" className="pill-button" onClick={() => onInactiveDays(rider)}>
-                                                <Icon name="clock" size={15} />
-                                                Inactive days
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="pill-button pill-button--danger"
-                                                onClick={() => onTerminate(rider)}
-                                            >
-                                                <Icon name="userX" size={15} />
-                                                Terminate
-                                            </button>
-                                        </>
+                                        <button
+                                            type="button"
+                                            className="pill-button pill-button--danger pill-button--icon"
+                                            aria-label={`Terminate ${rider.name}`}
+                                            title="Terminate"
+                                            onClick={() => onTerminate(rider)}
+                                        >
+                                            <Icon name="userX" size={15} />
+                                        </button>
                                     )}
                                 </div>
                             </td>

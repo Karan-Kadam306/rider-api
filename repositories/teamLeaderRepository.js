@@ -152,6 +152,7 @@ async function findQueueRows(client, { userId, kmFrom, kmTo, weekStart }) {
                 promise.promise_date,
                 promise.promise_amount,
                 last_call.created_at AS last_follow_up_at,
+                last_call.outcome AS last_follow_up_outcome,
                 bike.has_bike AND bike.held_all_window AND NOT leave.on_leave AS km_comparable,
                 km.total_km
          FROM team_leader_riders l
@@ -172,9 +173,11 @@ async function findQueueRows(client, { userId, kmFrom, kmTo, weekStart }) {
              LIMIT 1
          ) promise ON true
          LEFT JOIN LATERAL (
-             SELECT MAX(f.created_at) AS created_at
+             SELECT f.created_at, f.outcome
              FROM rider_follow_ups f
              WHERE f.rider_id = r.rider_id
+             ORDER BY f.created_at DESC, f.follow_up_id DESC
+             LIMIT 1
          ) last_call ON true
          LEFT JOIN LATERAL (
              SELECT EXISTS (

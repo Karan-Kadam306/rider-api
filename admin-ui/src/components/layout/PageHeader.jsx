@@ -5,9 +5,10 @@ import Icon from '../ui/Icon';
 
 // Optional breadcrumb trail, then title, subtitle and action buttons.
 // breadcrumbs: [{ label, to? }] — the last item is the current page.
-export default function PageHeader({ title, subtitle, actions, breadcrumbs }) {
+// variant="detail" lines the actions up with the title and makes the buttons compact (the rider page).
+export default function PageHeader({ title, subtitle, actions, breadcrumbs, variant }) {
     return (
-        <div className="page-header">
+        <div className={`page-header${variant ? ` page-header--${variant}` : ''}`}>
             <div>
                 {breadcrumbs && (
                     <nav className="breadcrumbs" aria-label="Breadcrumb">

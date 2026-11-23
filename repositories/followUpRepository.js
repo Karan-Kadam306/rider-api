@@ -53,19 +53,32 @@ async function countByRider(client, { riderId }) {
     return result.rows[0].total;
 }
 
-// A promise (alias f) is kept when the rider paid after making it: a later Paid follow-up, or a
-// charge or Payment Due marked Paid afterwards (payment link or admin), even if nobody logged it.
+// A promise (alias f) is kept only when a payment is recorded after it: a charge or Payment Due
+// marked Paid (payment link or an admin's Mark as paid). A follow-up saying the rider paid is only
+// what the rider said, so it does not count until an admin confirms the money.
 const PROMISE_KEPT = `(
     EXISTS (
-        SELECT 1 FROM rider_follow_ups later
-        WHERE later.rider_id = f.rider_id AND later.created_at > f.created_at AND later.outcome = 'Paid'
-    )
-    OR EXISTS (
         SELECT 1 FROM rider_escalations paid
         WHERE paid.rider_id = f.rider_id AND paid.kind <> 'Record'
           AND paid.status = 'Paid' AND paid.resolved_at > f.created_at
     )
 )`;
+
+// The rider's latest follow-up, if it says they paid (outcome Paid, shown as "Says paid").
+async function findLatestPaymentClaim(client, { riderId }) {
+    const result = await client.query(
+        `SELECT ${FOLLOW_UP_COLUMNS}
+         FROM rider_follow_ups f
+         JOIN users u ON u.user_id = f.user_id
+         WHERE f.rider_id = $1
+         ORDER BY f.created_at DESC, f.follow_up_id DESC
+         LIMIT 1`,
+        [riderId]
+    );
+
+    const latest = result.rows[0];
+    return latest?.outcome === 'Paid' ? latest : null;
+}
 
 // A promise stands until it is kept or a later follow-up says the rider Refused.
 const OPEN_PROMISE = `
@@ -95,6 +108,7 @@ module.exports = {
     PROMISE_KEPT,
     OPEN_PROMISE,
     findActivePromise,
+    findLatestPaymentClaim,
     insertFollowUp,
     findById,
     findByRider,

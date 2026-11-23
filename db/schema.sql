@@ -742,7 +742,7 @@ CREATE TABLE public.rider_escalations (
     CONSTRAINT rider_escalations_monday_check CHECK ((EXTRACT(isodow FROM week_start) = (1)::numeric)),
     CONSTRAINT rider_escalations_status_check CHECK ((status = ANY (ARRAY['Open'::text, 'Paid'::text, 'Waived'::text, 'Recovered'::text, 'Closed'::text]))),
     CONSTRAINT rider_escalations_status_kind_check CHECK ((((status = 'Recovered'::text) <= (kind = 'Charge'::text)) AND ((status = 'Closed'::text) <= (kind = 'Record'::text)) AND ((status = ANY (ARRAY['Paid'::text, 'Waived'::text])) <= (kind <> 'Record'::text)))),
-    CONSTRAINT rider_escalations_lock_status_check CHECK ((lock_status = ANY (ARRAY['Locked'::text, 'Unlocked'::text, 'NoBike'::text, 'Failed'::text]))),
+    CONSTRAINT rider_escalations_lock_status_check CHECK ((lock_status = ANY (ARRAY['Locked'::text, 'Unlocked'::text, 'NoBike'::text, 'Failed'::text, 'Skipped'::text]))),
     CONSTRAINT rider_escalations_resolved_check CHECK (((status = 'Open'::text) = (resolved_at IS NULL)))
 );
 
@@ -758,7 +758,7 @@ CREATE TABLE public.escalation_events (
     detail jsonb,
     user_id bigint REFERENCES public.users(user_id),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT escalation_events_type_check CHECK ((event_type = ANY (ARRAY['Raised'::text, 'BikeLocked'::text, 'LockFailed'::text, 'LinkSent'::text, 'Paid'::text, 'MarkedPaid'::text, 'Waived'::text, 'Recovered'::text, 'Closed'::text, 'BikeUnlocked'::text, 'UnlockFailed'::text])))
+    CONSTRAINT escalation_events_type_check CHECK ((event_type = ANY (ARRAY['Raised'::text, 'BikeLocked'::text, 'LockFailed'::text, 'LinkSent'::text, 'Paid'::text, 'MarkedPaid'::text, 'Waived'::text, 'Recovered'::text, 'Closed'::text, 'BikeUnlocked'::text, 'UnlockFailed'::text, 'LockSkipped'::text])))
 );
 
 CREATE INDEX idx_escalation_events_escalation ON public.escalation_events USING btree (escalation_id, created_at);

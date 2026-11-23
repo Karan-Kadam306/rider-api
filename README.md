@@ -133,10 +133,11 @@ an optional amount and a comment:
 | Kind | When | What happens |
 |---|---|---|
 | Charge | An amount, without Payment Due | The bike is locked and a payment link is sent. Unless paid or waived first, it is deducted from that week's payout and marked **Recovered**. |
-| Payment Due | Payment Due is ticked | Collects the outstanding balance (last week's negative net). It is never deducted again; paying or waiving it clears the carried balance. |
+| Payment Due | Payment Due is ticked, or automatically after last week's payout run for every rider it leaves negative | Collects the outstanding balance (last week's negative net). It is never deducted again; paying or waiving it clears the carried balance. Raised automatically, it locks the bike unless a team leader's payment promise is still due (lock status Skipped; **Lock now** locks it later). |
 | Record | No amount | Kept for history only, with no lock or link. An admin closes it with a note. |
 
-A rider has at most one open Charge or Payment Due. Payments arrive through the signed webhook
+A follow-up whose outcome is Paid (shown as **Says paid**) only records what the rider said; the due
+stays until a payment is recorded. A rider has at most one open Charge or Payment Due. Payments arrive through the signed webhook
 (`POST /api/webhooks/payment`); if it did not arrive, an admin uses **Mark as paid** with a reference.
 The bike is unlocked once nothing holds it locked. A Recovered charge that leaves the net negative
 keeps the bike locked until the bike is returned to the hub.
@@ -153,7 +154,9 @@ To try it, set in `.env`:
 | `MOCK_IOT_FAIL=true` | Makes every lock and unlock fail, to try **Retry lock**. |
 
 `npm run demo:setup` builds `rider_demo` with an example: Meera Joshi (DM-008) owes ₹350 from
-last week, and Amit Patil (DM-001) has an open ₹750 charge with his bike locked.
+last week, and Amit Patil (DM-001) has an open ₹750 charge with his bike locked. It also adds demo
+logins (admin, staff and three team leaders, password `demo-pass-123`, listed when it finishes) and
+team leader scenarios dated from today; `demo/TEAM-LEADER-TESTING.md` walks through them.
 
 ## Commands
 

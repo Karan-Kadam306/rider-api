@@ -11,6 +11,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 import { roleLabel } from '../../utils/roleLabel';
 import { formatDateTime } from '../../utils/week';
+import { outcomeLabel } from './followUpOutcomes';
 
 const PAGE_SIZE = 20;
 
@@ -46,7 +47,7 @@ export default function RiderFollowUpsTab({ riderId, reloadKey }) {
                         <div className="timeline__top">
                             <span className="follow-up__title">
                                 {followUp.reason}
-                                <StatusBadge status={followUp.outcome} />
+                                <StatusBadge status={outcomeLabel(followUp.outcome)} />
                             </span>
                             <span className="cell-sub">{formatDateTime(followUp.createdAt)}</span>
                         </div>

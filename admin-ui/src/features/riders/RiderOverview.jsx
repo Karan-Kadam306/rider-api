@@ -2,13 +2,15 @@ import { Link } from 'react-router-dom';
 
 import StatCard from '../../components/ui/StatCard';
 import CurrencyText from '../../components/ui/CurrencyText';
+import Icon from '../../components/ui/Icon';
 import { bikeLabel } from '../../utils/bikeLabel';
 import { formatDate } from '../../utils/formatDate';
 import { formatDateTime, formatWeekRange } from '../../utils/week';
 
 // The Overview tab: what is owed, this week's bill, the bike and partner IDs, and the rider's details.
 // showStaffLinks is false for team leaders, who cannot open Billing or Partner Mappings.
-export default function RiderOverview({ profile, showStaffLinks = true }) {
+// onEdit adds an Edit link to Rider details; left out for team leaders and terminated riders.
+export default function RiderOverview({ profile, showStaffLinks = true, onEdit }) {
     const { rider, currentAssignment, partnerMappings, currentWeekBill: bill, outstandingBalance } = profile;
 
     return (
@@ -82,6 +84,12 @@ export default function RiderOverview({ profile, showStaffLinks = true }) {
                 <section className="card panel">
                     <div className="panel__header">
                         <h3 className="panel__title">Rider details</h3>
+                        {onEdit && (
+                            <button type="button" className="button button--link" onClick={onEdit}>
+                                <Icon name="edit" size={15} />
+                                Edit
+                            </button>
+                        )}
                     </div>
                     <dl className="detail-list">
                         <div>

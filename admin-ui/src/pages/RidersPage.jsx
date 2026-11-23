@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { createRider, getRiders, getRiderSummary, terminateRider, updateRider } from '../api/ridersApi';
+import { createRider, getRiders, getRiderSummary } from '../api/ridersApi';
 import { useApi } from '../hooks/useApi';
 import { useWeek } from '../context/WeekContext';
 import { useToast } from '../context/ToastContext';
@@ -9,13 +9,12 @@ import PageHeader from '../components/layout/PageHeader';
 import EmptyState from '../components/feedback/EmptyState';
 import ErrorState from '../components/feedback/ErrorState';
 import LoadingSkeleton from '../components/feedback/LoadingSkeleton';
-import ConfirmDialog from '../components/feedback/ConfirmDialog';
 import Icon from '../components/ui/Icon';
 import Pagination from '../components/ui/Pagination';
 import StatusTabs from '../components/ui/StatusTabs';
 import RidersTable from '../features/riders/RidersTable';
 import RiderFormDialog from '../features/riders/RiderFormDialog';
-import InactivePeriodsPanel from '../features/riders/InactivePeriodsPanel';
+import TerminateRiderDialog from '../features/riders/TerminateRiderDialog';
 
 const RIDER_STATUSES = [
     { status: 'Active', icon: 'userCheck' },
@@ -39,11 +38,9 @@ export default function RidersPage() {
     const [searchInput, setSearchInput] = useState(search);
     // Bumped after a change on this page to refetch; refreshKey does the same for the top bar's Refresh.
     const [reloadKey, setReloadKey] = useState(0);
-    // null = closed, { rider: null } = add, { rider } = edit
-    const [formState, setFormState] = useState(null);
+    // Editing, status changes and inactive days happen on the rider page.
+    const [adding, setAdding] = useState(false);
     const [terminating, setTerminating] = useState(null);
-    const [terminateBusy, setTerminateBusy] = useState(false);
-    const [inactiveRider, setInactiveRider] = useState(null);
 
     const list = useApi(
         options => getRiders({ status, search, page, limit: PAGE_SIZE }, options),
@@ -92,50 +89,11 @@ export default function RidersPage() {
     const reload = () => setReloadKey(key => key + 1);
 
     // Errors are not caught here: they reject back to the dialog, which shows them.
-    async function handleSave(values) {
-        if (formState.rider) {
-            const rider = formState.rider;
-            // The API needs every field, so send the current status unchanged.
-            await updateRider(rider.rider_id, { name: values.name, phone: values.phone, status: rider.status });
-            showToast({ message: `${values.name} updated` });
-        } else {
-            await createRider(values);
-            showToast({ message: `${values.name} added as an Active rider` });
-        }
-
-        setFormState(null);
+    async function handleAdd(values) {
+        await createRider(values);
+        showToast({ message: `${values.name} added as an Active rider` });
+        setAdding(false);
         reload();
-    }
-
-    async function handleToggleStatus(rider) {
-        const nextStatus = rider.status === 'Active' ? 'Inactive' : 'Active';
-
-        try {
-            await updateRider(rider.rider_id, { name: rider.name, phone: rider.phone, status: nextStatus });
-            showToast({ message: `${rider.name} is now ${nextStatus}` });
-            reload();
-        } catch (error) {
-            showToast({ type: 'error', message: error.message });
-        }
-    }
-
-    async function handleTerminate() {
-        setTerminateBusy(true);
-
-        try {
-            const result = await terminateRider(terminating.rider_id);
-            // The API reports the bike it took back, if the rider held one.
-            const bikeNote = result.returnedAssignment
-                ? ` Bike ${result.returnedAssignment.registration_number ?? result.returnedAssignment.chassis_number} was returned.`
-                : '';
-            showToast({ message: `${terminating.name} terminated.${bikeNote}` });
-            setTerminating(null);
-            reload();
-        } catch (error) {
-            showToast({ type: 'error', message: error.message });
-        } finally {
-            setTerminateBusy(false);
-        }
     }
 
     return (
@@ -145,7 +103,7 @@ export default function RidersPage() {
                 title="Rider Management"
                 subtitle="Add riders, update their details and manage their status."
                 actions={
-                    <button type="button" className="button" onClick={() => setFormState({ rider: null })}>
+                    <button type="button" className="button" onClick={() => setAdding(true)}>
                         <Icon name="plus" size={16} />
                         Add rider
                     </button>
@@ -183,13 +141,7 @@ export default function RidersPage() {
                 <section className="card card--flush">
                     {list.data.riders.length ? (
                         <>
-                            <RidersTable
-                                riders={list.data.riders}
-                                onEdit={rider => setFormState({ rider })}
-                                onToggleStatus={handleToggleStatus}
-                                onTerminate={setTerminating}
-                                onInactiveDays={setInactiveRider}
-                            />
+                            <RidersTable riders={list.data.riders} onTerminate={setTerminating} />
                             <Pagination
                                 {...list.data.pagination}
                                 onPageChange={next => updateParams({ page: next > 1 ? next : undefined })}
@@ -207,27 +159,14 @@ export default function RidersPage() {
                 </section>
             )}
 
-            {formState && (
-                <RiderFormDialog rider={formState.rider} onSubmit={handleSave} onClose={() => setFormState(null)} />
-            )}
+            {adding && <RiderFormDialog rider={null} onSubmit={handleAdd} onClose={() => setAdding(false)} />}
 
-            {inactiveRider && <InactivePeriodsPanel rider={inactiveRider} onClose={() => setInactiveRider(null)} />}
-
-            <ConfirmDialog
-                open={Boolean(terminating)}
-                title="Terminate rider?"
-                message={terminating && (
-                    <>
-                        <p>
-                            <strong>{terminating.name}</strong> ({terminating.rider_id}) will be terminated from today.
-                            Any bike assigned to them will be returned.
-                        </p>
-                        <p>This cannot be undone.</p>
-                    </>
-                )}
-                confirmLabel="Terminate"
-                busy={terminateBusy}
-                onConfirm={handleTerminate}
+            <TerminateRiderDialog
+                rider={terminating}
+                onTerminated={() => {
+                    setTerminating(null);
+                    reload();
+                }}
                 onCancel={() => setTerminating(null)}
             />
         </>

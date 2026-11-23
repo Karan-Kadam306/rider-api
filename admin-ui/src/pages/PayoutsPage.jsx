@@ -51,12 +51,22 @@ export default function PayoutsPage() {
 
         try {
             const result = await triggerPayout(weekStart);
+            const { raised, failed } = result.collections;
             // Run 1 deducts everyone; later runs only touch riders whose amounts changed.
-            showToast({
-                message: result.run.runNumber === 1
-                    ? `Payout triggered for ${formatWeekRange(weekStart)}: ${formatINR(result.run.totalAmount)} deducted`
-                    : `Payout re-triggered: ${result.run.updatedCount} rider${result.run.updatedCount === 1 ? '' : 's'} updated`
-            });
+            const message = result.run.runNumber === 1
+                ? `Payout triggered for ${formatWeekRange(weekStart)}: ${formatINR(result.run.totalAmount)} deducted`
+                : `Payout re-triggered: ${result.run.updatedCount} rider${result.run.updatedCount === 1 ? '' : 's'} updated`;
+            // Riders left negative get Payment Due automatically (link + lock).
+            const collections = raised.length ? `. Payment Due sent to ${raised.length} rider${raised.length === 1 ? '' : 's'}` : '';
+
+            showToast({ message: message + collections });
+
+            if (failed.length) {
+                showToast({
+                    type: 'error',
+                    message: `Payment Due could not be sent to ${failed.map(item => item.riderId).join(', ')}. Raise it from their rider page.`
+                });
+            }
             setConfirming(false);
             refresh();
         } catch (error) {

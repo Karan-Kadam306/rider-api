@@ -147,6 +147,8 @@ const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
 // "21 Nov" for a YYYY-MM-DD date, without any time zone shift.
 const shortDate = new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short' });
 const formatDay = date => shortDate.format(new Date(`${date}T00:00:00.000Z`));
+// "20 Nov" for a timestamp, as the day in India.
+const istDay = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
 
 function daysSince(timestamp, now) {
     return timestamp ? (now - new Date(timestamp)) / (24 * 60 * 60 * 1000) : Infinity;
@@ -170,8 +172,16 @@ async function getMyQueue({ userId }) {
     for (const row of rows) {
         const reasons = [];
         const owes = row.open_money_escalations > 0 || row.outstanding_balance > 0;
+        // The rider told the team leader they paid, but no payment is recorded: an admin has to check.
+        const saysPaid = owes && row.last_follow_up_outcome === 'Paid';
 
-        if (owes && row.promise_date && row.promise_date < today) {
+        if (saysPaid) {
+            reasons.push({
+                type: 'saysPaid',
+                severity: 'High',
+                label: `Says paid on ${istDay.format(new Date(row.last_follow_up_at))}: waiting for an admin to confirm`
+            });
+        } else if (owes && row.promise_date && row.promise_date < today) {
             const amount = row.promise_amount === null ? '' : ` ${inr.format(row.promise_amount)}`;
             reasons.push({ type: 'promiseBroken', severity: 'Critical', label: `Promised to pay${amount} by ${formatDay(row.promise_date)}, not paid` });
         }
@@ -209,8 +219,9 @@ async function getMyQueue({ userId }) {
             severity,
             reasons,
             lastFollowUpAt: row.last_follow_up_at,
-            // Money problems need a call every few days; low km alone does not.
-            followUpDue: severity !== 'Low' && daysSince(row.last_follow_up_at, now) >= FOLLOW_UP_DUE_DAYS,
+            // Money problems need a call every few days; low km alone does not, and nor does a
+            // rider who says they paid (the admin checks that, not the team leader).
+            followUpDue: severity !== 'Low' && !saysPaid && daysSince(row.last_follow_up_at, now) >= FOLLOW_UP_DUE_DAYS,
             activePromise: row.promise_date && row.promise_date >= today
                 ? { promiseDate: row.promise_date, promiseAmount: row.promise_amount }
                 : null
