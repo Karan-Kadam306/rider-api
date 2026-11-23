@@ -147,7 +147,7 @@ covered by the automated tests (`tests/integration/autoPaymentDue.test.js`) rath
 
 | Do | Expect |
 |---|---|
-| Open **Dev (DM-014)** in **Rider Management** → *Inactive days* | An approved leave covering 3 days last week |
+| Open **Dev (DM-014)** from **Rider Management** → *Inactive days* (top of the rider page) | An approved leave covering 3 days last week |
 | Open **Anil (DM-015)** Overview | Current bike since 2 days ago |
 | B (Ravi) queue | Only Pooja has a *Lowest km* reason |
 
