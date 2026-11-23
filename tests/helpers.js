@@ -41,18 +41,26 @@ const TABLES = [
     'rider_inactive_periods',
     'idempotency_keys',
     'bikes',
+    'hubs',
     'riders'
 ];
 
 // Every api() request is signed in as this admin unless it sends its own Cookie header.
 let adminCookie;
+// Every bike needs a hub; createBike uses this one unless told otherwise.
+let defaultHubId;
 
-// Empty every table so each test starts from a known state, with one signed-in admin.
+// Empty every table so each test starts from a known state, with one signed-in admin and one hub.
 async function resetDb() {
     await pool.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`);
 
     const adminId = await createUser({ email: 'admin@test.local', role: 'admin' });
     adminCookie = await signIn(adminId);
+    defaultHubId = await createHub('Test Hub');
+}
+
+function getDefaultHubId() {
+    return defaultHubId;
 }
 
 let server;
@@ -142,12 +150,23 @@ async function createRider(riderId, { status = 'Active', terminatedOn = null } =
     return riderId;
 }
 
-async function createBike(chassisNumber, { status = 'Available', registrationNumber = null } = {}) {
+async function createHub(name, { city = 'Pune', isActive = true } = {}) {
     const result = await pool.query(
-        `INSERT INTO bikes (chassis_number, registration_number, status)
-         VALUES ($1, $2, $3)
+        `INSERT INTO hubs (name, city, address, is_active)
+         VALUES ($1, $2, $3, $4)
+         RETURNING hub_id`,
+        [name, city, `${name} address`, isActive]
+    );
+
+    return Number(result.rows[0].hub_id);
+}
+
+async function createBike(chassisNumber, { status = 'Available', registrationNumber = null, hubId = defaultHubId } = {}) {
+    const result = await pool.query(
+        `INSERT INTO bikes (chassis_number, registration_number, status, hub_id)
+         VALUES ($1, $2, $3, $4)
          RETURNING bike_id`,
-        [chassisNumber, registrationNumber, status]
+        [chassisNumber, registrationNumber, status, hubId]
     );
 
     return Number(result.rows[0].bike_id);
@@ -236,6 +255,8 @@ module.exports = {
     createUser,
     signIn,
     createRider,
+    createHub,
+    getDefaultHubId,
     createBike,
     createAssignment,
     createKmRecord,

@@ -20,25 +20,39 @@ function assign(bikeId, riderId, key = `key-${++keyCounter}`) {
 describe('Bike management', () => {
     it('creates a bike and normalises the registration number', async () => {
         const res = await h.api('POST', '/api/bikes', {
-            chassisNumber: 'VIN-1', registrationNumber: 'mh 12 ab 1234'
+            chassisNumber: 'VIN-1', registrationNumber: 'mh 12 ab 1234', hubId: h.getDefaultHubId()
         });
 
         assert.equal(res.status, 201);
         assert.equal(res.body.bike.registrationNumber, 'MH12AB1234');
         assert.equal(res.body.bike.status, 'Available');
+        assert.deepEqual(res.body.bike.hub, { hubId: h.getDefaultHubId(), name: 'Test Hub' });
+    });
+
+    it('requires an active hub for a new bike', async () => {
+        const closedHubId = await h.createHub('Closed Hub', { isActive: false });
+
+        const missing = await h.api('POST', '/api/bikes', { chassisNumber: 'VIN-1' });
+        const unknown = await h.api('POST', '/api/bikes', { chassisNumber: 'VIN-1', hubId: 999 });
+        const inactive = await h.api('POST', '/api/bikes', { chassisNumber: 'VIN-1', hubId: closedHubId });
+
+        assert.equal(missing.status, 400);
+        assert.equal(unknown.status, 400);
+        assert.equal(inactive.status, 400);
+        assert.equal(inactive.body.error, 'This hub is inactive');
     });
 
     it('rejects a duplicate chassis number with 409', async () => {
         await h.createBike('VIN-1');
 
-        const res = await h.api('POST', '/api/bikes', { chassisNumber: 'VIN-1' });
+        const res = await h.api('POST', '/api/bikes', { chassisNumber: 'VIN-1', hubId: h.getDefaultHubId() });
 
         assert.equal(res.status, 409);
         assert.equal(res.body.error, 'Chassis number already registered');
     });
 
     it('requires a chassis number', async () => {
-        const res = await h.api('POST', '/api/bikes', {});
+        const res = await h.api('POST', '/api/bikes', { hubId: h.getDefaultHubId() });
 
         assert.equal(res.status, 400);
     });
@@ -54,6 +68,44 @@ describe('Bike management', () => {
         assert.equal(res.status, 200);
         assert.equal(res.body.pagination.totalRecords, 1);
         assert.equal(res.body.bikes[0].currentRider.riderId, 'YS-001');
+    });
+
+    it('filters bikes by hub', async () => {
+        const otherHubId = await h.createHub('Other Hub');
+        await h.createBike('VIN-1');
+        await h.createBike('VIN-2', { hubId: otherHubId });
+
+        const res = await h.api('GET', `/api/bikes?hubId=${otherHubId}`);
+        const bad = await h.api('GET', '/api/bikes?hubId=abc');
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.body.bikes.map(bike => bike.chassisNumber), ['VIN-2']);
+        assert.equal(bad.status, 400);
+    });
+
+    it('moves a bike that is not assigned to another active hub', async () => {
+        const otherHubId = await h.createHub('Other Hub');
+        const closedHubId = await h.createHub('Closed Hub', { isActive: false });
+        const bikeId = await h.createBike('VIN-1', { status: 'Maintenance' });
+
+        const moved = await h.api('PATCH', `/api/bikes/${bikeId}/hub`, { hubId: otherHubId });
+        const toClosed = await h.api('PATCH', `/api/bikes/${bikeId}/hub`, { hubId: closedHubId });
+
+        assert.equal(moved.status, 200);
+        assert.equal(moved.body.bike.hub.name, 'Other Hub');
+        assert.equal(moved.body.bike.status, 'Maintenance');
+        assert.equal(toClosed.status, 400);
+    });
+
+    it('does not move an assigned bike', async () => {
+        await h.createRider('YS-001');
+        const otherHubId = await h.createHub('Other Hub');
+        const bikeId = await h.createBike('VIN-1');
+        await h.createAssignment(bikeId, 'YS-001', '2026-10-01 09:00');
+
+        const res = await h.api('PATCH', `/api/bikes/${bikeId}/hub`, { hubId: otherHubId });
+
+        assert.equal(res.status, 409);
     });
 
     it('returns 404 for an unknown bike', async () => {
@@ -108,6 +160,16 @@ describe('Bike summary', () => {
             Maintenance: 1,
             total: 3
         });
+    });
+
+    it('counts only one hub\'s bikes when hubId is given', async () => {
+        const otherHubId = await h.createHub('Other Hub');
+        await h.createBike('VIN-1');
+        await h.createBike('VIN-2', { hubId: otherHubId, status: 'Maintenance' });
+
+        const res = await h.api('GET', `/api/bikes/summary?hubId=${otherHubId}`);
+
+        assert.deepEqual(res.body.summary, { Available: 0, Assigned: 0, Maintenance: 1, total: 1 });
     });
 
     it('returns zeros when there are no bikes', async () => {

@@ -13,6 +13,7 @@ export const NAV_ITEMS = [
     { to: '/daily-km', label: 'Daily KM', icon: 'gauge' },
     { to: '/billing', label: 'Billing', icon: 'rupee', usesWeek: true },
     { to: '/payouts', label: 'Payouts', icon: 'wallet', usesWeek: true },
+    { to: '/hubs', label: 'Hub Management', icon: 'home', adminOnly: true },
     { to: '/users', label: 'Users', icon: 'shield', adminOnly: true }
 ];
 

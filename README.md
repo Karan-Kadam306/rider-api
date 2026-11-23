@@ -209,7 +209,8 @@ admin-ui/      React admin panel
 A `team_leader` user can call only `GET /api/tl/riders` and `GET /api/tl/queue`, the rider page reads above (profile, payouts, assignments, escalations, follow-ups) and the two writes (log a follow-up, raise a Record) for riders assigned to them; everything else answers 403 (see `middleware/restrictTeamLeader.js`).
 | Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
-| Bikes | `GET/POST /api/bikes`, `GET /api/bikes/summary`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
+| Hubs | `GET /api/hubs`, `POST /api/hubs` and `PATCH /api/hubs/:hubId` (admin; a hub with bikes cannot be deactivated) |
+| Bikes | `GET/POST /api/bikes` (POST needs an active `hubId`; GET filters by `hubId`), `GET /api/bikes/summary?hubId=`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `PATCH /api/bikes/:bikeId/hub` (not while assigned), `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |
 | Partners and mappings | `GET /api/partners`, `GET /api/partner-mappings`, `PUT /api/partner-mappings/riders/:riderId` |
 | Partner earnings | `GET /api/partner-earnings/pending`, `POST …/pending/resolve`, `POST …/pending/dismiss`, `GET …/row-errors`, `POST …/row-errors/:errorId/dismiss`, `GET …/move-preview` and `POST …/move` (admin) |

@@ -216,6 +216,7 @@ describe('Team leader access', () => {
             ['GET', '/api/riders/YS-001/inactive-periods'],
             ['POST', '/api/riders/YS-001/inactive-periods'],
             ['GET', '/api/bikes'],
+            ['GET', '/api/hubs'],
             ['GET', '/api/daily-km'],
             ['GET', `/api/billing/summary?weekStart=${week}`],
             ['GET', `/api/dashboard?weekStart=${week}`],

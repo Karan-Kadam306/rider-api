@@ -19,4 +19,7 @@ router.get("/:bikeId", bikeController.getBike);
 // Define the route for updating the status of a specific bike.
 router.patch("/:bikeId/status", bikeController.updateBikeStatus);
 
+// Move a bike that is not assigned to another hub.
+router.patch("/:bikeId/hub", bikeController.moveBikeToHub);
+
 module.exports = router;
