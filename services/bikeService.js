@@ -1,7 +1,8 @@
-const { pool } = require('../db');
+const { pool, inTransaction } = require('../db');
 const AppError = require('../errors/AppError');
 const bikeRepository = require('../repositories/bikeRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
+const hubService = require('./hubService');
 
 const allowedStatuses = ['Available', 'Assigned', 'Maintenance'];
 
@@ -25,6 +26,7 @@ function mapBike(row) {
         chassisNumber: row.chassis_number,
         status: row.status,
         createdAt: row.created_at,
+        hub: { hubId: row.hub_id, name: row.hub_name },
         currentRider: row.current_rider_id
             ? {
                 riderId: row.current_rider_id,
@@ -35,7 +37,7 @@ function mapBike(row) {
     };
 }
 
-async function createBike({ registrationNumber, chassisNumber }) {
+async function createBike({ registrationNumber, chassisNumber, hubId }) {
     // chassisNumber is the VIN used to match Daily KM uploads.
     if (typeof chassisNumber !== 'string' || !chassisNumber.trim()) {
         throw new AppError('chassisNumber is required and must be a non-empty string', 400);
@@ -55,19 +57,28 @@ async function createBike({ registrationNumber, chassisNumber }) {
         throw new AppError('One or more bike fields exceed the allowed length', 400);
     }
 
-    const bike = await bikeRepository.createBike(pool, {
-        // Store registration numbers as MH12AB1234 (uppercase, no spaces).
-        registrationNumber: registrationNumber
-            ? registrationNumber.replace(/\s+/g, '').toUpperCase()
-            : null,
-        chassisNumber: chassisNumber.trim()
-    });
+    if (hubId === undefined) {
+        throw new AppError('hubId is required', 400);
+    }
 
-    return mapBike(bike);
+    return inTransaction(async client => {
+        const hub = await hubService.lockActiveHub(client, hubId);
+
+        const { bike_id: bikeId } = await bikeRepository.createBike(client, {
+            // Store registration numbers as MH12AB1234 (uppercase, no spaces).
+            registrationNumber: registrationNumber
+                ? registrationNumber.replace(/\s+/g, '').toUpperCase()
+                : null,
+            chassisNumber: chassisNumber.trim(),
+            hubId: hub.hub_id
+        });
+
+        return mapBike(await bikeRepository.findBikeById(client, bikeId));
+    });
 }
 
 // Retrieves a paginated list of bikes with optional filters for status and search term.
-async function getBikes({ status, search, page = 1, limit = 20 }) {
+async function getBikes({ status, search, hubId, page = 1, limit = 20 }) {
     if (status !== undefined && !allowedStatuses.includes(status)) {
         throw new AppError(
             'Invalid status. Allowed values: Available, Assigned, Maintenance',
@@ -95,7 +106,8 @@ async function getBikes({ status, search, page = 1, limit = 20 }) {
         status: status ?? null,
         search: typeof search === 'string' && search.trim()
             ? `%${search.trim()}%`
-            : null
+            : null,
+        hubId: hubId === undefined ? null : hubService.parseHubId(hubId)
     };
 
     const [totalRecords, rows] = await Promise.all([
@@ -162,11 +174,9 @@ async function updateBikeStatus(bikeId, status) {
             );
         }
 
-        const updatedBike = await bikeRepository.updateBikeStatus(
-            client,
-            bikeId,
-            status
-        );
+        await bikeRepository.updateBikeStatus(client, bikeId, status);
+        // Re-read so the response includes the hub, like every other bike response.
+        const updatedBike = await bikeRepository.findBikeById(client, bikeId);
 
         await client.query('COMMIT');
 
@@ -179,9 +189,37 @@ async function updateBikeStatus(bikeId, status) {
     }
 }
 
+// Move a bike to another hub. An assigned bike stays at its rider's hub until it is returned.
+async function moveBikeToHub(bikeId, hubId) {
+    validateBikeId(bikeId);
+
+    if (hubId === undefined) {
+        throw new AppError('hubId is required', 400);
+    }
+
+    return inTransaction(async client => {
+        const bike = await bikeAssignmentRepository.findBikeForUpdate(client, bikeId);
+
+        if (!bike) {
+            throw new AppError('Bike not found', 404);
+        }
+
+        if (bike.status === 'Assigned') {
+            throw new AppError('Bike is assigned to a rider. Return it before moving it to another hub', 409);
+        }
+
+        const hub = await hubService.lockActiveHub(client, hubId);
+        await bikeRepository.updateBikeHub(client, bikeId, hub.hub_id);
+
+        return mapBike(await bikeRepository.findBikeById(client, bikeId));
+    });
+}
+
 // Bike counts by status, with zero for statuses that have no bikes.
-async function getBikeStatusSummary() {
-    const rows = await bikeRepository.getBikeStatusSummary(pool);
+async function getBikeStatusSummary({ hubId } = {}) {
+    const rows = await bikeRepository.getBikeStatusSummary(pool, {
+        hubId: hubId === undefined ? null : hubService.parseHubId(hubId)
+    });
 
     const summary = {
         Available: 0,
@@ -206,5 +244,6 @@ module.exports = {
     createBike,
     getBikes,
     getBikeById,
-    updateBikeStatus
+    updateBikeStatus,
+    moveBikeToHub
 };

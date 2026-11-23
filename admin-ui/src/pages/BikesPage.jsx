@@ -6,9 +6,11 @@ import {
     createBike,
     getBikes,
     getBikeSummary,
+    moveBikeToHub,
     returnBike,
     updateBikeStatus
 } from '../api/bikesApi';
+import { getHubs } from '../api/hubsApi';
 import { useApi } from '../hooks/useApi';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useWeek } from '../context/WeekContext';
@@ -24,6 +26,7 @@ import StatusTabs from '../components/ui/StatusTabs';
 import BikesTable from '../features/bikes/BikesTable';
 import BikeFormDialog from '../features/bikes/BikeFormDialog';
 import AssignBikeDialog from '../features/bikes/AssignBikeDialog';
+import MoveBikeDialog from '../features/bikes/MoveBikeDialog';
 import BikeHistoryPanel from '../features/bikes/BikeHistoryPanel';
 import { bikeLabel } from '../utils/bikeLabel';
 
@@ -37,11 +40,12 @@ const BIKE_TABS = [
 const PAGE_SIZE = 20;
 
 
-// Status, search and page live in the URL so a filtered view can be linked or reloaded.
+// Status, hub, search and page live in the URL so a filtered view can be linked or reloaded.
 export default function BikesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const requestedStatus = searchParams.get('status');
     const status = BIKE_TABS.some(tab => tab.value === requestedStatus) ? requestedStatus : 'All';
+    const hubId = searchParams.get('hubId') ?? '';
     const search = searchParams.get('search') ?? '';
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
 
@@ -58,12 +62,19 @@ export default function BikesPage() {
     const [returning, setReturning] = useState(null);
     const [returnBusy, setReturnBusy] = useState(false);
     const [historyBike, setHistoryBike] = useState(null);
+    const [moving, setMoving] = useState(null);
 
     const list = useApi(
-        options => getBikes({ status: status === 'All' ? undefined : status, search, page, limit: PAGE_SIZE }, options),
-        [status, search, page, refreshKey, reloadKey]
+        options => getBikes(
+            { status: status === 'All' ? undefined : status, hubId, search, page, limit: PAGE_SIZE },
+            options
+        ),
+        [status, hubId, search, page, refreshKey, reloadKey]
     );
-    const summary = useApi(options => getBikeSummary(options), [refreshKey, reloadKey]);
+    const summary = useApi(options => getBikeSummary({ hubId, ...options }), [hubId, refreshKey, reloadKey]);
+    const hubs = useApi(options => getHubs(options), [refreshKey]);
+    // New bikes and moves can only go to active hubs.
+    const activeHubs = hubs.data?.filter(hub => hub.isActive) ?? [];
 
     // Merges changes into the URL; an empty value removes the key.
     // replace keeps filter changes out of the back-button history.
@@ -117,6 +128,13 @@ export default function BikesPage() {
         reload();
     }
 
+    async function handleMove(targetHubId) {
+        const bike = await moveBikeToHub(moving.bikeId, targetHubId);
+        showToast({ message: `${bikeLabel(bike)} moved to ${bike.hub.name}` });
+        setMoving(null);
+        reload();
+    }
+
     async function handleChangeStatus(bike, nextStatus) {
         try {
             await updateBikeStatus(bike.bikeId, nextStatus);
@@ -160,15 +178,30 @@ export default function BikesPage() {
                 }
             />
 
-            <div className="search-box">
-                <Icon name="search" />
-                <input
-                    type="search"
-                    value={searchInput}
-                    onChange={event => setSearchInput(event.target.value)}
-                    placeholder="Search by registration or chassis number…"
-                    aria-label="Search bikes"
-                />
+            <div className="km-filters">
+                <div className="search-box km-filters__search">
+                    <Icon name="search" />
+                    <input
+                        type="search"
+                        value={searchInput}
+                        onChange={event => setSearchInput(event.target.value)}
+                        placeholder="Search by registration or chassis number…"
+                        aria-label="Search bikes"
+                    />
+                </div>
+                <select
+                    className="select"
+                    aria-label="Filter by hub"
+                    value={hubId}
+                    onChange={event => updateParams({ hubId: event.target.value, page: undefined })}
+                >
+                    <option value="">All hubs</option>
+                    {hubs.data?.map(hub => (
+                        <option key={hub.hubId} value={hub.hubId}>
+                            {hub.name}{hub.isActive ? '' : ' (inactive)'}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             <StatusTabs
@@ -196,6 +229,7 @@ export default function BikesPage() {
                                 onAssign={setAssigning}
                                 onReturn={setReturning}
                                 onChangeStatus={handleChangeStatus}
+                                onMove={setMoving}
                                 onShowHistory={setHistoryBike}
                             />
                             <Pagination
@@ -206,8 +240,8 @@ export default function BikesPage() {
                     ) : (
                         <div className="card__empty">
                             <EmptyState
-                                message={search
-                                    ? `No bikes match “${search}”.`
+                                message={search || hubId
+                                    ? 'No bikes match these filters.'
                                     : status === 'All' ? 'No bikes yet.' : `No ${status.toLowerCase()} bikes.`}
                             />
                         </div>
@@ -215,7 +249,18 @@ export default function BikesPage() {
                 </section>
             )}
 
-            {adding && <BikeFormDialog onSubmit={handleAdd} onClose={() => setAdding(false)} />}
+            {adding && hubs.data && (
+                <BikeFormDialog
+                    hubs={activeHubs}
+                    defaultHubId={hubId ? Number(hubId) : undefined}
+                    onSubmit={handleAdd}
+                    onClose={() => setAdding(false)}
+                />
+            )}
+
+            {moving && hubs.data && (
+                <MoveBikeDialog bike={moving} hubs={activeHubs} onSubmit={handleMove} onClose={() => setMoving(null)} />
+            )}
 
             {assigning && (
                 <AssignBikeDialog bike={assigning} onSubmit={handleAssign} onClose={() => setAssigning(null)} />

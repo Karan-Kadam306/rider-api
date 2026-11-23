@@ -4,7 +4,8 @@ import { formatDate } from '../../utils/formatDate';
 
 // Which actions a bike offers depends on its status:
 // Available → assign or send to maintenance; Assigned → return; Maintenance → mark available.
-export default function BikesTable({ bikes, onAssign, onReturn, onChangeStatus, onShowHistory }) {
+// A bike can move to another hub unless it is assigned.
+export default function BikesTable({ bikes, onAssign, onReturn, onChangeStatus, onMove, onShowHistory }) {
     return (
         <div className="table-wrap">
             <table className="table table--roomy">
@@ -13,6 +14,7 @@ export default function BikesTable({ bikes, onAssign, onReturn, onChangeStatus, 
                         <th>Bike ID</th>
                         <th>Registration</th>
                         <th>Chassis no.</th>
+                        <th>Hub</th>
                         <th>Status</th>
                         <th>Current rider</th>
                         <th>Created</th>
@@ -25,6 +27,7 @@ export default function BikesTable({ bikes, onAssign, onReturn, onChangeStatus, 
                             <td className="mono">#{bike.bikeId}</td>
                             <td className="person__name">{bike.registrationNumber ?? <span className="muted">—</span>}</td>
                             <td className="mono">{bike.chassisNumber}</td>
+                            <td>{bike.hub.name}</td>
                             <td><StatusBadge status={bike.status} /></td>
                             <td>
                                 {bike.currentRider ? (
@@ -69,6 +72,12 @@ export default function BikesTable({ bikes, onAssign, onReturn, onChangeStatus, 
                                         >
                                             <Icon name="circleCheck" size={15} />
                                             Mark available
+                                        </button>
+                                    )}
+                                    {bike.status !== 'Assigned' && (
+                                        <button type="button" className="pill-button" onClick={() => onMove(bike)}>
+                                            <Icon name="home" size={15} />
+                                            Move hub
                                         </button>
                                     )}
                                     <button type="button" className="pill-button" onClick={() => onShowHistory(bike)}>

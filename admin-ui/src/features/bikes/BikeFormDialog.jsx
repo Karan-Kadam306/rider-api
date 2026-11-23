@@ -3,8 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import Field from '../../components/ui/Field';
 
 // Same limits as bikeService.createBike on the backend.
-function validateBikeForm({ registrationNumber, chassisNumber }) {
+function validateBikeForm({ registrationNumber, chassisNumber, hubId }) {
     const errors = {};
+
+    if (!hubId) {
+        errors.hubId = 'Choose the hub this bike is kept at';
+    }
 
     if (!chassisNumber.trim()) {
         errors.chassisNumber = 'Chassis number is required';
@@ -20,10 +24,17 @@ function validateBikeForm({ registrationNumber, chassisNumber }) {
 }
 
 // Add a new bike. Mounted only while open, so each opening starts fresh.
+// hubs: the active hubs; defaultHubId preselects one (e.g. the hub the list is filtered to).
 // onSubmit(values) must return a promise; its rejection message is shown in the form.
-export default function BikeFormDialog({ onSubmit, onClose }) {
+export default function BikeFormDialog({ hubs, defaultHubId, onSubmit, onClose }) {
     const dialogRef = useRef(null);
-    const [values, setValues] = useState({ registrationNumber: '', chassisNumber: '' });
+    // With a single hub there is nothing to choose. An inactive default is not offered.
+    const preselectedHub = hubs.find(hub => hub.hubId === defaultHubId) ?? (hubs.length === 1 ? hubs[0] : null);
+    const [values, setValues] = useState({
+        registrationNumber: '',
+        chassisNumber: '',
+        hubId: preselectedHub ? String(preselectedHub.hubId) : ''
+    });
     const [errors, setErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -54,7 +65,8 @@ export default function BikeFormDialog({ onSubmit, onClose }) {
         try {
             await onSubmit({
                 registrationNumber: values.registrationNumber.trim(),
-                chassisNumber: values.chassisNumber.trim()
+                chassisNumber: values.chassisNumber.trim(),
+                hubId: Number(values.hubId)
             });
         } catch (error) {
             // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
@@ -97,6 +109,17 @@ export default function BikeFormDialog({ onSubmit, onClose }) {
                             placeholder="e.g. MH12AB1234"
                         />
                     </Field>
+                    <Field label="Hub" error={errors.hubId}>
+                        <select name="hubId" value={values.hubId} onChange={handleChange}>
+                            <option value="">Choose a hub…</option>
+                            {hubs.map(hub => (
+                                <option key={hub.hubId} value={hub.hubId}>{hub.name} · {hub.city}</option>
+                            ))}
+                        </select>
+                    </Field>
+                    {!hubs.length && (
+                        <p className="muted form-note">There is no active hub yet. An admin adds one on Hub Management.</p>
+                    )}
                 </div>
 
                 <div className="dialog__actions">

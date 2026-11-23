@@ -11,7 +11,13 @@ INSERT INTO riders (rider_id, name, phone, status, terminated_on) VALUES
     ('DM-007', 'Arjun Mehta',    '9000000007', 'Inactive',   NULL),
     ('DM-008', 'Meera Joshi',    '9000000008', 'Active',     NULL);
 
-INSERT INTO bikes (chassis_number, registration_number, status) VALUES
+INSERT INTO hubs (name, city, address, contact_phone) VALUES
+    ('Wakad Hub',     'Pune', 'Plot 12, Wakad Road, Pune 411057',       '9800000001'),
+    ('Hinjewadi Hub', 'Pune', 'Phase 1, Hinjewadi IT Park, Pune 411057', NULL);
+
+INSERT INTO bikes (chassis_number, registration_number, status, hub_id)
+SELECT v.chassis_number, v.registration_number, v.status, h.hub_id
+FROM (VALUES
     ('DEMO-VIN-1', 'MH12DM0001', 'Assigned'),
     ('DEMO-VIN-2', 'MH12DM0002', 'Available'),
     ('DEMO-VIN-3', NULL,         'Assigned'),
@@ -19,7 +25,9 @@ INSERT INTO bikes (chassis_number, registration_number, status) VALUES
     ('DEMO-VIN-5', NULL,         'Assigned'),
     ('DEMO-VIN-6', NULL,         'Available'),
     ('DEMO-VIN-7', NULL,         'Available'),
-    ('DEMO-VIN-8', NULL,         'Maintenance');
+    ('DEMO-VIN-8', NULL,         'Maintenance')
+) AS v (chassis_number, registration_number, status)
+JOIN hubs h ON h.name = 'Wakad Hub';
 
 -- (bike, rider, assigned, returned)
 INSERT INTO bike_assignments (bike_id, rider_id, assigned_at, returned_at)
@@ -116,11 +124,15 @@ INSERT INTO riders (rider_id, name, phone, status) VALUES
     ('DM-014', 'Dev Malhotra', '9000000014', 'Active'),
     ('DM-015', 'Anil Yadav',   '9000000015', 'Active');
 
-INSERT INTO bikes (chassis_number, registration_number, status) VALUES
-    ('DEMO-VIN-12', 'MH12DM0012', 'Assigned'),
-    ('DEMO-VIN-13', 'MH12DM0013', 'Assigned'),
-    ('DEMO-VIN-14', 'MH12DM0014', 'Assigned'),
-    ('DEMO-VIN-15', 'MH12DM0015', 'Assigned');
+INSERT INTO bikes (chassis_number, registration_number, status, hub_id)
+SELECT v.chassis_number, v.registration_number, 'Assigned', h.hub_id
+FROM (VALUES
+    ('DEMO-VIN-12', 'MH12DM0012'),
+    ('DEMO-VIN-13', 'MH12DM0013'),
+    ('DEMO-VIN-14', 'MH12DM0014'),
+    ('DEMO-VIN-15', 'MH12DM0015')
+) AS v (chassis_number, registration_number)
+JOIN hubs h ON h.name = 'Hinjewadi Hub';
 
 -- Pooja, Kiran and Dev have had their bikes for weeks; Anil only for 2 days.
 INSERT INTO bike_assignments (bike_id, rider_id, assigned_at)

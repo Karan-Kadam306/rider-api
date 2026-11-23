@@ -6,29 +6,33 @@ const BIKE_SELECT = `
         b.chassis_number,
         b.status,
         b.created_at,
+        b.hub_id::int AS hub_id,
+        h.name AS hub_name,
         ba.rider_id AS current_rider_id,
         r.name AS current_rider_name,
         ba.assigned_at
     FROM bikes b
+    JOIN hubs h
+        ON h.hub_id = b.hub_id
     LEFT JOIN bike_assignments ba
         ON ba.bike_id = b.bike_id
        AND ba.returned_at IS NULL
     LEFT JOIN riders r
         ON r.rider_id = ba.rider_id`;
 
-async function createBike(client, { registrationNumber, chassisNumber }) {
+async function createBike(client, { registrationNumber, chassisNumber, hubId }) {
     const result = await client.query(
-        `INSERT INTO bikes (registration_number, chassis_number)
-         VALUES ($1, $2)
-         RETURNING bike_id, registration_number, chassis_number, status, created_at`,
-        [registrationNumber, chassisNumber]
+        `INSERT INTO bikes (registration_number, chassis_number, hub_id)
+         VALUES ($1, $2, $3)
+         RETURNING bike_id`,
+        [registrationNumber, chassisNumber, hubId]
     );
 
     return result.rows[0];
 }
 
-// status and search are optional filters.
-async function findBikes(client, { status, search, limit, offset }) {
+// status, search and hubId are optional filters.
+async function findBikes(client, { status, search, hubId, limit, offset }) {
     const result = await client.query(
         `${BIKE_SELECT}
          WHERE ($1::text IS NULL OR b.status = $1)
@@ -37,16 +41,17 @@ async function findBikes(client, { status, search, limit, offset }) {
                 OR b.registration_number ILIKE $2
                 OR b.chassis_number ILIKE $2
            )
+           AND ($3::bigint IS NULL OR b.hub_id = $3)
          ORDER BY b.bike_id
-         LIMIT $3 OFFSET $4`,
-        [status, search, limit, offset]
+         LIMIT $4 OFFSET $5`,
+        [status, search, hubId, limit, offset]
     );
 
     return result.rows;
 }
 
 // Count the total number of bikes matching the optional filters.
-async function countBikes(client, { status, search }) {
+async function countBikes(client, { status, search, hubId }) {
     const result = await client.query(
         `SELECT COUNT(*) AS total
          FROM bikes b
@@ -55,8 +60,9 @@ async function countBikes(client, { status, search }) {
                 $2::text IS NULL
                 OR b.registration_number ILIKE $2
                 OR b.chassis_number ILIKE $2
-           )`,
-        [status, search]
+           )
+           AND ($3::bigint IS NULL OR b.hub_id = $3)`,
+        [status, search, hubId]
     );
 
     return Number(result.rows[0].total);
@@ -86,12 +92,23 @@ async function updateBikeStatus(client, bikeId, status) {
     return result.rows[0] ?? null;
 }
 
-// Number of bikes in each status.
-async function getBikeStatusSummary(client) {
+async function updateBikeHub(client, bikeId, hubId) {
+    await client.query(
+        `UPDATE bikes
+         SET hub_id = $1
+         WHERE bike_id = $2`,
+        [hubId, bikeId]
+    );
+}
+
+// Number of bikes in each status, optionally for one hub.
+async function getBikeStatusSummary(client, { hubId = null } = {}) {
     const result = await client.query(
         `SELECT status, COUNT(*) AS total
          FROM bikes
-         GROUP BY status`
+         WHERE ($1::bigint IS NULL OR hub_id = $1)
+         GROUP BY status`,
+        [hubId]
     );
 
     return result.rows;
@@ -103,5 +120,6 @@ module.exports = {
     findBikes,
     countBikes,
     findBikeById,
-    updateBikeStatus
+    updateBikeStatus,
+    updateBikeHub
 };

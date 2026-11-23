@@ -6,7 +6,8 @@ async function createBike(req, res, next) {
     try {
         const bike = await bikeService.createBike({
             registrationNumber: req.body?.registrationNumber,
-            chassisNumber: req.body?.chassisNumber
+            chassisNumber: req.body?.chassisNumber,
+            hubId: req.body?.hubId
         });
 
         return res.status(201).json({ bike });
@@ -22,6 +23,7 @@ async function getBikes(req, res, next) {
         const result = await bikeService.getBikes({
             status: req.query.status,
             search: req.query.search,
+            hubId: req.query.hubId,
             page: req.query.page ?? 1,
             limit: req.query.limit ?? 20
         });
@@ -32,11 +34,11 @@ async function getBikes(req, res, next) {
     }
 }
 
-// GET /api/bikes/summary
-// Get a summary of bikes by status.
+// GET /api/bikes/summary?hubId=
+// Get a summary of bikes by status, optionally for one hub.
 async function getBikeSummary(req, res, next) {
     try {
-        const summary = await bikeService.getBikeStatusSummary();
+        const summary = await bikeService.getBikeStatusSummary({ hubId: req.query.hubId });
 
         return res.status(200).json({ summary });
     } catch (error) {
@@ -74,10 +76,23 @@ async function updateBikeStatus(req, res, next) {
     }
 }
 
+// PATCH /api/bikes/:bikeId/hub
+// Body: { hubId }
+async function moveBikeToHub(req, res, next) {
+    try {
+        const bike = await bikeService.moveBikeToHub(req.params.bikeId, req.body?.hubId);
+
+        return res.status(200).json({ message: 'Bike moved', bike });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     createBike,
     getBikes,
     getBikeSummary,
     getBike,
-    updateBikeStatus
+    updateBikeStatus,
+    moveBikeToHub
 };

@@ -7,7 +7,7 @@ function bikePath(bikeId) {
     return `/api/bikes/${encodeURIComponent(bikeId)}`;
 }
 
-// GET /api/bikes (paginated, with optional status and search filters)
+// GET /api/bikes (paginated, with optional status, search and hubId filters)
 export function getBikes(params, { signal } = {}) {
     return request('/api/bikes', { params, signal });
 }
@@ -18,18 +18,24 @@ export async function getBike(bikeId, { signal } = {}) {
     return data.bike;
 }
 
-// GET /api/bikes/summary
-export async function getBikeSummary({ signal } = {}) {
-    const data = await request('/api/bikes/summary', { signal });
+// GET /api/bikes/summary (optionally for one hubId)
+export async function getBikeSummary({ hubId, signal } = {}) {
+    const data = await request('/api/bikes/summary', { params: { hubId }, signal });
     return data.summary;
 }
 
 // POST /api/bikes (registrationNumber is optional)
-export async function createBike({ registrationNumber, chassisNumber }) {
+export async function createBike({ registrationNumber, chassisNumber, hubId }) {
     const data = await request('/api/bikes', {
         method: 'POST',
-        body: { registrationNumber: registrationNumber || undefined, chassisNumber }
+        body: { registrationNumber: registrationNumber || undefined, chassisNumber, hubId }
     });
+    return data.bike;
+}
+
+// PATCH /api/bikes/:bikeId/hub (not while the bike is assigned)
+export async function moveBikeToHub(bikeId, hubId) {
+    const data = await request(`${bikePath(bikeId)}/hub`, { method: 'PATCH', body: { hubId } });
     return data.bike;
 }
 

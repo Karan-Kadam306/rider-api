@@ -22,13 +22,14 @@ import DailyKmPage from './pages/DailyKmPage';
 import BillingPage from './pages/BillingPage';
 import PayoutsPage from './pages/PayoutsPage';
 import UsersPage from './pages/UsersPage';
+import HubsPage from './pages/HubsPage';
 import MyRidersPage from './pages/MyRidersPage';
 import QueuePage from './pages/QueuePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Providers sit above the router so every page can reach the user, selected week and toasts.
 // Route nesting adds the guards: only /login and the mock rider payment page are public,
-// RequireAuth covers the rest, AppLayout adds the sidebar and top bar, and RequireAdmin limits /users to admins.
+// RequireAuth covers the rest, AppLayout adds the sidebar and top bar, and RequireAdmin limits /hubs and /users to admins.
 // Team leaders only get My Riders and their riders' pages; RequireStaff sends them there from anywhere else.
 export default function App() {
     return (
@@ -53,6 +54,7 @@ export default function App() {
                                         <Route path="billing" element={<BillingPage />} />
                                         <Route path="payouts" element={<PayoutsPage />} />
                                         <Route element={<RequireAdmin />}>
+                                            <Route path="hubs" element={<HubsPage />} />
                                             <Route path="users" element={<UsersPage />} />
                                         </Route>
                                     </Route>
