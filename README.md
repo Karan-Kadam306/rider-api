@@ -105,6 +105,12 @@ Everyone can change their own password from the top bar (other browsers are sign
 - **No CORS:** no CORS headers are sent, so other sites cannot read API responses.
 - **Request bodies:** JSON bodies are limited to 100 kB (`413`); malformed JSON gets `400`;
   unknown `/api` routes get a JSON `404` (after the sign-in check).
+- **Rider ID numbers:** Aadhaar, PAN, DL and bank account numbers are encrypted with AES-256-GCM
+  (`ID_ENCRYPTION_KEY`) and stored with a keyed hash (`ID_HASH_KEY`) for duplicate checks and
+  their last 4 digits for display. Set both keys before onboarding anyone and never change
+  `ID_ENCRYPTION_KEY` afterwards, or stored numbers can no longer be read.
+- **Document files:** uploads are checked by their first bytes (JPEG, PNG or PDF, at most 5 MB),
+  saved under random names in `UPLOAD_DIR`, which must be outside the project folder.
 
 ## Partner earnings
 
