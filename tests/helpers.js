@@ -16,8 +16,16 @@ if (!testDbName.endsWith('_test')) {
     );
 }
 
-// partners is left out on purpose: its rows come from the schema, not from a test.
+// partners and policy_versions are left out on purpose: their rows come from the schema, not from a test.
 const TABLES = [
+    'document_access_log',
+    'application_events',
+    'policy_acceptances',
+    'application_bank_accounts',
+    'application_document_files',
+    'application_documents',
+    'application_profiles',
+    'rider_applications',
     'rider_follow_ups',
     'team_leader_riders',
     'escalation_events',
