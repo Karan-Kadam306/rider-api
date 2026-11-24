@@ -36,8 +36,6 @@ const BILL_VIEWS = [
 const PAGE_SIZE = 20;
 
 // View, search and page live in the URL so a filtered list can be linked.
-// The ₹59 and ₹1.50 rates in the cards below repeat the backend's constants (utils/calculate*.js);
-// change both together.
 export default function BillingPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { weekStart, refreshKey, refresh } = useWeek();
@@ -98,6 +96,8 @@ export default function BillingPage() {
     }, [list.data, page, totalPages]);
 
     const bills = list.data;
+    // The postpaid rate for the week, or null when it changed mid-week.
+    const weekRate = bills?.postpaidRates.length === 1 ? bills.postpaidRates[0] : null;
     const closeBlocker = bills && getCloseBlocker({ weekStart, closed: bills.closed, reviewCount: bills.reviewCount });
 
     async function handleExport() {
@@ -178,12 +178,14 @@ export default function BillingPage() {
                         <StatCard
                             label="Rental"
                             value={<CurrencyText value={bills.totalRental} />}
-                            subText="₹59 per rental day"
+                            subText={weekRate
+                                ? `${formatINR(weekRate.rentalPerDay)} per rental day`
+                                : 'Rate changed during the week'}
                         />
                         <StatCard
                             label="Energy"
                             value={<CurrencyText value={bills.totalEnergyCharge} />}
-                            subText={`${formatNumber(bills.totalKm)} km at ₹1.50`}
+                            subText={`${formatNumber(bills.totalKm)} km${weekRate ? ` at ${formatINR(weekRate.energyPerKm)}` : ''}`}
                         />
                         <StatCard
                             label="Deductions"

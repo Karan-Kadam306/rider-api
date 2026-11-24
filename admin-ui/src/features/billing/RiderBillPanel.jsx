@@ -56,7 +56,9 @@ export default function RiderBillPanel({ rider, weekStart, onClose }) {
                             <div>
                                 <dt>Rental</dt>
                                 <dd>
-                                    {bill.rental.rentalDays} day{bill.rental.rentalDays === 1 ? '' : 's'} × <CurrencyText value={bill.rental.dailyRate} />
+                                    {bill.rental.rentalDays} day{bill.rental.rentalDays === 1 ? '' : 's'}
+                                    {/* No single daily rate when the rate changed during the week. */}
+                                    {bill.rental.dailyRate !== null && <> × <CurrencyText value={bill.rental.dailyRate} /></>}
                                     {' = '}<CurrencyText value={bill.rental.totalRental} />
                                 </dd>
                             </div>

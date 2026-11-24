@@ -26,6 +26,9 @@ const STATUS_TONES = {
     'Will Improve': 'success',
     Unreachable: 'warning',
     Refused: 'danger',
+    // Configuration: a price in effect now or starting later.
+    'In effect': 'success',
+    Scheduled: 'info',
     // Critical queue priority.
     Critical: 'danger',
     High: 'warning',

@@ -1,11 +1,11 @@
-const ENERGY_RATE_PER_KM = 1.50;
-
 // Calculates the energy charge for a given record based on daily kilometers, record status, bike ID, and rider ID.
+// ratePerKm is the postpaid energy rate in effect on the record's usage date.
 function calculateEnergyCharge({
     dailyKm,
     recordStatus,
     bikeId,
-    riderId
+    riderId,
+    ratePerKm
 }) {
     if (recordStatus !== 'Validated') {
         return {
@@ -36,12 +36,11 @@ function calculateEnergyCharge({
     return {
         eligible: true,
         dailyKm: km,
-        ratePerKm: ENERGY_RATE_PER_KM,
-        energyCharge: Math.round(km * ENERGY_RATE_PER_KM * 100) / 100
+        ratePerKm,
+        energyCharge: Math.round(km * ratePerKm * 100) / 100
     };
 }
 
 module.exports = {
-    calculateEnergyCharge,
-    ENERGY_RATE_PER_KM
+    calculateEnergyCharge
 };

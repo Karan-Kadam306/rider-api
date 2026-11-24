@@ -38,6 +38,13 @@ function mapDatabaseError(error) {
             };
         }
 
+        if (error.constraint === 'idx_prepaid_packs_name') {
+            return {
+                statusCode: 409,
+                message: 'A pack with this name already exists'
+            };
+        }
+
         if (error.constraint === 'idx_hubs_name') {
             return {
                 statusCode: 409,

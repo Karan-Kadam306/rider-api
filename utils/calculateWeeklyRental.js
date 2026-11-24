@@ -1,12 +1,14 @@
-const DAILY_RENTAL_RATE = 59;
+const { rateOn } = require('./rateOn');
 
 // Calculates the weekly rental for a specific rider, considering their status and any termination date.
+// Each day is charged at the postpaid rate in effect that day (rates: see utils/rateOn.js).
 function calculateWeeklyRental({
     weekStart,
     riderStatus,
     terminatedOn = null,
     inactivePeriods = [],
-    eligibleDates = []
+    eligibleDates = [],
+    rates
 }) {
     const start = new Date(`${weekStart}T00:00:00.000Z`);
 
@@ -19,7 +21,9 @@ function calculateWeeklyRental({
     }
 
     const eligibleDateSet = new Set(eligibleDates);
+    const dailyRates = new Set();
     let rentalDays = 0;
+    let totalRental = 0;
 
     for (let offset = 0; offset < 7; offset++) {
         const date = new Date(start);
@@ -48,15 +52,23 @@ function calculateWeeklyRental({
             continue;
         }
 
+        const { rentalPerDay } = rateOn(rates, dateString);
+
         rentalDays++;
+        totalRental += rentalPerDay;
+        dailyRates.add(rentalPerDay);
     }
+
+    // dailyRate is the rate charged, or the week's starting rate when nothing was charged.
+    // It is null when charged days had different rates, so no single rate explains the total.
+    const [chargedRate] = dailyRates;
 
     return {
         riderStatus,
         weekStart,
         rentalDays,
-        dailyRate: DAILY_RENTAL_RATE,
-        totalRental: rentalDays * DAILY_RENTAL_RATE
+        dailyRate: dailyRates.size > 1 ? null : chargedRate ?? rateOn(rates, weekStart).rentalPerDay,
+        totalRental: Math.round(totalRental * 100) / 100
     };
 }
 

@@ -14,6 +14,7 @@ export const NAV_ITEMS = [
     { to: '/billing', label: 'Billing', icon: 'rupee', usesWeek: true },
     { to: '/payouts', label: 'Payouts', icon: 'wallet', usesWeek: true },
     { to: '/hubs', label: 'Hub Management', icon: 'home', adminOnly: true },
+    { to: '/configuration', label: 'Configuration', icon: 'rupee', adminOnly: true },
     { to: '/users', label: 'Users', icon: 'shield', adminOnly: true }
 ];
 
