@@ -3,6 +3,8 @@ const energyRepository = require('../repositories/energyRepository');
 const {
     calculateEnergyCharge
 } = require('../utils/calculateEnergyCharge');
+const { rateOn } = require('../utils/rateOn');
+const { getPostpaidRates } = require('./pricingService');
 
 async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = false, riderId = null }) {
     const client = await pool.connect();
@@ -14,6 +16,8 @@ async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = fa
                 includeAllStatuses,
                 riderId
             });
+        // Each record is charged at the energy rate in effect on its usage date.
+        const rates = await getPostpaidRates(client);
         // The results object is initialized to keep track of the processing outcomes, including counts of processed, charged, and skipped records, as well as the total energy charge and detailed information for each record.
         const results = {
             weekStart,
@@ -110,7 +114,8 @@ async function calculateWeeklyEnergyCharges({ weekStart, includeAllStatuses = fa
                 dailyKm: record.daily_km,
                 recordStatus: record.status,
                 bikeId: record.bike_id,
-                riderId: record.rider_id
+                riderId: record.rider_id,
+                ratePerKm: rateOn(rates, record.usage_date).energyPerKm
             });
 
             if (!charge.eligible) {

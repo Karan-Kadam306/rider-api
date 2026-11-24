@@ -226,3 +226,10 @@ JOIN users u ON u.email = f.email
 CROSS JOIN demo_day d;
 
 DROP TABLE demo_day;
+
+-- Configuration: a deposit and two prepaid packs (the postpaid ₹59/₹1.50 rate comes from the schema).
+INSERT INTO deposit_amounts (amount, effective_from) VALUES (2000, '2026-10-01');
+
+INSERT INTO prepaid_packs (kind, name, price, km_included, validity_days) VALUES
+    ('Weekly', '400 KM Weekly', 1000, 400, 7),
+    ('TopUp',  '100 KM Top-up', 300,  100, 3);

@@ -9,6 +9,8 @@ const partnerFormats = require('./importTypes/partnerFormats');
 const { diffPayout, toPaidAmounts } = require('../utils/diffPayout');
 const { calculateRiderWeeklyRental } = require('./rentalService');
 const { calculateWeeklyEnergyCharges } = require('./energyService');
+const { getPostpaidRates } = require('./pricingService');
+const { ratesDuring } = require('../utils/rateOn');
 
 function roundAmount(amount) {
     return Math.round(amount * 100) / 100;
@@ -172,6 +174,10 @@ async function calculateWeeklyBills({ weekStart }) {
 
     const energy = await calculateWeeklyEnergyCharges({ weekStart });
 
+    // Shown with the totals, so the page never repeats a rate that has since changed.
+    const postpaidRates = ratesDuring(await getPostpaidRates(), weekStart, addDays(weekStart, 6))
+        .map(({ effectiveFrom, rentalPerDay, energyPerKm }) => ({ effectiveFrom, rentalPerDay, energyPerKm }));
+
     const earningRows = await partnerEarningsRepository.sumMatchedEarningsInWeek(pool, { weekStart });
     const earningsByRider = new Map(earningRows.map(row => [row.rider_id, row.earnings]));
 
@@ -294,6 +300,7 @@ async function calculateWeeklyBills({ weekStart }) {
         totalAmount: roundAmount(totals.totalAmount),
         totalEarnings: roundAmount(totals.totalEarnings),
         totalNetPayout: roundAmount(totals.totalNetPayout),
+        postpaidRates,
         riders
     };
 }

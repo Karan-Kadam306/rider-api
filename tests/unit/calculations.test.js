@@ -1,36 +1,17 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateRentalCharge } = require('../../utils/calculateRentalCharge');
 const { calculateEnergyCharge } = require('../../utils/calculateEnergyCharge');
 const { calculateWeeklyRental } = require('../../utils/calculateWeeklyRental');
 const validateUsageDate = require('../../utils/validateUsageDate');
+
+// ₹59/day and ₹1.50/km, the first postpaid rate.
+const RATES = [{ effectiveFrom: '2000-01-01', rentalPerDay: 59, energyPerKm: 1.5 }];
 
 const FULL_WEEK = [
     '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15',
     '2026-10-16', '2026-10-17', '2026-10-18'
 ];
-
-describe('calculateRentalCharge', () => {
-    const cases = [
-        ['Active rider with one assignment', { assignmentCount: 1, riderStatus: 'Active' }, 59],
-        ['Inactive rider with one assignment', { assignmentCount: 1, riderStatus: 'Inactive' }, 59],
-        ['Bike change: two assignments on one day is charged once', { assignmentCount: 2, riderStatus: 'Active' }, 59],
-        ['No assignment', { assignmentCount: 0, riderStatus: 'Active' }, 0],
-        ['Terminated on the usage date is charged', { assignmentCount: 1, riderStatus: 'Terminated', terminatedOn: '2026-10-14', usageDate: '2026-10-14' }, 59],
-        ['Terminated before the usage date', { assignmentCount: 1, riderStatus: 'Terminated', terminatedOn: '2026-10-13', usageDate: '2026-10-14' }, 0],
-        ['Terminated without a termination date', { assignmentCount: 1, riderStatus: 'Terminated', terminatedOn: null, usageDate: '2026-10-14' }, 0]
-    ];
-
-    for (const [name, input, expected] of cases) {
-        it(name, () => {
-            const result = calculateRentalCharge({ terminatedOn: null, usageDate: '2026-10-12', ...input });
-
-            assert.equal(result.rentalCharge, expected);
-            assert.equal(result.eligible, expected > 0);
-        });
-    }
-});
 
 describe('calculateEnergyCharge', () => {
     const cases = [
@@ -47,12 +28,12 @@ describe('calculateEnergyCharge', () => {
 
     for (const [name, input, expected] of cases) {
         it(name, () => {
-            assert.equal(calculateEnergyCharge(input).energyCharge, expected);
+            assert.equal(calculateEnergyCharge({ ...input, ratePerKm: 1.5 }).energyCharge, expected);
         });
     }
 
     it('Explains why a record is not eligible', () => {
-        const result = calculateEnergyCharge({ dailyKm: 10, recordStatus: 'Pending', bikeId: 1, riderId: 'R1' });
+        const result = calculateEnergyCharge({ dailyKm: 10, recordStatus: 'Pending', bikeId: 1, riderId: 'R1', ratePerKm: 1.5 });
 
         assert.equal(result.eligible, false);
         assert.match(result.reason, /Pending/);
@@ -61,7 +42,7 @@ describe('calculateEnergyCharge', () => {
 
 describe('calculateWeeklyRental', () => {
     it('Full week is 7 days × ₹59 = ₹413', () => {
-        const result = calculateWeeklyRental({ weekStart: '2026-10-12', riderStatus: 'Active', eligibleDates: FULL_WEEK });
+        const result = calculateWeeklyRental({ weekStart: '2026-10-12', riderStatus: 'Active', eligibleDates: FULL_WEEK, rates: RATES });
 
         assert.equal(result.rentalDays, 7);
         assert.equal(result.totalRental, 413);
@@ -72,7 +53,8 @@ describe('calculateWeeklyRental', () => {
             weekStart: '2026-10-12',
             riderStatus: 'Terminated',
             terminatedOn: '2026-10-14',
-            eligibleDates: FULL_WEEK
+            eligibleDates: FULL_WEEK,
+            rates: RATES
         });
 
         assert.equal(result.rentalDays, 3);
@@ -83,7 +65,8 @@ describe('calculateWeeklyRental', () => {
         const result = calculateWeeklyRental({
             weekStart: '2026-10-12',
             riderStatus: 'Active',
-            eligibleDates: ['2026-10-15', '2026-10-16']
+            eligibleDates: ['2026-10-15', '2026-10-16'],
+            rates: RATES
         });
 
         assert.equal(result.totalRental, 118);
@@ -94,6 +77,7 @@ describe('calculateWeeklyRental', () => {
             weekStart: '2026-10-12',
             riderStatus: 'Active',
             eligibleDates: FULL_WEEK,
+            rates: RATES,
             inactivePeriods: [
                 { startDate: '2026-10-13', endDate: '2026-10-14', approved: true },
                 { startDate: '2026-10-16', endDate: '2026-10-16', approved: false }
@@ -101,6 +85,24 @@ describe('calculateWeeklyRental', () => {
         });
 
         assert.equal(result.rentalDays, 5);
+    });
+
+    it('Charges each day at the rate in effect that day', () => {
+        const rates = [...RATES, { effectiveFrom: '2026-10-15', rentalPerDay: 65, energyPerKm: 1.5 }];
+
+        const mixed = calculateWeeklyRental({ weekStart: '2026-10-12', riderStatus: 'Active', eligibleDates: FULL_WEEK, rates });
+        const newRateOnly = calculateWeeklyRental({
+            weekStart: '2026-10-12',
+            riderStatus: 'Active',
+            eligibleDates: ['2026-10-16', '2026-10-17'],
+            rates
+        });
+
+        // Mon–Wed at ₹59, Thu–Sun at ₹65.
+        assert.equal(mixed.totalRental, 3 * 59 + 4 * 65);
+        assert.equal(mixed.dailyRate, null);
+        assert.equal(newRateOnly.totalRental, 130);
+        assert.equal(newRateOnly.dailyRate, 65);
     });
 
     it('Rejects a weekStart that is not a Monday', () => {

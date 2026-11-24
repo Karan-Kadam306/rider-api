@@ -2,6 +2,7 @@ const { pool } = require('../db');
 const AppError = require('../errors/AppError');
 const rentalRepository = require('../repositories/rentalRepository');
 const inactivePeriodRepository = require('../repositories/inactivePeriodRepository');
+const { getPostpaidRates } = require('./pricingService');
 const {
     calculateWeeklyRental
 } = require('../utils/calculateWeeklyRental');
@@ -64,7 +65,8 @@ async function calculateRiderWeeklyRental({
             riderStatus: rider.status,
             terminatedOn,
             inactivePeriods,
-            eligibleDates
+            eligibleDates,
+            rates: await getPostpaidRates(client)
         });
     } finally {
         client.release();

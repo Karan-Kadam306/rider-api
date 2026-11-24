@@ -10,9 +10,9 @@ Daily KM uploads, weekly billing and weekly payouts.
 
 | Charge | Rule |
 |---|---|
-| Rental | ₹59 per calendar day (IST) on which the rider had at least one bike assigned. A bike swap on the same day is still one day. |
+| Rental | The postpaid daily rate (₹59 to start; set on Configuration) per calendar day (IST) on which the rider had at least one bike assigned. A bike swap on the same day is still one day. Each day uses the rate in effect that day. |
 | Not charged | Days without a bike, days after the rider's termination date, days after today, and approved inactive days. |
-| Energy | ₹1.50 per KM, from **Validated** Daily KM records only. A bike shared by two riders that day needs review first. |
+| Energy | The postpaid per-KM rate (₹1.50 to start) in effect on the usage date, from **Validated** Daily KM records only. A bike shared by two riders that day needs review first. |
 | Billing week | Monday to Sunday. |
 | Payout | Saves each rider's earnings, deductions and net payout for an ended week. Weeks are paid in order once payouts have started. It can be re-triggered after corrections, and then only riders whose amounts changed are updated. |
 | Close week | Saves the week's bills as billed. Later corrections are still allowed and show as changes since close. |
@@ -210,6 +210,7 @@ A `team_leader` user can call only `GET /api/tl/riders` and `GET /api/tl/queue`,
 | Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Hubs | `GET /api/hubs`, `POST /api/hubs` and `PATCH /api/hubs/:hubId` (admin; a hub with bikes cannot be deactivated) |
+| Pricing | `GET /api/pricing`; admin: `POST /api/pricing/postpaid-rates`, `DELETE …/postpaid-rates/:rateId`, `POST /api/pricing/deposits`, `DELETE …/deposits/:depositId` (only prices not yet started), `POST /api/pricing/packs`, `PATCH …/packs/:packId`. Billing charges each day at the postpaid rate in effect that day; a new rate must start after the last closed or paid-out week |
 | Bikes | `GET/POST /api/bikes` (POST needs an active `hubId`; GET filters by `hubId`), `GET /api/bikes/summary?hubId=`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `PATCH /api/bikes/:bikeId/hub` (not while assigned), `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |
 | Partners and mappings | `GET /api/partners`, `GET /api/partner-mappings`, `PUT /api/partner-mappings/riders/:riderId` |

@@ -42,7 +42,10 @@ const TABLES = [
     'idempotency_keys',
     'bikes',
     'hubs',
-    'riders'
+    'riders',
+    'postpaid_rates',
+    'deposit_amounts',
+    'prepaid_packs'
 ];
 
 // Every api() request is signed in as this admin unless it sends its own Cookie header.
@@ -50,9 +53,13 @@ let adminCookie;
 // Every bike needs a hub; createBike uses this one unless told otherwise.
 let defaultHubId;
 
-// Empty every table so each test starts from a known state, with one signed-in admin and one hub.
+// Empty every table so each test starts from a known state, with one signed-in admin, one hub
+// and the starting postpaid rate (₹59/day, ₹1.50/km), as in schema.sql.
 async function resetDb() {
     await pool.query(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`);
+    await pool.query(
+        `INSERT INTO postpaid_rates (rental_per_day, energy_per_km, effective_from) VALUES (59, 1.50, '2000-01-01')`
+    );
 
     const adminId = await createUser({ email: 'admin@test.local', role: 'admin' });
     adminCookie = await signIn(adminId);
