@@ -117,6 +117,38 @@ and admin sessions do not work on rider routes.
   also returns the code as `devOtp`; it is ignored when `NODE_ENV=production`. Sign-in needs
   `ID_HASH_KEY` set, since codes are stored as keyed hashes.
 
+## Rider onboarding (app)
+
+After sign-in, the app fills the application one step at a time. Every call works on the signed-in
+phone's own application and returns the updated `GET /api/rider-app/onboarding` view.
+
+| Step | Endpoint | Body |
+|---|---|---|
+| Personal | `PUT /onboarding/personal` | `{ firstName, surname, dateOfBirth }` (set at signup; can be corrected) |
+| Address | `PUT /onboarding/address` | multipart: address fields, `addressProofKind`, files `front`, `back` (optional) |
+| Aadhaar | `PUT /onboarding/aadhaar` | multipart: `number`, files `front`, `back` |
+| PAN | `PUT /onboarding/pan` | multipart: `number`, file `front` |
+| Driving licence | `PUT /onboarding/dl` | multipart: `number`, `expiryDate`, files `front`, `back` |
+| Selfie | `PUT /onboarding/selfie` | multipart: file `photo` (JPEG or PNG) |
+| Emergency contact | `PUT /onboarding/emergency-contact` | `{ name, relation, phone }` |
+| Policies | `PUT /onboarding/policies` | `{ policyVersionId }` from `GET /policies/current` |
+| Bank | `PUT /onboarding/bank` | `{ accountNumber, ifsc, holderName }` |
+| Plan | `PUT /onboarding/plan` | `{ planType, packId }` (weekly pack, Prepaid only); options from `GET /plans` |
+| Submit | `POST /onboarding/submit` | |
+
+(All paths are under `/api/rider-app`.)
+
+- **Order:** a step can be saved once the steps before it are done; going back to an earlier step
+  is fine. Saving again replaces the step; documents and bank details keep their old versions.
+- **After submit** nothing can change, except steps a reviewer sends back (`Changes Requested`);
+  once those are saved again, submitting makes the application `Resubmitted`.
+- **Checks at submit** never reject on their own; they are saved for the reviewer in
+  `application_checks`: duplicates (same Aadhaar, PAN, DL or bank account on another application),
+  bank penny drop with a name match, and PAN and DL lookups. The KYC provider is mocked
+  (`MOCK_KYC_FAIL=true` makes it fail, which is recorded as `Failed` without blocking the submit).
+- **Files** are checked by content (JPEG, PNG or PDF; the selfie must be a photo), at most 5 MB,
+  and stored in `UPLOAD_DIR`. If a save fails, its new files are deleted again.
+
 ## Security
 
 - **Sign-in limits:** after 5 failed attempts for one email, or 20 from one IP address, within

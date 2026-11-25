@@ -1184,6 +1184,26 @@ CREATE TABLE public.rider_sessions (
 CREATE INDEX idx_rider_sessions_phone ON public.rider_sessions USING btree (phone) WHERE (revoked_at IS NULL);
 
 --
+-- Onboarding steps (added by db/migrations/018_onboarding_steps.sql)
+--
+
+ALTER TABLE public.rider_applications ADD COLUMN fix_steps text[] DEFAULT '{}'::text[] NOT NULL;
+
+-- Each submit adds a new set; the reviewer looks at the latest of each kind.
+CREATE TABLE public.application_checks (
+    check_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    application_id bigint NOT NULL REFERENCES public.rider_applications(application_id),
+    kind text NOT NULL,
+    status text NOT NULL,
+    details jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT application_checks_kind_check CHECK ((kind = ANY (ARRAY['duplicate'::text, 'bank'::text, 'pan'::text, 'dl'::text]))),
+    CONSTRAINT application_checks_status_check CHECK ((status = ANY (ARRAY['Clear'::text, 'Flagged'::text, 'Failed'::text])))
+);
+
+CREATE INDEX idx_application_checks_application ON public.application_checks USING btree (application_id, created_at);
+
+--
 -- PostgreSQL database dump complete
 --
 
