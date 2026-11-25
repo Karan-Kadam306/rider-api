@@ -21,7 +21,9 @@ const teamLeaderRoutes = require('./routes/teamLeaderRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const hubRoutes = require('./routes/hubRoutes');
 const pricingRoutes = require('./routes/pricingRoutes');
+const riderAppAuthRoutes = require('./routes/riderAppAuthRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
+const { requireRider } = require('./middleware/requireRider');
 const { restrictTeamLeader } = require('./middleware/restrictTeamLeader');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
 const AppError = require('./errors/AppError');
@@ -47,6 +49,15 @@ app.use('/api', rejectCrossSite);
 // Sign-in and the mock rider payment page are public; every other /api route needs a session.
 app.use('/api/auth', authRoutes);
 app.use('/api/mock-pay', mockPayRouter);
+
+// The rider app signs in with a bearer token, never the admin cookie, so its routes come before
+// the admin sign-in check and end with their own 404.
+app.use('/api/rider-app/auth', riderAppAuthRoutes);
+app.use('/api/rider-app', requireRider);
+app.use('/api/rider-app', (req, res, next) => {
+    next(new AppError('Route not found', 404));
+});
+
 app.use('/api', requireAuth);
 // Team leaders get an allowlist (their own riders only); other roles pass through.
 app.use('/api', restrictTeamLeader);

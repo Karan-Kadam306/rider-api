@@ -2,6 +2,7 @@
 const { pool } = require('../db');
 const riderRepository = require('../repositories/riderRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
+const riderSessionRepository = require('../repositories/riderSessionRepository');
 const escalationService = require('./escalationService');
 
 // Fetch one rider by ID.
@@ -39,6 +40,11 @@ async function updateRider({ riderId, name, phone, status }) {
 
     if (!rider) {
         return { type: 'conflict', rider: null };
+    }
+
+    // App sessions belong to the phone, so the old number is signed out of the rider app.
+    if (rider.phone !== existingRider.phone) {
+        await riderSessionRepository.revokeAllForPhone(pool, { phone: existingRider.phone });
     }
 
     return { type: 'updated', rider };
@@ -111,6 +117,9 @@ async function terminateRider(riderId) {
                 rider: null
             };
         }
+
+        // A terminated rider cannot use the rider app.
+        await riderSessionRepository.revokeAllForPhone(client, { phone: rider.phone });
 
         const activeAssignment =
             await bikeAssignmentRepository.findActiveAssignmentByRider(
