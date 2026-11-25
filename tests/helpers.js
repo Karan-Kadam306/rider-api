@@ -1,5 +1,10 @@
 // Shared setup for integration tests. Require this before anything else.
 process.env.NODE_ENV = 'test';
+// Fixed test keys, so tests never depend on the values in .env.
+process.env.ID_HASH_KEY = Buffer.alloc(32, 7).toString('base64');
+process.env.ID_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
+// Rider sign-in tests read the code from the response.
+process.env.RIDER_OTP_IN_RESPONSE = 'true';
 
 const { pool } = require('../db');
 const app = require('../app');
@@ -18,6 +23,8 @@ if (!testDbName.endsWith('_test')) {
 
 // partners and policy_versions are left out on purpose: their rows come from the schema, not from a test.
 const TABLES = [
+    'rider_sessions',
+    'rider_otps',
     'document_access_log',
     'application_events',
     'policy_acceptances',
@@ -101,13 +108,21 @@ function url(path) {
 
 // Send a JSON request and return { status, headers, body }.
 async function api(method, path, body, headers = {}) {
+    return send(method, path, body, { ...(adminCookie ? { Cookie: adminCookie } : {}), ...headers });
+}
+
+// A rider app request: a bearer token (if given) and never the admin cookie.
+async function riderApi(method, path, body, token = null, headers = {}) {
+    return send(method, path, body, { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers });
+}
+
+async function send(method, path, body, headers) {
     const isForm = body instanceof FormData;
 
     const response = await fetch(baseUrl + path, {
         method,
         headers: {
             ...(isForm ? {} : { 'Content-Type': 'application/json' }),
-            ...(adminCookie ? { Cookie: adminCookie } : {}),
             ...headers
         },
         body: body === undefined ? undefined : isForm ? body : JSON.stringify(body)
@@ -266,6 +281,7 @@ module.exports = {
     stopServer,
     url,
     api,
+    riderApi,
     TEST_PASSWORD,
     createUser,
     signIn,

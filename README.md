@@ -89,6 +89,34 @@ cannot be removed. Deactivating a user or resetting their password signs them ou
 Everyone can change their own password from the top bar (other browsers are signed out).
 `npm run user:create` is still needed once, to create the first admin.
 
+## Rider app sign-in
+
+The rider app signs in with a one-time code sent by SMS and then sends
+`Authorization: Bearer <token>` on every `/api/rider-app/*` call. It never uses the admin cookie,
+and admin sessions do not work on rider routes.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/rider-app/auth/otp/request` | `{ phone }`. Sends a 6-digit code, valid 5 minutes |
+| `POST /api/rider-app/auth/otp/verify` | `{ phone, code, signup?, deviceInfo? }`. Returns `{ token, expiresAt, account }` |
+| `GET /api/rider-app/auth/me` | The signed-in rider or applicant, and their application status |
+| `POST /api/rider-app/auth/logout` | Ends this app session |
+
+- **New riders:** `signup` is `{ firstName, surname, dateOfBirth }`, entered before the phone step.
+  The Draft application (`YS-APP-…`) is created only once the code is correct. A new phone without
+  `signup` gets `409 SIGNUP_REQUIRED` and the code stays valid for a second try with the details.
+- **Existing phones:** riders sign in as riders; an open application resumes; a rejected applicant
+  can sign in to see the reason and may start a new application 30 days after the decision.
+  Terminated riders are refused (`403 ACCOUNT_CLOSED`).
+- **Limits:** one code per 30 seconds and 5 an hour per phone, 20 an hour per IP (`429` with
+  `Retry-After`); a code stops working after 5 wrong tries.
+- **Sessions** belong to the phone, last `RIDER_SESSION_DAYS` (default 30) and are extended while
+  in use. Only a SHA-256 hash of the token is stored. Terminating a rider or changing their phone
+  signs that phone out of the app.
+- **SMS is mocked:** codes are printed in the API log. In development `RIDER_OTP_IN_RESPONSE=true`
+  also returns the code as `devOtp`; it is ignored when `NODE_ENV=production`. Sign-in needs
+  `ID_HASH_KEY` set, since codes are stored as keyed hashes.
+
 ## Security
 
 - **Sign-in limits:** after 5 failed attempts for one email, or 20 from one IP address, within

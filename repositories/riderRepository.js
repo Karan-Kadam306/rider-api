@@ -12,6 +12,18 @@ async function findById(riderId) {
     return result.rows[0] ?? null;
 }
 
+// The rider with this phone, for rider app sign-in. Phones are unique.
+async function findByPhone(client, phone) {
+    const result = await client.query(
+        `SELECT rider_id, name, phone, status
+         FROM riders
+         WHERE phone = $1`,
+        [phone]
+    );
+
+    return result.rows[0] ?? null;
+}
+
 // Find riders based on optional filters.
 async function findRiders({
     whereClause,
@@ -104,6 +116,7 @@ async function getRiderStatusSummary() {
 
 module.exports = {
     findById,
+    findByPhone,
     findRiders,
     countRiders,
     createRider,
