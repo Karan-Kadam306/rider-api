@@ -6,6 +6,14 @@ process.env.ID_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
 // Rider sign-in tests read the code from the response.
 process.env.RIDER_OTP_IN_RESPONSE = 'true';
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// Each test file stores rider uploads in its own temporary folder, removed by stopServer.
+const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rider-test-uploads-'));
+process.env.UPLOAD_DIR = uploadDir;
+
 const { pool } = require('../db');
 const app = require('../app');
 const authService = require('../services/authService');
@@ -25,6 +33,7 @@ if (!testDbName.endsWith('_test')) {
 const TABLES = [
     'rider_sessions',
     'rider_otps',
+    'application_checks',
     'document_access_log',
     'application_events',
     'policy_acceptances',
@@ -99,6 +108,7 @@ async function startServer() {
 async function stopServer() {
     await new Promise(resolve => server.close(resolve));
     await pool.end();
+    fs.rmSync(uploadDir, { recursive: true, force: true });
 }
 
 // Full URL of a path on the test server, for requests api() cannot make (e.g. a broken body).
@@ -279,6 +289,7 @@ module.exports = {
     resetDb,
     startServer,
     stopServer,
+    uploadDir,
     url,
     api,
     riderApi,

@@ -22,6 +22,7 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const hubRoutes = require('./routes/hubRoutes');
 const pricingRoutes = require('./routes/pricingRoutes');
 const riderAppAuthRoutes = require('./routes/riderAppAuthRoutes');
+const riderAppOnboardingRoutes = require('./routes/riderAppOnboardingRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { requireRider } = require('./middleware/requireRider');
 const { restrictTeamLeader } = require('./middleware/restrictTeamLeader');
@@ -54,6 +55,7 @@ app.use('/api/mock-pay', mockPayRouter);
 // the admin sign-in check and end with their own 404.
 app.use('/api/rider-app/auth', riderAppAuthRoutes);
 app.use('/api/rider-app', requireRider);
+app.use('/api/rider-app', riderAppOnboardingRoutes);
 app.use('/api/rider-app', (req, res, next) => {
     next(new AppError('Route not found', 404));
 });

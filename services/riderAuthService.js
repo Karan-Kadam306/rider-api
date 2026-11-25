@@ -129,21 +129,21 @@ function cleanName(value, field) {
     return clean;
 }
 
-// The personal details a new rider enters before the phone step.
-function cleanSignup(signup) {
-    const details = {
-        firstName: cleanName(signup?.firstName, 'firstName'),
-        surname: cleanName(signup?.surname, 'surname'),
-        dateOfBirth: signup?.dateOfBirth
+// The personal details a new rider enters before the phone step, and may correct later.
+function cleanPersonalDetails(details) {
+    const clean = {
+        firstName: cleanName(details?.firstName, 'firstName'),
+        surname: cleanName(details?.surname, 'surname'),
+        dateOfBirth: details?.dateOfBirth
     };
 
-    const ageError = validateAge(details.dateOfBirth, todayInIst());
+    const ageError = validateAge(clean.dateOfBirth, todayInIst());
 
     if (ageError) {
         throw new AppError(ageError, 400);
     }
 
-    return details;
+    return clean;
 }
 
 // What the phone is to us: a rider, an applicant, or both while an approved application finishes.
@@ -249,7 +249,7 @@ async function verifyOtp({ phone, code, signup, deviceInfo, ipAddress = 'unknown
         if (signup && (!account || (!account.rider && account.application.can_reapply))) {
             const application = await createApplication(client, {
                 phone: cleanedPhone,
-                details: cleanSignup(signup),
+                details: cleanPersonalDetails(signup),
                 isReapplication: Boolean(account)
             });
             account = { rider: null, application };
@@ -307,5 +307,6 @@ module.exports = {
     requestOtp,
     verifyOtp,
     getSessionRider,
-    logout
+    logout,
+    cleanPersonalDetails
 };
