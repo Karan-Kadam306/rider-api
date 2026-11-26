@@ -33,7 +33,21 @@ const STATUS_TONES = {
     Critical: 'danger',
     High: 'warning',
     Low: 'neutral',
-    'Call due': 'warning'
+    'Call due': 'warning',
+    // Rider applications and the items reviewed on them.
+    Draft: 'neutral',
+    'Pending Review': 'warning',
+    'Changes Requested': 'warning',
+    Resubmitted: 'info',
+    'On Hold': 'warning',
+    Rejected: 'danger',
+    'Payment Pending': 'info',
+    'Bike Pending': 'info',
+    Verified: 'success',
+    // Duplicate and KYC checks.
+    Clear: 'success',
+    Flagged: 'danger',
+    Mismatch: 'danger'
 };
 
 // Unknown statuses fall back to neutral, so a new backend status still renders.

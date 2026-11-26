@@ -1,8 +1,10 @@
 const HUB_COLUMNS = `h.hub_id::int AS hub_id,
+                h.code,
                 h.name,
                 h.city,
                 h.address,
                 h.contact_phone,
+                h.manager_name,
                 h.is_active,
                 h.created_at`;
 
@@ -36,24 +38,24 @@ async function findById(client, { hubId, lock = null }) {
     return result.rows[0] ?? null;
 }
 
-async function insertHub(client, { name, city, address, contactPhone }) {
+async function insertHub(client, { code, name, city, address, contactPhone, managerName }) {
     const result = await client.query(
-        `INSERT INTO hubs AS h (name, city, address, contact_phone)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO hubs AS h (code, name, city, address, contact_phone, manager_name)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING ${HUB_COLUMNS}`,
-        [name, city, address, contactPhone]
+        [code, name, city, address, contactPhone, managerName]
     );
 
     return result.rows[0];
 }
 
-async function updateHub(client, { hubId, name, city, address, contactPhone, isActive }) {
+async function updateHub(client, { hubId, code, name, city, address, contactPhone, managerName, isActive }) {
     const result = await client.query(
         `UPDATE hubs AS h
-         SET name = $2, city = $3, address = $4, contact_phone = $5, is_active = $6
+         SET code = $2, name = $3, city = $4, address = $5, contact_phone = $6, manager_name = $7, is_active = $8
          WHERE h.hub_id = $1
          RETURNING ${HUB_COLUMNS}`,
-        [hubId, name, city, address, contactPhone, isActive]
+        [hubId, code, name, city, address, contactPhone, managerName, isActive]
     );
 
     return result.rows[0];

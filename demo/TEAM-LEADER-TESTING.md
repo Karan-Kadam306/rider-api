@@ -21,6 +21,7 @@ Start again at any time with `npm run demo:setup`.
 | ravi.tl@demo.local | Team leader | Neha, Sanjay, Farhan, Pooja, Kiran, Dev, Anil (DM-009 to DM-015) |
 | sunita.tl@demo.local | Team leader | Amit (DM-001), Meera (DM-008), Neha (shared with Ravi) |
 | imran.tl@demo.local | Team leader | nobody |
+| onboarding@demo.local | Onboarding | — (reviews applications; sees only Rider Management) |
 
 ## 1. Analytics baseline (A: admin)
 

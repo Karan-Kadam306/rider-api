@@ -17,7 +17,8 @@ const DEMO_USERS = [
     { email: 'staff@demo.local', name: 'Sameer Staff', role: 'staff' },
     { email: 'ravi.tl@demo.local', name: 'Ravi Kumar', role: 'team_leader' },
     { email: 'sunita.tl@demo.local', name: 'Sunita Rao', role: 'team_leader' },
-    { email: 'imran.tl@demo.local', name: 'Imran Shaikh', role: 'team_leader' }
+    { email: 'imran.tl@demo.local', name: 'Imran Shaikh', role: 'team_leader' },
+    { email: 'onboarding@demo.local', name: 'Omkar Onboarding', role: 'onboarding' }
 ];
 
 async function setupDemoDb() {

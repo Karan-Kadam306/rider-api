@@ -1,7 +1,13 @@
 -- Demo data for the manual test. Billing week used: Mon 26 Oct – Sun 1 Nov 2026.
 -- Timestamps are IST.
 
-INSERT INTO riders (rider_id, name, phone, status, terminated_on) VALUES
+INSERT INTO hubs (code, name, city, address, contact_phone, manager_name) VALUES
+    ('PUN-WKD', 'Wakad Hub',     'Pune', 'Plot 12, Wakad Road, Pune 411057',       '9800000001', 'Suresh Pawar'),
+    ('PUN-HJW', 'Hinjewadi Hub', 'Pune', 'Phase 1, Hinjewadi IT Park, Pune 411057', NULL,         NULL);
+
+INSERT INTO riders (rider_id, name, phone, status, terminated_on, hub_id)
+SELECT v.rider_id, v.name, v.phone, v.status, v.terminated_on::date, h.hub_id
+FROM (VALUES
     ('DM-001', 'Amit Patil',     '9000000001', 'Active',     NULL),
     ('DM-002', 'Sneha Kulkarni', '9000000002', 'Active',     NULL),
     ('DM-003', 'Vikram Rao',     '9000000003', 'Active',     NULL),
@@ -9,11 +15,9 @@ INSERT INTO riders (rider_id, name, phone, status, terminated_on) VALUES
     ('DM-005', 'Rohan Shah',     '9000000005', 'Active',     NULL),
     ('DM-006', 'Kavya Iyer',     '9000000006', 'Terminated', '2026-10-27'),
     ('DM-007', 'Arjun Mehta',    '9000000007', 'Inactive',   NULL),
-    ('DM-008', 'Meera Joshi',    '9000000008', 'Active',     NULL);
-
-INSERT INTO hubs (name, city, address, contact_phone) VALUES
-    ('Wakad Hub',     'Pune', 'Plot 12, Wakad Road, Pune 411057',       '9800000001'),
-    ('Hinjewadi Hub', 'Pune', 'Phase 1, Hinjewadi IT Park, Pune 411057', NULL);
+    ('DM-008', 'Meera Joshi',    '9000000008', 'Active',     NULL)
+) AS v (rider_id, name, phone, status, terminated_on)
+JOIN hubs h ON h.name = 'Wakad Hub';
 
 INSERT INTO bikes (chassis_number, registration_number, status, hub_id)
 SELECT v.chassis_number, v.registration_number, v.status, h.hub_id
@@ -115,14 +119,18 @@ CREATE TEMP TABLE demo_day AS
 SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date AS today,
        (date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata'))::date AS week_start;
 
-INSERT INTO riders (rider_id, name, phone, status) VALUES
-    ('DM-009', 'Neha Gupta',   '9000000009', 'Active'),
-    ('DM-010', 'Sanjay Verma', '9000000010', 'Active'),
-    ('DM-011', 'Farhan Khan',  '9000000011', 'Active'),
-    ('DM-012', 'Pooja Reddy',  '9000000012', 'Active'),
-    ('DM-013', 'Kiran Desai',  '9000000013', 'Active'),
-    ('DM-014', 'Dev Malhotra', '9000000014', 'Active'),
-    ('DM-015', 'Anil Yadav',   '9000000015', 'Active');
+INSERT INTO riders (rider_id, name, phone, status, hub_id)
+SELECT v.rider_id, v.name, v.phone, 'Active', h.hub_id
+FROM (VALUES
+    ('DM-009', 'Neha Gupta',   '9000000009'),
+    ('DM-010', 'Sanjay Verma', '9000000010'),
+    ('DM-011', 'Farhan Khan',  '9000000011'),
+    ('DM-012', 'Pooja Reddy',  '9000000012'),
+    ('DM-013', 'Kiran Desai',  '9000000013'),
+    ('DM-014', 'Dev Malhotra', '9000000014'),
+    ('DM-015', 'Anil Yadav',   '9000000015')
+) AS v (rider_id, name, phone)
+JOIN hubs h ON h.name = 'Hinjewadi Hub';
 
 INSERT INTO bikes (chassis_number, registration_number, status, hub_id)
 SELECT v.chassis_number, v.registration_number, 'Assigned', h.hub_id

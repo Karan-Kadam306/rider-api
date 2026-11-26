@@ -399,6 +399,8 @@ async function getOnboarding(applicationId) {
     const bank = await applicationDocumentRepository.findCurrentBankAccount(pool, { applicationId });
 
     const documents = Object.fromEntries(documentRows.map(row => [row.doc_type, toDocument(row)]));
+    // Why a step was sent back: its document's (or the bank account's) rejection reason.
+    const reasonFor = key => (key === 'bank' ? bank?.review_reason : documents[STEP_DOCUMENTS[key]]?.reviewReason) ?? null;
 
     return {
         applicationNo: application.application_no,
@@ -406,12 +408,11 @@ async function getOnboarding(applicationId) {
         currentStep: application.current_step,
         holdReason: application.hold_reason,
         rejectReason: application.reject_reason,
+        changeNote: application.change_note,
         submittedAt: application.submitted_at,
         steps: STEPS.map(key => {
             const state = stepState(application, key);
-            const document = documents[STEP_DOCUMENTS[key]];
-
-            return { key, state, reason: state === 'fix' ? document?.reviewReason ?? null : null };
+            return { key, state, reason: state === 'fix' ? reasonFor(key) : null };
         }),
         details: {
             personal: {
@@ -495,6 +496,8 @@ async function getCurrentPolicy() {
 }
 
 module.exports = {
+    STEPS,
+    STEP_DOCUMENTS,
     getOnboarding,
     savePersonal,
     saveAddress,

@@ -3,17 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import Field from '../../components/ui/Field';
 import { validateRiderForm } from './validateRiderForm';
 
-// Add or edit a rider. Mounted only while open, so each opening starts fresh.
-// rider: null to add a new rider, or the rider being edited.
+// Edit a rider's name and phone. Riders are created by approving their application, never here.
+// Mounted only while open, so each opening starts fresh.
 // onSubmit(values) must return a promise; its rejection message is shown in the form.
 export default function RiderFormDialog({ rider, onSubmit, onClose }) {
-    const isNew = !rider;
     const dialogRef = useRef(null);
-    const [values, setValues] = useState({
-        rider_id: rider?.rider_id ?? '',
-        name: rider?.name ?? '',
-        phone: rider?.phone ?? ''
-    });
+    const [values, setValues] = useState({ name: rider.name, phone: rider.phone });
     const [errors, setErrors] = useState({});
     const [serverError, setServerError] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -31,7 +26,7 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
     async function handleSubmit(event) {
         event.preventDefault();
 
-        const fieldErrors = validateRiderForm(values, { isNew });
+        const fieldErrors = validateRiderForm(values);
         setErrors(fieldErrors);
 
         if (Object.keys(fieldErrors).length) {
@@ -42,11 +37,7 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
         setServerError(null);
 
         try {
-            await onSubmit({
-                rider_id: values.rider_id.trim(),
-                name: values.name.trim(),
-                phone: values.phone.trim()
-            });
+            await onSubmit({ name: values.name.trim(), phone: values.phone.trim() });
         } catch (error) {
             // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
             setServerError(error.message);
@@ -66,20 +57,13 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
     return (
         <dialog ref={dialogRef} className="dialog" onCancel={handleCancel}>
             <form onSubmit={handleSubmit} noValidate>
-                <h3 className="dialog__title">{isNew ? 'Add rider' : `Edit ${rider.name}`}</h3>
+                <h3 className="dialog__title">Edit {rider.name}</h3>
 
                 {serverError && <p className="form-alert" role="alert">{serverError}</p>}
 
                 <div className="form-fields">
-                    <Field label="Rider ID" error={errors.rider_id}>
-                        <input
-                            name="rider_id"
-                            value={values.rider_id}
-                            onChange={handleChange}
-                            disabled={!isNew}
-                            placeholder="e.g. R1024"
-                            autoFocus={isNew}
-                        />
+                    <Field label="Rider ID">
+                        <input value={rider.rider_id} disabled />
                     </Field>
                     <Field label="Full name" error={errors.name}>
                         <input
@@ -87,7 +71,7 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
                             value={values.name}
                             onChange={handleChange}
                             placeholder="e.g. Ravi Kumar"
-                            autoFocus={!isNew}
+                            autoFocus
                         />
                     </Field>
                     <Field label="Phone" error={errors.phone}>
@@ -107,7 +91,7 @@ export default function RiderFormDialog({ rider, onSubmit, onClose }) {
                         Cancel
                     </button>
                     <button type="submit" className="button" disabled={busy}>
-                        {busy ? 'Saving…' : isNew ? 'Add rider' : 'Save changes'}
+                        {busy ? 'Saving…' : 'Save changes'}
                     </button>
                 </div>
             </form>

@@ -4,7 +4,8 @@ export const NAV_ITEMS = [
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true, usesWeek: true },
     // Analytics ends its range at the selected week.
     { to: '/analytics', label: 'Analytics', icon: 'chart', usesWeek: true },
-    { to: '/riders', label: 'Rider Management', icon: 'users' },
+    // alsoMatches gives an application's review page the same title.
+    { to: '/riders', label: 'Rider Management', icon: 'users', alsoMatches: ['/onboarding/'] },
     { to: '/bikes', label: 'Bike Management', icon: 'bike' },
     { to: '/partner-mappings', label: 'Partner Mappings', icon: 'link' },
     { to: '/pending-earnings', label: 'Pending Earnings', icon: 'clock' },
@@ -25,7 +26,16 @@ export const TEAM_LEADER_NAV_ITEMS = [
     { to: '/my-riders', label: 'My Riders', icon: 'users', alsoMatches: ['/riders/'] }
 ];
 
+// Onboarding users work only in Rider Management; the API refuses them everything else.
+export const ONBOARDING_NAV_ITEMS = [
+    { to: '/riders', label: 'Rider Management', icon: 'users', alsoMatches: ['/onboarding/'] }
+];
+
 export function getNavItems(user) {
+    if (user?.role === 'onboarding') {
+        return ONBOARDING_NAV_ITEMS;
+    }
+
     return user?.role === 'team_leader' ? TEAM_LEADER_NAV_ITEMS : NAV_ITEMS;
 }
 

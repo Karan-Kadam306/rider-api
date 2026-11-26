@@ -62,6 +62,7 @@ export function AuthProvider({ children }) {
             user,
             isAdmin: user?.role === 'admin',
             isTeamLeader: user?.role === 'team_leader',
+            isOnboarding: user?.role === 'onboarding',
             signIn,
             signOut,
             reloadUser
@@ -72,7 +73,7 @@ export function AuthProvider({ children }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Returns { user, isAdmin, isTeamLeader, signIn, signOut, reloadUser }.
+// Returns { user, isAdmin, isTeamLeader, isOnboarding, signIn, signOut, reloadUser }.
 export function useAuth() {
     const context = useContext(AuthContext);
 

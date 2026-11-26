@@ -28,7 +28,8 @@ export default function AssignBikeDialog({ bike, onSubmit, onClose }) {
 
     const search = useDebouncedValue(query.trim());
     const riders = useApi(
-        options => getRiders({ status: 'Active', search, limit: RESULT_LIMIT }, options),
+        // Test riders can be given bikes too, so they are searched as well.
+        options => getRiders({ status: 'Active', search, includeTest: true, limit: RESULT_LIMIT }, options),
         [search]
     );
 

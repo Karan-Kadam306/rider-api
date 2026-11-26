@@ -1,9 +1,20 @@
 const { pool } = require('../db');
 
+// The rider's hub, read with a subquery so list filters can keep using bare rider columns.
+const HUB_COLUMNS = `hub_id::int AS hub_id,
+                (SELECT h.name FROM hubs h WHERE h.hub_id = riders.hub_id) AS hub_name,
+                is_test`;
+
+// Leaves out riders approved from an application who have not finished onboarding (deposit or
+// bike still pending): the riders list and counts show them on the onboarding tabs instead.
+const ONBOARDED_RIDERS = `NOT EXISTS (
+                SELECT 1 FROM rider_applications a
+                WHERE a.rider_id = riders.rider_id AND a.status IN ('Payment Pending', 'Bike Pending'))`;
+
 // Find a rider by their ID. Returns null if the rider does not exist.
 async function findById(riderId) {
     const result = await pool.query(
-        `SELECT rider_id, name, phone, status
+        `SELECT rider_id, name, phone, status, ${HUB_COLUMNS}
          FROM riders
          WHERE rider_id = $1`,
         [riderId]
@@ -36,7 +47,7 @@ async function findRiders({
     const dataValues = [...values, limit, offset];
 
     const result = await pool.query(
-        `SELECT rider_id, name, phone, status, created_at
+        `SELECT rider_id, name, phone, status, created_at, ${HUB_COLUMNS}
          FROM riders
          ${whereClause}
          ORDER BY ${sortColumn} ${sortOrder}, rider_id DESC
@@ -60,13 +71,14 @@ async function countRiders({ whereClause, values }) {
     return Number(result.rows[0].total);
 }
 
-// Create a new rider.
-async function createRider({ rider_id, name, phone }) {
-    const result = await pool.query(
-        `INSERT INTO riders (rider_id, name, phone)
-         VALUES ($1, $2, $3)
-         RETURNING rider_id, name, phone, status, created_at`,
-        [rider_id, name, phone]
+// Create a new rider, at approval of their application. Runs inside the approval transaction,
+// which holds the hub's lock.
+async function createRider(client, { riderId, name, phone, hubId, isTest, status }) {
+    const result = await client.query(
+        `INSERT INTO riders (rider_id, name, phone, hub_id, is_test, status)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING rider_id, name, phone, status, created_at, ${HUB_COLUMNS}`,
+        [riderId, name, phone, hubId, isTest, status]
     );
 
     return result.rows[0];
@@ -80,7 +92,7 @@ async function updateRider({ riderId, name, phone, status }) {
              phone = $2,
              status = $3
          WHERE rider_id = $4
-         RETURNING rider_id, name, phone, status, created_at`,
+         RETURNING rider_id, name, phone, status, created_at, ${HUB_COLUMNS}`,
         [name, phone, status, riderId]
     );
 
@@ -104,17 +116,22 @@ async function terminateRider(client, riderId) {
 }
 
 // Get a summary of the number of riders in each status.
-async function getRiderStatusSummary() {
+async function getRiderStatusSummary({ includeTest = true, hubId = null } = {}) {
     const result = await pool.query(
         `SELECT status, COUNT(*) AS total
          FROM riders
-         GROUP BY status`
+         WHERE ($1 OR NOT is_test)
+           AND ($2::bigint IS NULL OR hub_id = $2)
+           AND ${ONBOARDED_RIDERS}
+         GROUP BY status`,
+        [includeTest, hubId]
     );
 
     return result.rows;
 }
 
 module.exports = {
+    ONBOARDED_RIDERS,
     findById,
     findByPhone,
     findRiders,

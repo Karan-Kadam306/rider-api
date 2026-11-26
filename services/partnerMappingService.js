@@ -156,93 +156,105 @@ async function saveRiderMappings({ actingUserId, actingUserRole, riderId, mappin
     const partners = await partnerRepository.findPartners(pool);
     const wanted = cleanMappings(mappings, new Map(partners.map(partner => [partner.partner_id, partner])));
 
-    return inTransaction(async client => {
-        // Partners before the rider, the same order an earnings import takes them in.
-        // Every partner, since the mappings this save ends are not known until the rider is locked.
-        await partnerRepository.lockPartnersShared(client, {
-            partnerIds: partners.map(partner => partner.partner_id)
+    return inTransaction(client =>
+        applyRiderMappings(client, { actingUserId, actingUserRole, riderId, partners, wanted, currentMappingIds })
+    );
+}
+
+// Gives a rider created at approval their first partner IDs, inside the approval transaction.
+async function addMappingsForNewRider(client, { actingUserId, actingUserRole, riderId, mappings }) {
+    const partners = await partnerRepository.findPartners(client);
+    const wanted = cleanMappings(mappings, new Map(partners.map(partner => [partner.partner_id, partner])));
+
+    return applyRiderMappings(client, { actingUserId, actingUserRole, riderId, partners, wanted });
+}
+
+async function applyRiderMappings(client, { actingUserId, actingUserRole, riderId, partners, wanted, currentMappingIds }) {
+    // Partners before the rider, the same order an earnings import takes them in.
+    // Every partner, since the mappings this save ends are not known until the rider is locked.
+    await partnerRepository.lockPartnersShared(client, {
+        partnerIds: partners.map(partner => partner.partner_id)
+    });
+
+    const rider = await partnerRepository.lockRider(client, { riderId });
+
+    if (!rider) {
+        throw new AppError(`Rider not found: ${riderId}`, 404);
+    }
+
+    const current = await partnerRepository.findActiveMappingsByRider(client, { riderId });
+
+    if (currentMappingIds !== undefined && !sameIds(currentMappingIds, current.map(mapping => mapping.mapping_id))) {
+        throw new AppError(
+            `Mappings for ${rider.name} changed since you opened them. Reload and try again.`,
+            409
+        );
+    }
+
+    if (wanted.length > 0) {
+        const taken = await partnerRepository.findIdTakenByOtherRider(client, {
+            riderId,
+            partnerIds: wanted.map(mapping => mapping.partnerId),
+            partnerRiderIds: wanted.map(mapping => mapping.partnerRiderId)
         });
 
-        const rider = await partnerRepository.lockRider(client, { riderId });
-
-        if (!rider) {
-            throw new AppError(`Rider not found: ${riderId}`, 404);
-        }
-
-        const current = await partnerRepository.findActiveMappingsByRider(client, { riderId });
-
-        if (currentMappingIds !== undefined && !sameIds(currentMappingIds, current.map(mapping => mapping.mapping_id))) {
+        if (taken) {
             throw new AppError(
-                `Mappings for ${rider.name} changed since you opened them. Reload and try again.`,
+                `${taken.partner_name} ID ${taken.partner_rider_id} is already mapped to ${taken.rider_name} (${taken.rider_id})`,
                 409
             );
         }
+    }
 
-        if (wanted.length > 0) {
-            const taken = await partnerRepository.findIdTakenByOtherRider(client, {
-                riderId,
-                partnerIds: wanted.map(mapping => mapping.partnerId),
-                partnerRiderIds: wanted.map(mapping => mapping.partnerRiderId)
-            });
+    const isKept = mapping => wanted.some(item =>
+        item.partnerId === mapping.partner_id && item.partnerRiderId === mapping.partner_rider_id);
 
-            if (taken) {
-                throw new AppError(
-                    `${taken.partner_name} ID ${taken.partner_rider_id} is already mapped to ${taken.rider_name} (${taken.rider_id})`,
-                    409
-                );
-            }
-        }
+    const toEnd = current.filter(mapping => !isKept(mapping));
+    const toAdd = wanted.filter(item => !current.some(mapping =>
+        mapping.partner_id === item.partnerId && mapping.partner_rider_id === item.partnerRiderId));
 
-        const isKept = mapping => wanted.some(item =>
-            item.partnerId === mapping.partner_id && item.partnerRiderId === mapping.partner_rider_id);
+    if (toEnd.length > 0 && actingUserRole !== 'admin') {
+        throw new AppError('Only an admin can change or remove a partner ID', 403);
+    }
 
-        const toEnd = current.filter(mapping => !isKept(mapping));
-        const toAdd = wanted.filter(item => !current.some(mapping =>
-            mapping.partner_id === item.partnerId && mapping.partner_rider_id === item.partnerRiderId));
+    // End old mappings first: the new ID for the same partner would clash with them.
+    if (toEnd.length > 0) {
+        await partnerRepository.deactivateMappings(client, {
+            mappingIds: toEnd.map(mapping => mapping.mapping_id),
+            deactivatedBy: actingUserId
+        });
+    }
 
-        if (toEnd.length > 0 && actingUserRole !== 'admin') {
-            throw new AppError('Only an admin can change or remove a partner ID', 403);
-        }
+    // Matching pending rows changes their weeks' payouts; wait for any payout of those weeks.
+    const pendingDates = [];
 
-        // End old mappings first: the new ID for the same partner would clash with them.
-        if (toEnd.length > 0) {
-            await partnerRepository.deactivateMappings(client, {
-                mappingIds: toEnd.map(mapping => mapping.mapping_id),
-                deactivatedBy: actingUserId
-            });
-        }
+    for (const mapping of toAdd) {
+        pendingDates.push(...await partnerEarningsRepository.findEarningDates(client, { ...mapping, status: 'Pending' }));
+    }
 
-        // Matching pending rows changes their weeks' payouts; wait for any payout of those weeks.
-        const pendingDates = [];
+    await payoutRepository.lockWeeksShared(client, { dates: pendingDates });
 
-        for (const mapping of toAdd) {
-            pendingDates.push(...await partnerEarningsRepository.findEarningDates(client, { ...mapping, status: 'Pending' }));
-        }
+    let matchedEarnings = 0;
 
-        await payoutRepository.lockWeeksShared(client, { dates: pendingDates });
+    for (const mapping of toAdd) {
+        await partnerRepository.insertMapping(client, { riderId, ...mapping, createdBy: actingUserId });
+        // Pending rows dated before the ID came to this rider stay for review.
+        matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, {
+            riderId,
+            ...mapping,
+            reviewedBy: actingUserId,
+            onlyCoveredDates: true
+        });
+    }
 
-        let matchedEarnings = 0;
+    const saved = await partnerRepository.findRiderWithMappings(client, { riderId });
 
-        for (const mapping of toAdd) {
-            await partnerRepository.insertMapping(client, { riderId, ...mapping, createdBy: actingUserId });
-            // Pending rows dated before the ID came to this rider stay for review.
-            matchedEarnings += await partnerEarningsRepository.matchPendingEarnings(client, {
-                riderId,
-                ...mapping,
-                reviewedBy: actingUserId,
-                onlyCoveredDates: true
-            });
-        }
-
-        const saved = await partnerRepository.findRiderWithMappings(client, { riderId });
-
-        return {
-            rider: toRider(saved),
-            added: toAdd.length,
-            removed: toEnd.length,
-            matchedEarnings
-        };
-    });
+    return {
+        rider: toRider(saved),
+        added: toAdd.length,
+        removed: toEnd.length,
+        matchedEarnings
+    };
 }
 
 module.exports = {
@@ -250,5 +262,6 @@ module.exports = {
     normalizePartnerRiderId,
     getPartners,
     listRiderMappings,
-    saveRiderMappings
+    saveRiderMappings,
+    addMappingsForNewRider
 };

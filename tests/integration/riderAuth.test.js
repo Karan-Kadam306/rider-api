@@ -386,8 +386,8 @@ describe('Rider app sessions', () => {
         const { token } = await signUp();
 
         await h.pool.query(
-            `INSERT INTO riders (rider_id, name, phone, status) VALUES ('YS-RID-20261124000001', 'Ravi Kumar', $1, 'Inactive')`,
-            [PHONE]
+            `INSERT INTO riders (rider_id, name, phone, status, hub_id) VALUES ('YS-RID-20261124000001', 'Ravi Kumar', $1, 'Inactive', $2)`,
+            [PHONE, h.getDefaultHubId()]
         );
         await h.pool.query(
             `UPDATE rider_applications

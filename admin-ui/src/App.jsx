@@ -8,12 +8,14 @@ import RequireAuth from './components/layout/RequireAuth';
 import RequireAdmin from './components/layout/RequireAdmin';
 import RequireStaff from './components/layout/RequireStaff';
 import RequireTeamLeader from './components/layout/RequireTeamLeader';
+import RequireNotOnboarding from './components/layout/RequireNotOnboarding';
 import LoginPage from './pages/LoginPage';
 import MockPayPage from './pages/MockPayPage';
 import DashboardPage from './pages/DashboardPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import RidersPage from './pages/RidersPage';
 import RiderDetailPage from './pages/RiderDetailPage';
+import ApplicationReviewPage from './pages/ApplicationReviewPage';
 import BikesPage from './pages/BikesPage';
 import PartnerMappingsPage from './pages/PartnerMappingsPage';
 import PendingEarningsPage from './pages/PendingEarningsPage';
@@ -32,6 +34,7 @@ import NotFoundPage from './pages/NotFoundPage';
 // Route nesting adds the guards: only /login and the mock rider payment page are public,
 // RequireAuth covers the rest, AppLayout adds the sidebar and top bar, and RequireAdmin limits /hubs, /configuration and /users to admins.
 // Team leaders only get My Riders and their riders' pages; RequireStaff sends them there from anywhere else.
+// Onboarding users only get Rider Management and application reviews; RequireStaff and RequireNotOnboarding send them there.
 export default function App() {
     return (
         <AuthProvider>
@@ -47,6 +50,7 @@ export default function App() {
                                         <Route index element={<DashboardPage />} />
                                         <Route path="analytics" element={<AnalyticsPage />} />
                                         <Route path="riders" element={<RidersPage />} />
+                                        <Route path="onboarding/:applicationId" element={<ApplicationReviewPage />} />
                                         <Route path="bikes" element={<BikesPage />} />
                                         <Route path="partner-mappings" element={<PartnerMappingsPage />} />
                                         <Route path="pending-earnings" element={<PendingEarningsPage />} />
@@ -65,7 +69,9 @@ export default function App() {
                                         <Route path="my-riders" element={<MyRidersPage />} />
                                     </Route>
                                     {/* Shared: the API lets a team leader open only their own riders. */}
-                                    <Route path="riders/:riderId" element={<RiderDetailPage />} />
+                                    <Route element={<RequireNotOnboarding />}>
+                                        <Route path="riders/:riderId" element={<RiderDetailPage />} />
+                                    </Route>
                                     <Route path="*" element={<NotFoundPage />} />
                                 </Route>
                             </Route>

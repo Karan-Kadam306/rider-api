@@ -285,7 +285,7 @@ ALTER TABLE public.rider_inactive_periods ALTER COLUMN inactive_period_id ADD GE
 
 CREATE TABLE public.riders (
     rider_id character varying(30) NOT NULL,
-    name character varying(100) NOT NULL,
+    name character varying(150) NOT NULL,
     phone character varying(15) NOT NULL,
     status character varying(20) DEFAULT 'Active'::character varying NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -606,7 +606,7 @@ CREATE TABLE public.users (
     last_login_at timestamp with time zone,
     CONSTRAINT users_email_key UNIQUE (email),
     CONSTRAINT users_email_lowercase_check CHECK (((email)::text = lower((email)::text))),
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['admin'::character varying, 'staff'::character varying, 'team_leader'::character varying])::text[])))
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['admin'::character varying, 'staff'::character varying, 'team_leader'::character varying, 'onboarding'::character varying])::text[])))
 );
 
 CREATE TABLE public.sessions (
@@ -892,6 +892,8 @@ CREATE TRIGGER rider_follow_ups_append_only
 
 --
 -- Hubs (added by db/migrations/014_hubs.sql; it also adds bikes.hub_id)
+-- 019_onboarding_role_rider_hubs.sql adds hubs.code, hubs.manager_name, riders.hub_id,
+-- riders.is_test and the onboarding role in users_role_check.
 --
 
 CREATE TABLE public.hubs (
@@ -902,14 +904,23 @@ CREATE TABLE public.hubs (
     contact_phone character varying(15),
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT hubs_text_check CHECK (((btrim((name)::text) <> ''::text) AND (btrim((city)::text) <> ''::text) AND (btrim((address)::text) <> ''::text)))
+    code character varying(10) NOT NULL,
+    manager_name character varying(100),
+    CONSTRAINT hubs_text_check CHECK (((btrim((name)::text) <> ''::text) AND (btrim((city)::text) <> ''::text) AND (btrim((address)::text) <> ''::text))),
+    CONSTRAINT hubs_code_check CHECK (((code)::text ~ '^[A-Z0-9-]{2,10}$'))
 );
 
 CREATE UNIQUE INDEX idx_hubs_name ON public.hubs USING btree (lower((name)::text));
+CREATE UNIQUE INDEX idx_hubs_code ON public.hubs USING btree (code);
 
 ALTER TABLE public.bikes ADD COLUMN hub_id bigint NOT NULL REFERENCES public.hubs(hub_id);
 
 CREATE INDEX idx_bikes_hub ON public.bikes USING btree (hub_id, status);
+
+ALTER TABLE public.riders ADD COLUMN hub_id bigint NOT NULL REFERENCES public.hubs(hub_id);
+ALTER TABLE public.riders ADD COLUMN is_test boolean DEFAULT false NOT NULL;
+
+CREATE INDEX idx_riders_hub ON public.riders USING btree (hub_id, status);
 
 --
 -- Pricing (added by db/migrations/015_pricing.sql)
@@ -1080,8 +1091,15 @@ CREATE TABLE public.application_bank_accounts (
     version integer DEFAULT 1 NOT NULL,
     is_current boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    -- Added by db/migrations/020_application_review.sql: reviewed like a document.
+    review_status text DEFAULT 'Pending'::text NOT NULL,
+    review_reason character varying(500),
+    reviewed_by_user_id bigint REFERENCES public.users(user_id),
+    reviewed_at timestamp with time zone,
     CONSTRAINT application_bank_accounts_holder_check CHECK ((btrim((holder_name)::text) <> ''::text)),
     CONSTRAINT application_bank_accounts_status_check CHECK ((verification_status = ANY (ARRAY['Pending'::text, 'Verified'::text, 'Mismatch'::text, 'Failed'::text]))),
+    CONSTRAINT application_bank_accounts_review_check CHECK ((review_status = ANY (ARRAY['Pending'::text, 'Verified'::text, 'Rejected'::text]))),
+    CONSTRAINT application_bank_accounts_reason_check CHECK (((review_status <> 'Rejected'::text) OR (COALESCE(btrim((review_reason)::text), ''::text) <> ''::text))),
     CONSTRAINT application_bank_accounts_version_check CHECK ((version >= 1)),
     UNIQUE (application_id, version)
 );
@@ -1202,6 +1220,13 @@ CREATE TABLE public.application_checks (
 );
 
 CREATE INDEX idx_application_checks_application ON public.application_checks USING btree (application_id, created_at);
+
+--
+-- Application review (added by db/migrations/020_application_review.sql; it also widens
+-- riders.name to 150 and adds the bank account review columns above)
+--
+
+ALTER TABLE public.rider_applications ADD COLUMN change_note character varying(500);
 
 --
 -- PostgreSQL database dump complete

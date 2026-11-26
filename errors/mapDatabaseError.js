@@ -52,6 +52,13 @@ function mapDatabaseError(error) {
             };
         }
 
+        if (error.constraint === 'idx_hubs_code') {
+            return {
+                statusCode: 409,
+                message: 'A hub with this code already exists'
+            };
+        }
+
         // Two saves claimed the same partner ID at the same moment.
         if (error.constraint === 'idx_rider_partner_mappings_active_id') {
             return {

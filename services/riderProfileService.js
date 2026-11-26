@@ -4,6 +4,7 @@ const partnerRepository = require('../repositories/partnerRepository');
 const bikeAssignmentRepository = require('../repositories/bikeAssignmentRepository');
 const payoutRepository = require('../repositories/payoutRepository');
 const followUpRepository = require('../repositories/followUpRepository');
+const applicationReviewRepository = require('../repositories/applicationReviewRepository');
 const billingService = require('./billingService');
 const escalationService = require('./escalationService');
 
@@ -58,12 +59,13 @@ async function findCurrentWeekBill(riderId) {
 async function getRiderProfile(riderId) {
     const rider = await findRiderOrThrow(riderId);
 
-    const [[latestAssignment], currentWeekBill, openEscalations, promise, claim] = await Promise.all([
+    const [[latestAssignment], currentWeekBill, openEscalations, promise, claim, application] = await Promise.all([
         bikeAssignmentRepository.findRiderAssignmentHistory(pool, riderId, 1, 0),
         findCurrentWeekBill(riderId),
         escalationService.listEscalations({ riderId, openOnly: true }),
         followUpRepository.findActivePromise(pool, { riderId, today: billingService.todayInIst() }),
-        followUpRepository.findLatestPaymentClaim(pool, { riderId })
+        followUpRepository.findLatestPaymentClaim(pool, { riderId }),
+        applicationReviewRepository.findByRiderId(pool, { riderId })
     ]);
 
     // Last week's negative net carried into this week, less what Payment Due cleared, as a positive amount owed.
@@ -79,7 +81,16 @@ async function getRiderProfile(riderId) {
             phone: rider.phone,
             status: rider.status,
             joinedAt: rider.created_at,
-            terminatedOn: rider.terminated_on
+            terminatedOn: rider.terminated_on,
+            hubId: rider.hub_id,
+            hubName: rider.hub_name,
+            isTest: rider.is_test
+        },
+        // The application the rider joined through; null for riders added before the app.
+        application: application && {
+            applicationId: application.application_id,
+            applicationNo: application.application_no,
+            status: application.status
         },
         currentAssignment: latestAssignment && !latestAssignment.returned_at
             ? toAssignment(latestAssignment)

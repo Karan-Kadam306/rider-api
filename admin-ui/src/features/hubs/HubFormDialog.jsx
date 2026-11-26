@@ -3,8 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import Field from '../../components/ui/Field';
 
 // Same limits as hubService on the backend.
-function validateHubForm({ name, city, address, contactPhone }) {
+function validateHubForm({ code, name, city, address, contactPhone, managerName }) {
     const errors = {};
+
+    if (!/^[A-Za-z0-9-]{2,10}$/.test(code.trim())) {
+        errors.code = '2 to 10 letters, digits or dashes';
+    }
 
     if (!name.trim()) {
         errors.name = 'Name is required';
@@ -28,6 +32,10 @@ function validateHubForm({ name, city, address, contactPhone }) {
         errors.contactPhone = 'Enter a valid 10-digit mobile number';
     }
 
+    if (managerName.trim().length > 100) {
+        errors.managerName = 'At most 100 characters';
+    }
+
     return errors;
 }
 
@@ -38,10 +46,12 @@ export default function HubFormDialog({ hub, onSubmit, onClose }) {
     const isNew = !hub;
     const dialogRef = useRef(null);
     const [values, setValues] = useState({
+        code: hub?.code ?? '',
         name: hub?.name ?? '',
         city: hub?.city ?? '',
         address: hub?.address ?? '',
-        contactPhone: hub?.contactPhone ?? ''
+        contactPhone: hub?.contactPhone ?? '',
+        managerName: hub?.managerName ?? ''
     });
     const [errors, setErrors] = useState({});
     const [serverError, setServerError] = useState(null);
@@ -71,12 +81,14 @@ export default function HubFormDialog({ hub, onSubmit, onClose }) {
         setServerError(null);
 
         try {
-            // An empty phone clears it on an edit.
+            // An empty phone or manager clears it on an edit. The API saves the code in capitals.
             await onSubmit({
+                code: values.code.trim(),
                 name: values.name.trim(),
                 city: values.city.trim(),
                 address: values.address.trim(),
-                contactPhone: values.contactPhone.trim()
+                contactPhone: values.contactPhone.trim(),
+                managerName: values.managerName.trim()
             });
         } catch (error) {
             // Stay open with the error; on success the parent unmounts this dialog, so busy needs no reset.
@@ -112,6 +124,16 @@ export default function HubFormDialog({ hub, onSubmit, onClose }) {
                             autoFocus
                         />
                     </Field>
+                    <Field label="Hub code" error={errors.code}>
+                        <input
+                            name="code"
+                            className="mono"
+                            value={values.code}
+                            onChange={handleChange}
+                            maxLength={10}
+                            placeholder="e.g. PUN-WKD"
+                        />
+                    </Field>
                     <Field label="City" error={errors.city}>
                         <input name="city" value={values.city} onChange={handleChange} maxLength={60} placeholder="e.g. Pune" />
                     </Field>
@@ -133,6 +155,15 @@ export default function HubFormDialog({ hub, onSubmit, onClose }) {
                             onChange={handleChange}
                             maxLength={10}
                             placeholder="10-digit mobile number"
+                        />
+                    </Field>
+                    <Field label="Hub manager (optional)" error={errors.managerName}>
+                        <input
+                            name="managerName"
+                            value={values.managerName}
+                            onChange={handleChange}
+                            maxLength={100}
+                            placeholder="e.g. Suresh Pawar"
                         />
                     </Field>
                 </div>

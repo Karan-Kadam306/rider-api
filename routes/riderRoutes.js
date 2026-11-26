@@ -4,7 +4,6 @@ const router = express.Router();
 const {
     getRider,
     getRiders,
-    createRider,
     updateRider,
     terminateRider,
     getRiderSummary,
@@ -19,17 +18,15 @@ const followUpController = require('../controllers/followUpController');
 const { requireRole } = require('../middleware/requireRole');
 const { validateRaiseEscalation, limitTeamLeaderEscalation } = require('../middleware/validateEscalation');
 const { validateRiderQuery } = require('../middleware/validateRiderQuery');
-const { validateCreateRider } = require('../middleware/validateCreateRider');
 const { validateUpdateRider } = require('../middleware/validateUpdateRider');
 
 // Define the route for fetching a list of riders with optional query parameters for filtering and pagination.
+// Riders are created only by approving an application (POST /api/onboarding/applications/:id/approve).
 router.get('/', validateRiderQuery, getRiders);
 
-// Define the route for creating a new rider with validation of the request body.
-router.post('/', validateCreateRider, createRider);
-
 // Define the route for fetching a summary of riders, which may include statistics or aggregated data.
-router.get('/summary', getRiderSummary);
+// Takes the list's hubId and includeTest filters, so it uses the same query checks.
+router.get('/summary', validateRiderQuery, getRiderSummary);
 
 // Define the route for fetching details of a specific rider by their ID.
 router.get('/:riderId', getRider);

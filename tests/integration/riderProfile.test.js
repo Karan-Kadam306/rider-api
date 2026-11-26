@@ -16,6 +16,9 @@ describe('Rider profile', () => {
 
         assert.equal(res.status, 200);
         assert.equal(res.body.rider.riderId, 'YS-001');
+        assert.equal(res.body.rider.hubId, h.getDefaultHubId());
+        assert.equal(res.body.rider.hubName, 'Test Hub');
+        assert.equal(res.body.rider.isTest, false);
         assert.equal(res.body.currentAssignment.bikeId, String(bikeId));
         assert.equal(res.body.currentAssignment.registrationNumber, 'MH12AB1234');
         assert.deepEqual(res.body.partnerMappings, []);

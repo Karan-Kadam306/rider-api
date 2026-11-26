@@ -22,7 +22,7 @@ export default function ResolveEarningsDialog({ group, onSubmit, onClose }) {
 
     const search = useDebouncedValue(query.trim());
     const riders = useApi(
-        options => getRiders({ search: search || undefined, limit: RESULT_LIMIT }, options),
+        options => getRiders({ search: search || undefined, includeTest: true, limit: RESULT_LIMIT }, options),
         [search]
     );
 

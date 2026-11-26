@@ -177,25 +177,29 @@ async function signIn(userId) {
 
 let phoneCounter = 0;
 
-async function createRider(riderId, { status = 'Active', terminatedOn = null } = {}) {
+async function createRider(riderId, { status = 'Active', terminatedOn = null, hubId = defaultHubId, isTest = false } = {}) {
     phoneCounter++;
     const phone = String(9000000000 + phoneCounter);
 
     await pool.query(
-        `INSERT INTO riders (rider_id, name, phone, status, terminated_on)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [riderId, `Rider ${riderId}`, phone, status, terminatedOn]
+        `INSERT INTO riders (rider_id, name, phone, status, terminated_on, hub_id, is_test)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [riderId, `Rider ${riderId}`, phone, status, terminatedOn, hubId, isTest]
     );
 
     return riderId;
 }
 
+let hubCounter = 0;
+
 async function createHub(name, { city = 'Pune', isActive = true } = {}) {
+    hubCounter++;
+
     const result = await pool.query(
-        `INSERT INTO hubs (name, city, address, is_active)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO hubs (code, name, city, address, is_active)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING hub_id`,
-        [name, city, `${name} address`, isActive]
+        [`T-${hubCounter}`, name, city, `${name} address`, isActive]
     );
 
     return Number(result.rows[0].hub_id);

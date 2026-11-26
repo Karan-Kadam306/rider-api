@@ -82,6 +82,8 @@ Sessions are stored in the `sessions` table and last `SESSION_TTL_HOURS` (defaul
 |---|---|
 | `admin` | Everything, including closing a billing week, triggering payouts, changing or removing partner IDs and moving earnings |
 | `staff` | Everything else: riders, bikes, assignments, imports, Daily KM, adding partner IDs and reviewing pending earnings, viewing billing and payouts |
+| `team_leader` | Only the riders assigned to them (see below) |
+| `onboarding` | Only Rider Management: reviewing and approving applications, plus the riders list, its counts and the hubs list. No money, no rider changes (see `middleware/restrictOnboarding.js`) |
 
 Admins manage users on the **Users** page: add, edit name/role, reset passwords, deactivate.
 An admin cannot change their own role or deactivate themselves, and the last active admin
@@ -148,6 +150,31 @@ phone's own application and returns the updated `GET /api/rider-app/onboarding` 
   (`MOCK_KYC_FAIL=true` makes it fail, which is recorded as `Failed` without blocking the submit).
 - **Files** are checked by content (JPEG, PNG or PDF; the selfie must be a photo), at most 5 MB,
   and stored in `UPLOAD_DIR`. If a save fails, its new files are deleted again.
+
+## Reviewing applications (admin panel)
+
+Applications are reviewed on the onboarding tabs of **Rider Management**, by admins, staff and
+onboarding users. Riders can no longer be added by hand: approving an application creates them.
+
+| Tab | Status |
+|---|---|
+| Review / Re-approve | `Pending Review` / `Resubmitted` (oldest first) |
+| On Hold / Rejected | `On Hold` / `Rejected` |
+| Payment / Bike | `Payment Pending` / `Bike Pending`: approved, deposit or bike still to come |
+| All applications | every status, including `Draft` and `Changes Requested` |
+
+- **Items:** the five documents and the bank account are each verified or rejected (a rejection
+  needs a reason, which the rider sees). Approve is allowed only once all six are verified.
+- **Send back** (`Changes Requested`) unlocks the chosen steps in the app; steps with a rejected
+  item are always included. A re-uploaded item starts again as `Pending`.
+- **Hold** needs a reason; **Release** returns the application to the status it was held from.
+  **Reject** is final (the rider can apply again after 30 days).
+- **Approve** runs in one transaction: it creates the rider (`YS-RID-` + date + running number,
+  status `Inactive`, at the chosen hub), adds the team leaders and partner IDs, and moves the
+  application to `Payment Pending`. If any part fails, nothing is saved. Until the bike is given,
+  the rider shows on the Payment and Bike tabs rather than in the riders list.
+- **Files** are only served through `GET /api/onboarding/applications/:id/files/:fileId`
+  (`no-store`), and every view is written to `document_access_log`.
 
 ## Security
 
@@ -265,7 +292,8 @@ admin-ui/      React admin panel
 |---|---|
 | Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password` (change your own) |
 | Users (admin only) | `GET /api/users`, `POST /api/users`, `PATCH /api/users/:userId`, `POST /api/users/:userId/password` |
-| Riders | `GET/POST /api/riders`, `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` |
+| Riders | `GET /api/riders` (filters by `hubId`, hides test riders unless `includeTest=true`), `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` (same filters). Riders are created by approving an application |
+| Onboarding review | `GET /api/onboarding/applications?tab=&hubId=&planType=&includeTest=&search=` (with tab counts), `GET …/applications/counts`, `GET …/applications/:id`, `GET …/applications/:id/files/:fileId`, `PATCH …/applications/:id/items/:item` (`{ status, reason }`), `POST …/applications/:id/hold`, `…/release`, `…/request-changes` (`{ steps, note }`), `…/reject`, `…/approve` (`{ hubId, teamLeaderIds, mappings, note }`), `GET /api/onboarding/approval-options` (admin, staff, onboarding) |
 | Rider page | `GET /api/riders/:riderId/profile`, `GET /api/riders/:riderId/payouts`, `GET /api/riders/:riderId/assignments` |
 | Escalations | `GET/POST /api/riders/:riderId/escalations` (POST admin; team leaders only a Record), `POST /api/escalations/:escalationId/mark-paid`, `…/waive`, `…/close`, `…/retry-lock` (admin) |
 | Analytics | `GET /api/analytics/team-leaders?from=&to=` (admins and staff: calls, promises kept/broken, dues recovered, riders owing per team leader) |
@@ -275,7 +303,7 @@ admin-ui/      React admin panel
 A `team_leader` user can call only `GET /api/tl/riders` and `GET /api/tl/queue`, the rider page reads above (profile, payouts, assignments, escalations, follow-ups) and the two writes (log a follow-up, raise a Record) for riders assigned to them; everything else answers 403 (see `middleware/restrictTeamLeader.js`).
 | Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
-| Hubs | `GET /api/hubs`, `POST /api/hubs` and `PATCH /api/hubs/:hubId` (admin; a hub with bikes cannot be deactivated) |
+| Hubs | `GET /api/hubs`, `POST /api/hubs` and `PATCH /api/hubs/:hubId` (admin; a unique `code` of 2–10 letters, digits or dashes, saved in capitals, and an optional `managerName`; a hub with bikes cannot be deactivated) |
 | Pricing | `GET /api/pricing`; admin: `POST /api/pricing/postpaid-rates`, `DELETE …/postpaid-rates/:rateId`, `POST /api/pricing/deposits`, `DELETE …/deposits/:depositId` (only prices not yet started), `POST /api/pricing/packs`, `PATCH …/packs/:packId`. Billing charges each day at the postpaid rate in effect that day; a new rate must start after the last closed or paid-out week |
 | Bikes | `GET/POST /api/bikes` (POST needs an active `hubId`; GET filters by `hubId`), `GET /api/bikes/summary?hubId=`, `GET /api/bikes/:bikeId`, `PATCH /api/bikes/:bikeId/status`, `PATCH /api/bikes/:bikeId/hub` (not while assigned), `POST /api/bike-assignments` (needs an `Idempotency-Key` header), `POST /api/bikes/:bikeId/return`, `GET /api/bikes/:bikeId/assignments` |
 | Imports | `GET /api/imports/types`, `GET /api/imports/summary`, `GET /api/imports`, `POST /api/imports` (CSV upload), `GET /api/imports/:importId` |

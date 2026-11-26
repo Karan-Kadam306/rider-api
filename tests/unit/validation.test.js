@@ -5,7 +5,6 @@ const AppError = require('../../errors/AppError');
 const mapDatabaseError = require('../../errors/mapDatabaseError');
 const { errorHandler } = require('../../middleware/errorHandler');
 const { validateWeekStart } = require('../../middleware/validateWeekStart');
-const { validateCreateRider } = require('../../middleware/validateCreateRider');
 const { validateUpdateRider } = require('../../middleware/validateUpdateRider');
 const { validateRiderQuery } = require('../../middleware/validateRiderQuery');
 
@@ -47,31 +46,6 @@ describe('validateWeekStart', () => {
 
             assert.ok(error instanceof AppError);
             assert.equal(error.statusCode, 400);
-        });
-    }
-});
-
-describe('validateCreateRider', () => {
-    const valid = { rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543210' };
-
-    it('accepts a valid rider', () => {
-        assert.equal(run(validateCreateRider, { body: valid }), undefined);
-    });
-
-    const invalid = [
-        ['missing name', { ...valid, name: undefined }],
-        ['blank rider_id', { ...valid, rider_id: '   ' }],
-        ['phone starting with 5', { ...valid, phone: '5876543210' }],
-        ['phone with 9 digits', { ...valid, phone: '987654321' }],
-        ['name with numbers', { ...valid, name: 'Karan 2' }],
-        ['name without letters', { ...valid, name: '---' }],
-        ['rider_id too long', { ...valid, rider_id: 'x'.repeat(101) }],
-        ['no body', undefined]
-    ];
-
-    for (const [name, body] of invalid) {
-        it(`rejects ${name} with 400`, () => {
-            assert.equal(run(validateCreateRider, { body })?.statusCode, 400);
         });
     }
 });

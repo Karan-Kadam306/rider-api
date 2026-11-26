@@ -10,11 +10,11 @@ async function listHubs(req, res, next) {
     }
 }
 
-// POST /api/hubs — admins. Body: { name, city, address, contactPhone? }
+// POST /api/hubs — admins. Body: { code, name, city, address, contactPhone?, managerName? }
 async function createHub(req, res, next) {
     try {
-        const { name, city, address, contactPhone } = req.body ?? {};
-        const hub = await hubService.createHub({ name, city, address, contactPhone });
+        const { code, name, city, address, contactPhone, managerName } = req.body ?? {};
+        const hub = await hubService.createHub({ code, name, city, address, contactPhone, managerName });
 
         return res.status(201).json({ message: 'Hub created', hub });
     } catch (error) {
@@ -22,16 +22,18 @@ async function createHub(req, res, next) {
     }
 }
 
-// PATCH /api/hubs/:hubId — admins. Body: any of { name, city, address, contactPhone, isActive }
+// PATCH /api/hubs/:hubId — admins. Body: any of { code, name, city, address, contactPhone, managerName, isActive }
 async function updateHub(req, res, next) {
     try {
-        const { name, city, address, contactPhone, isActive } = req.body ?? {};
+        const { code, name, city, address, contactPhone, managerName, isActive } = req.body ?? {};
         const hub = await hubService.updateHub({
             hubId: req.params.hubId,
+            code,
             name,
             city,
             address,
             contactPhone,
+            managerName,
             isActive
         });
 
