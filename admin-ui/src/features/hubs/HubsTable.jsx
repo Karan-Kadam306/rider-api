@@ -12,7 +12,7 @@ export default function HubsTable({ hubs, onEdit, onToggleActive }) {
                     <tr>
                         <th>Hub</th>
                         <th>City</th>
-                        <th>Contact</th>
+                        <th>Manager</th>
                         <th>Bikes</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -23,11 +23,14 @@ export default function HubsTable({ hubs, onEdit, onToggleActive }) {
                     {hubs.map(hub => (
                         <tr key={hub.hubId}>
                             <td>
-                                <div className="person__name">{hub.name}</div>
+                                <div className="person__name">{hub.name} <span className="mono muted">{hub.code}</span></div>
                                 <div className="cell-sub">{hub.address}</div>
                             </td>
                             <td>{hub.city}</td>
-                            <td className="mono">{hub.contactPhone ?? <span className="muted">—</span>}</td>
+                            <td>
+                                {hub.managerName ?? <span className="muted">No manager</span>}
+                                <div className="cell-sub mono">{hub.contactPhone ?? '—'}</div>
+                            </td>
                             <td>
                                 {hub.totalBikes}
                                 <div className="cell-sub">{hub.availableBikes} available</div>

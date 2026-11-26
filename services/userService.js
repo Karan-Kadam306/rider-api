@@ -6,7 +6,8 @@ const teamLeaderRepository = require('../repositories/teamLeaderRepository');
 const { hashPassword } = require('../utils/password');
 
 // team_leader sees only the riders assigned to them (see middleware/restrictTeamLeader).
-const ROLES = ['admin', 'staff', 'team_leader'];
+// onboarding reviews new riders and opens only Rider Management (see middleware/restrictOnboarding).
+const ROLES = ['admin', 'staff', 'team_leader', 'onboarding'];
 const STATUSES = ['active', 'inactive'];
 const MIN_PASSWORD_LENGTH = 8;
 // Long enough for any passphrase; stops huge values being hashed.

@@ -2,102 +2,28 @@ const h = require('../helpers');
 const { describe, it, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
-const { verhoeffValid } = require('../../utils/onboardingValidators');
+const {
+    aadhaarFrom,
+    JPEG,
+    AADHAAR,
+    PAN,
+    DL,
+    ACCOUNT,
+    signUp,
+    putForm,
+    put,
+    getOnboarding,
+    submit,
+    STEP_SAVES,
+    completeSteps
+} = require('../onboardingFlow');
 
 before(h.startServer);
 after(h.stopServer);
 beforeEach(h.resetDb);
 
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
 const PDF = Buffer.from('%PDF-1.7\n');
 const EXE = Buffer.from('MZ\x90\x00 renamed program');
-
-// Appends the digit that makes the number pass Aadhaar's checksum.
-function aadhaarFrom(digits) {
-    for (let d = 0; d <= 9; d++) {
-        if (verhoeffValid(digits + d)) {
-            return digits + d;
-        }
-    }
-}
-
-const AADHAAR = aadhaarFrom('23412341234');
-const PAN = 'ABCPE1234F';
-const DL = 'MH1220190012345';
-const ACCOUNT = '123456789012';
-
-let phoneCounter = 0;
-
-// Signs up a new applicant and returns their token.
-async function signUp(signup = { firstName: 'Ravi', surname: 'Kumar', dateOfBirth: '1995-06-15' }) {
-    phoneCounter++;
-    const phone = String(9800000000 + phoneCounter);
-    const { body: { devOtp } } = await h.riderApi('POST', '/api/rider-app/auth/otp/request', { phone });
-    const res = await h.riderApi('POST', '/api/rider-app/auth/otp/verify', { phone, code: devOtp, signup });
-
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-    return res.body.token;
-}
-
-// A multipart step: text fields plus files, e.g. { front: JPEG }.
-function putForm(token, step, fields, files = {}) {
-    const form = new FormData();
-
-    for (const [name, value] of Object.entries(fields)) {
-        form.append(name, value);
-    }
-
-    for (const [name, content] of Object.entries(files)) {
-        form.append(name, new Blob([content]), `${name}.jpg`);
-    }
-
-    return h.riderApi('PUT', `/api/rider-app/onboarding/${step}`, form, token);
-}
-
-function put(token, step, body) {
-    return h.riderApi('PUT', `/api/rider-app/onboarding/${step}`, body, token);
-}
-
-function getOnboarding(token) {
-    return h.riderApi('GET', '/api/rider-app/onboarding', undefined, token);
-}
-
-function submit(token) {
-    return h.riderApi('POST', '/api/rider-app/onboarding/submit', undefined, token);
-}
-
-// Each step with valid data, in order.
-const STEP_SAVES = {
-    address: token => putForm(
-        token,
-        'address',
-        { addressLine1: 'Flat 4, Shanti Niwas', city: 'Pune', state: 'Maharashtra', pincode: '411057', addressProofKind: 'Electricity Bill' },
-        { front: JPEG }
-    ),
-    aadhaar: (token, number = AADHAAR) => putForm(token, 'aadhaar', { number }, { front: JPEG, back: JPEG }),
-    pan: (token, number = PAN) => putForm(token, 'pan', { number }, { front: JPEG }),
-    dl: token => putForm(token, 'dl', { number: DL, expiryDate: h.addDays(h.todayInIst(), 365) }, { front: JPEG, back: JPEG }),
-    selfie: token => putForm(token, 'selfie', {}, { photo: JPEG }),
-    'emergency-contact': token => put(token, 'emergency-contact', { name: 'Sita Kumar', relation: 'Mother', phone: '9123456789' }),
-    policies: async token => {
-        const { body: { policy } } = await h.riderApi('GET', '/api/rider-app/policies/current', undefined, token);
-        return put(token, 'policies', { policyVersionId: policy.policyVersionId });
-    },
-    bank: (token, holderName = 'Ravi Kumar') => put(token, 'bank', { accountNumber: ACCOUNT, ifsc: 'SBIN0001234', holderName }),
-    plan: token => put(token, 'plan', { planType: 'Postpaid' })
-};
-
-// Saves every step up to (not including) stopBefore.
-async function completeSteps(token, { stopBefore = null, overrides = {} } = {}) {
-    for (const [step, save] of Object.entries(STEP_SAVES)) {
-        if (step === stopBefore) {
-            return;
-        }
-
-        const res = await (overrides[step] ?? save)(token);
-        assert.equal(res.status, 200, `${step}: ${JSON.stringify(res.body)}`);
-    }
-}
 
 async function latestChecks(applicationNo) {
     const { rows } = await h.pool.query(
@@ -387,7 +313,10 @@ describe('Who can use the onboarding steps', () => {
         await submit(token);
 
         const { rows: [{ phone }] } = await h.pool.query('SELECT phone FROM rider_applications');
-        await h.pool.query(`INSERT INTO riders (rider_id, name, phone, status) VALUES ('YS-RID-1', 'Ravi Kumar', $1, 'Inactive')`, [phone]);
+        await h.pool.query(
+            `INSERT INTO riders (rider_id, name, phone, status, hub_id) VALUES ('YS-RID-1', 'Ravi Kumar', $1, 'Inactive', $2)`,
+            [phone, h.getDefaultHubId()]
+        );
         await h.pool.query(`UPDATE rider_applications SET status = 'Payment Pending', rider_id = 'YS-RID-1'`);
 
         assert.equal((await STEP_SAVES.bank(token)).status, 409);

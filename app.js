@@ -23,9 +23,11 @@ const hubRoutes = require('./routes/hubRoutes');
 const pricingRoutes = require('./routes/pricingRoutes');
 const riderAppAuthRoutes = require('./routes/riderAppAuthRoutes');
 const riderAppOnboardingRoutes = require('./routes/riderAppOnboardingRoutes');
+const onboardingRoutes = require('./routes/onboardingRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { requireRider } = require('./middleware/requireRider');
 const { restrictTeamLeader } = require('./middleware/restrictTeamLeader');
+const { restrictOnboarding } = require('./middleware/restrictOnboarding');
 const { rejectCrossSite } = require('./middleware/rejectCrossSite');
 const AppError = require('./errors/AppError');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -63,6 +65,8 @@ app.use('/api/rider-app', (req, res, next) => {
 app.use('/api', requireAuth);
 // Team leaders get an allowlist (their own riders only); other roles pass through.
 app.use('/api', restrictTeamLeader);
+// Onboarding users get an allowlist too (Rider Management only).
+app.use('/api', restrictOnboarding);
 
 app.use('/api/tl', teamLeaderRoutes);
 app.use('/api/riders', riderRoutes);
@@ -83,6 +87,7 @@ app.use('/api/escalations', escalationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/hubs', hubRoutes);
 app.use('/api/pricing', pricingRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 
 // Unknown API paths get a JSON 404 instead of Express's HTML page.
 app.use('/api', (req, res, next) => {

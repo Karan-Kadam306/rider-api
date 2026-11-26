@@ -59,18 +59,18 @@ async function insertProfile(client, { applicationId, firstName, surname, dateOf
 }
 
 // actorUserId is set only when staff did it (actorType 'user').
-async function insertEvent(client, { applicationId, eventType, fromStatus = null, toStatus = null, actorType, actorUserId = null, note = null }) {
+async function insertEvent(client, { applicationId, eventType, fromStatus = null, toStatus = null, actorType, actorUserId = null, note = null, data = null }) {
     await client.query(
-        `INSERT INTO application_events (application_id, event_type, from_status, to_status, actor_type, actor_user_id, note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [applicationId, eventType, fromStatus, toStatus, actorType, actorUserId, note]
+        `INSERT INTO application_events (application_id, event_type, from_status, to_status, actor_type, actor_user_id, note, data)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [applicationId, eventType, fromStatus, toStatus, actorType, actorUserId, note, data]
     );
 }
 
 // Locked while a step is saved or the application is submitted, so two saves cannot both move the step.
 async function findForUpdate(client, { applicationId }) {
     const result = await client.query(
-        `SELECT application_id::int AS application_id, phone, status, current_step, fix_steps
+        `SELECT application_id::int AS application_id, phone, status, current_step, fix_steps, is_test
          FROM rider_applications
          WHERE application_id = $1
          FOR UPDATE`,
@@ -145,6 +145,7 @@ async function findOnboarding(client, { applicationId }) {
                 a.plan_type,
                 a.hold_reason,
                 a.reject_reason,
+                a.change_note,
                 a.submitted_at,
                 p.first_name,
                 p.surname,

@@ -1,6 +1,7 @@
 import { request } from './client';
 
-// GET /api/riders (paginated, with search and status filters)
+// GET /api/riders (paginated, with search, status and hubId filters).
+// Test riders are left out unless includeTest is true.
 export function getRiders(params, { signal } = {}) {
     return request('/api/riders', { params, signal });
 }
@@ -11,16 +12,10 @@ export async function getRider(riderId, { signal } = {}) {
     return data.rider;
 }
 
-// GET /api/riders/summary
-export async function getRiderSummary({ signal } = {}) {
-    const data = await request('/api/riders/summary', { signal });
+// GET /api/riders/summary — test riders are counted only when includeTest is true, as in the list.
+export async function getRiderSummary({ includeTest, signal } = {}) {
+    const data = await request('/api/riders/summary', { params: { includeTest }, signal });
     return data.summary;
-}
-
-// POST /api/riders
-export async function createRider({ rider_id, name, phone }) {
-    const data = await request('/api/riders', { method: 'POST', body: { rider_id, name, phone } });
-    return data.rider;
 }
 
 // PUT /api/riders/:riderId (name, phone and status are all required)

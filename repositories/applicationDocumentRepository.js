@@ -88,7 +88,7 @@ async function insertBankAccount(client, { applicationId, accountEnc, accountHas
 async function findCurrentBankAccount(client, { applicationId }) {
     const result = await client.query(
         `SELECT bank_account_id::int AS bank_account_id, account_enc, account_last4, ifsc, holder_name,
-                verified_name, verification_status
+                verified_name, verification_status, review_status, review_reason
          FROM application_bank_accounts
          WHERE application_id = $1 AND is_current`,
         [applicationId]

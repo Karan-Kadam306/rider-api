@@ -1,5 +1,6 @@
 const riderService = require('../services/riderService');
 const riderProfileService = require('../services/riderProfileService');
+const { ONBOARDED_RIDERS } = require('../repositories/riderRepository');
 
 // GET /api/riders/:riderId
 // Get the details of a specific rider by their ID.
@@ -60,6 +61,19 @@ async function getRiders(req, res, next) {
             conditions.push(`status = $${values.length}`);
         }
 
+        if (req.query.hubId) {
+            values.push(Number(req.query.hubId));
+            conditions.push(`hub_id = $${values.length}`);
+        }
+
+        // Test riders stay out of the list unless "Show test riders" is on.
+        if (req.query.includeTest !== 'true') {
+            conditions.push('NOT is_test');
+        }
+
+        // Approved applicants still paying or waiting for a bike show on the onboarding tabs instead.
+        conditions.push(ONBOARDED_RIDERS);
+
         const whereClause = conditions.length
             ? `WHERE ${conditions.join(' AND ')}`
             : '';
@@ -92,23 +106,6 @@ async function getRiders(req, res, next) {
     }
 }
 
-// Create Rider 
-// POST /api/riders
-async function createRider(req, res, next) {
-    try {
-        const { rider_id, name, phone } = req.body;
-
-        const rider = await riderService.createRider({
-            rider_id,
-            name,
-            phone
-        });
-
-        return res.status(201).json({ rider });
-    } catch (error) {
-        return next(error);
-    }
-}
 
 // Update Rider
 // PATCH /api/riders/:riderId
@@ -193,7 +190,11 @@ async function terminateRider(req, res, next) {
 // Get a summary of riders grouped by their status.
 async function getRiderSummary(req, res, next) {
     try {
-        const summary = await riderService.getRiderStatusSummary();
+        // Same filters as the riders list, so the tab counts match its rows.
+        const summary = await riderService.getRiderStatusSummary({
+            includeTest: req.query.includeTest === 'true',
+            hubId: req.query.hubId ? Number(req.query.hubId) : null
+        });
 
         return res.status(200).json({
             summary
@@ -250,7 +251,6 @@ async function getRiderAssignments(req, res, next) {
 module.exports = {
     getRider,
     getRiders,
-    createRider,
     updateRider,
     terminateRider,
     getRiderSummary,

@@ -11,7 +11,7 @@ import { formatDateTime, formatWeekRange } from '../../utils/week';
 // showStaffLinks is false for team leaders, who cannot open Billing or Partner Mappings.
 // onEdit adds an Edit link to Rider details; left out for team leaders and terminated riders.
 export default function RiderOverview({ profile, showStaffLinks = true, onEdit }) {
-    const { rider, currentAssignment, partnerMappings, currentWeekBill: bill, outstandingBalance } = profile;
+    const { rider, application, currentAssignment, partnerMappings, currentWeekBill: bill, outstandingBalance } = profile;
 
     return (
         <>
@@ -100,6 +100,23 @@ export default function RiderOverview({ profile, showStaffLinks = true, onEdit }
                             <dt>Phone</dt>
                             <dd className="mono">{rider.phone}</dd>
                         </div>
+                        <div>
+                            <dt>Hub</dt>
+                            <dd>
+                                {rider.hubName}
+                                {rider.isTest && <> <span className="badge badge--warning">Test rider</span></>}
+                            </dd>
+                        </div>
+                        {application && (
+                            <div>
+                                <dt>Application</dt>
+                                <dd className="mono">
+                                    {showStaffLinks
+                                        ? <Link to={`/onboarding/${application.applicationId}`}>{application.applicationNo}</Link>
+                                        : application.applicationNo}
+                                </dd>
+                            </div>
+                        )}
                         <div>
                             <dt>Joined</dt>
                             <dd>{formatDate(rider.joinedAt)}</dd>

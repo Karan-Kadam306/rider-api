@@ -57,28 +57,32 @@ async function getRiderTeamLeaders(riderId) {
     return rows.map(toTeamLeader);
 }
 
+// Links an active team leader to the rider inside the caller's transaction (also used at approval).
+async function addTeamLeader(client, { riderId, userId, actingUserId }) {
+    const leaderId = parseUserId(userId);
+    const leader = await teamLeaderRepository.findUser(client, { userId: leaderId });
+
+    if (!leader || leader.role !== 'team_leader' || !leader.is_active) {
+        throw new AppError('Choose an active team leader', 400);
+    }
+
+    const added = await teamLeaderRepository.insertLink(client, { userId: leaderId, riderId, assignedBy: actingUserId });
+
+    if (!added) {
+        throw new AppError(`${leader.name} is already this rider's team leader`, 409);
+    }
+}
+
 // Give the rider one more team leader. A rider can have several; each holds them once at a time.
 async function assignTeamLeader({ riderId, userId, actingUserId }) {
-    const leaderId = parseUserId(userId);
+    parseUserId(userId);
     const rider = await findRiderOrThrow(riderId);
 
     if (rider.status === 'Terminated') {
         throw new AppError('A terminated rider cannot get a team leader', 409);
     }
 
-    await inTransaction(async client => {
-        const leader = await teamLeaderRepository.findUser(client, { userId: leaderId });
-
-        if (!leader || leader.role !== 'team_leader' || !leader.is_active) {
-            throw new AppError('Choose an active team leader', 400);
-        }
-
-        const added = await teamLeaderRepository.insertLink(client, { userId: leaderId, riderId, assignedBy: actingUserId });
-
-        if (!added) {
-            throw new AppError(`${leader.name} is already this rider's team leader`, 409);
-        }
-    });
+    await inTransaction(client => addTeamLeader(client, { riderId, userId, actingUserId }));
 
     return getRiderTeamLeaders(riderId);
 }
@@ -240,6 +244,7 @@ module.exports = {
     getMyQueue,
     listTeamLeaders,
     getRiderTeamLeaders,
+    addTeamLeader,
     assignTeamLeader,
     removeTeamLeader,
     canAccessRider,

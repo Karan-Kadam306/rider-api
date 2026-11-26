@@ -102,6 +102,7 @@ export default function UserFormDialog({ user, isSelf = false, onSubmit, onClose
                             <option value="staff">Staff — day-to-day work</option>
                             <option value="admin">Admin — also closes weeks, runs payouts, manages users</option>
                             <option value="team_leader">Team leader — sees only the riders assigned to them</option>
+                            <option value="onboarding">Onboarding — reviews new riders in Rider Management only</option>
                         </select>
                     </Field>
                     {isSelf && <p className="muted form-note">You cannot change your own role.</p>}

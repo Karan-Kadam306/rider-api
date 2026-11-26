@@ -2448,3 +2448,66 @@ a:hover {
     flex-direction: column;
     gap: 8px;
 }
+
+/* ---------- Application review ---------- */
+.review-checklist,
+.review-timeline {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.review-checklist__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.review-checklist__item:last-child {
+    border-bottom: none;
+}
+
+.review-timeline li {
+    padding: 8px 0 8px 14px;
+    border-left: 2px solid var(--border);
+}
+
+.review-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px;
+    margin: 12px 0;
+}
+
+.document-viewer {
+    width: min(960px, calc(100vw - 32px));
+}
+
+.document-viewer__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* Rotated or zoomed photos stay inside the stage and scroll. */
+.document-viewer__stage {
+    display: grid;
+    place-items: center;
+    height: min(70vh, 640px);
+    margin-top: 12px;
+    overflow: auto;
+    border-radius: 10px;
+    background: var(--surface-muted);
+}
+
+.document-viewer__stage img {
+    max-width: 100%;
+    max-height: 100%;
+    transition: transform 0.15s ease;
+}

@@ -6,13 +6,16 @@ export async function getHubs({ signal } = {}) {
     return data.hubs;
 }
 
-// POST /api/hubs — admins only. contactPhone is optional.
-export async function createHub({ name, city, address, contactPhone }) {
-    const data = await request('/api/hubs', { method: 'POST', body: { name, city, address, contactPhone } });
+// POST /api/hubs — admins only. contactPhone and managerName are optional.
+export async function createHub({ code, name, city, address, contactPhone, managerName }) {
+    const data = await request('/api/hubs', {
+        method: 'POST',
+        body: { code, name, city, address, contactPhone, managerName }
+    });
     return data.hub;
 }
 
-// PATCH /api/hubs/:hubId — admins only. Any of { name, city, address, contactPhone, isActive }.
+// PATCH /api/hubs/:hubId — admins only. Any of { code, name, city, address, contactPhone, managerName, isActive }.
 export async function updateHub(hubId, changes) {
     const data = await request(`/api/hubs/${hubId}`, { method: 'PATCH', body: changes });
     return data.hub;

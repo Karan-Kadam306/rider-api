@@ -3,7 +3,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDate, formatRelativeTime } from '../../utils/formatDate';
 import { roleLabel } from '../../utils/roleLabel';
 
-const ROLE_TONES = { admin: 'info', team_leader: 'success' };
+const ROLE_TONES = { admin: 'info', team_leader: 'success', onboarding: 'warning' };
 
 // "Priya Sharma" → its initials for the avatar; a single name gives one letter.
 function initials(name) {

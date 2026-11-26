@@ -12,38 +12,42 @@ function initials(name) {
 
 // Riders for one status tab. A row (or Details) opens the rider page, where the other actions live;
 // only Terminate stays here, and terminated riders get Details alone.
-export default function RidersTable({ riders, onTerminate }) {
+// readOnly (onboarding users) shows the rows without links or actions: the rider page is not theirs.
+export default function RidersTable({ riders, onTerminate, readOnly = false }) {
     const navigate = useNavigate();
     const riderPath = rider => `/riders/${encodeURIComponent(rider.rider_id)}`;
 
     return (
         <div className="table-wrap">
-            <table className="table table--roomy table--clickable">
+            <table className={`table table--roomy${readOnly ? '' : ' table--clickable'}`}>
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th>Rider ID</th>
                         <th>Phone</th>
+                        <th>Hub</th>
                         <th>Status</th>
                         <th>Created</th>
-                        <th className="actions-col">Actions</th>
+                        {!readOnly && <th className="actions-col">Actions</th>}
                     </tr>
                 </thead>
                 <tbody>
                     {riders.map(rider => (
-                        <tr key={rider.rider_id} onClick={() => navigate(riderPath(rider))}>
+                        <tr key={rider.rider_id} onClick={readOnly ? undefined : () => navigate(riderPath(rider))}>
                             <td>
                                 <div className="person">
                                     <span className="avatar">{initials(rider.name)}</span>
                                     <span className="person__name">{rider.name}</span>
+                                    {rider.is_test && <span className="badge badge--warning">Test</span>}
                                 </div>
                             </td>
                             <td className="mono">{rider.rider_id}</td>
                             <td className="mono">{rider.phone}</td>
+                            <td>{rider.hub_name}</td>
                             <td><StatusBadge status={rider.status} /></td>
                             <td className="muted">{formatDate(rider.created_at)}</td>
                             {/* Clicks on the buttons must not also open the row. */}
-                            <td className="actions-col" onClick={event => event.stopPropagation()}>
+                            {!readOnly && <td className="actions-col" onClick={event => event.stopPropagation()}>
                                 <div className="row-actions">
                                     <Link to={riderPath(rider)} className="pill-button">
                                         <Icon name="eye" size={15} />
@@ -61,7 +65,7 @@ export default function RidersTable({ riders, onTerminate }) {
                                         </button>
                                     )}
                                 </div>
-                            </td>
+                            </td>}
                         </tr>
                     ))}
                 </tbody>

@@ -10,15 +10,6 @@ async function getRiderById(riderId) {
     return riderRepository.findById(riderId);
 }
 
-// Create Rider
-async function createRider({ rider_id, name, phone }) {
-    return riderRepository.createRider({
-        rider_id,
-        name,
-        phone
-    });
-}
-
 // update the Rider
 async function updateRider({ riderId, name, phone, status }) {
     const existingRider = await riderRepository.findById(riderId);
@@ -156,8 +147,9 @@ async function terminateRider(riderId) {
 }
 
 // Get a summary of rider statuses, including counts of Active, Inactive, and Terminated riders.
-async function getRiderStatusSummary() {
-    const rows = await riderRepository.getRiderStatusSummary();
+// includeTest: false leaves test riders out and hubId counts one hub, matching the riders list.
+async function getRiderStatusSummary({ includeTest = true, hubId = null } = {}) {
+    const rows = await riderRepository.getRiderStatusSummary({ includeTest, hubId });
 
     const summary = {
         Active: 0,
@@ -180,7 +172,6 @@ async function getRiderStatusSummary() {
 module.exports = {
     getRiderById,
     getRiders,
-    createRider,
     updateRider,
     terminateRider,
     getRiderStatusSummary

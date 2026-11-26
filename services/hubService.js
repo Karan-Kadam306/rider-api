@@ -3,14 +3,17 @@ const AppError = require('../errors/AppError');
 const hubRepository = require('../repositories/hubRepository');
 
 const FIELD_LIMITS = { name: 100, city: 60, address: 300 };
+const MANAGER_NAME_MAX_LENGTH = 100;
 
 function toHub(row) {
     return {
         hubId: row.hub_id,
+        code: row.code,
         name: row.name,
         city: row.city,
         address: row.address,
         contactPhone: row.contact_phone,
+        managerName: row.manager_name,
         isActive: row.is_active,
         createdAt: row.created_at,
         ...(row.total_bikes !== undefined && {
@@ -49,17 +52,41 @@ function cleanContactPhone(value) {
     return clean || null;
 }
 
+// Short code shown in lists, e.g. "PUN-01". Saved in capitals.
+function cleanCode(value) {
+    const clean = typeof value === 'string' ? value.trim().toUpperCase() : '';
+
+    if (!/^[A-Z0-9-]{2,10}$/.test(clean)) {
+        throw new AppError('code must be 2 to 10 letters, digits or dashes', 400);
+    }
+
+    return clean;
+}
+
+// Optional; empty clears it.
+function cleanManagerName(value) {
+    const clean = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+
+    if (clean.length > MANAGER_NAME_MAX_LENGTH) {
+        throw new AppError(`managerName must be at most ${MANAGER_NAME_MAX_LENGTH} characters`, 400);
+    }
+
+    return clean || null;
+}
+
 async function listHubs() {
     const rows = await hubRepository.listHubs(pool);
     return rows.map(toHub);
 }
 
-async function createHub({ name, city, address, contactPhone }) {
+async function createHub({ code, name, city, address, contactPhone, managerName }) {
     const row = await hubRepository.insertHub(pool, {
+        code: cleanCode(code),
         name: cleanText(name, 'name'),
         city: cleanText(city, 'city'),
         address: cleanText(address, 'address'),
-        contactPhone: cleanContactPhone(contactPhone)
+        contactPhone: cleanContactPhone(contactPhone),
+        managerName: cleanManagerName(managerName)
     });
 
     return toHub(row);
@@ -67,7 +94,7 @@ async function createHub({ name, city, address, contactPhone }) {
 
 // Fields left out keep their value. A hub can only be deactivated once its bikes have moved,
 // so no bike is left at a hub nobody can pick.
-async function updateHub({ hubId, name, city, address, contactPhone, isActive }) {
+async function updateHub({ hubId, code, name, city, address, contactPhone, managerName, isActive }) {
     const id = parseHubId(hubId);
 
     if (isActive !== undefined && typeof isActive !== 'boolean') {
@@ -75,10 +102,12 @@ async function updateHub({ hubId, name, city, address, contactPhone, isActive })
     }
 
     const changes = {
+        code: code === undefined ? undefined : cleanCode(code),
         name: name === undefined ? undefined : cleanText(name, 'name'),
         city: city === undefined ? undefined : cleanText(city, 'city'),
         address: address === undefined ? undefined : cleanText(address, 'address'),
-        contactPhone: contactPhone === undefined ? undefined : cleanContactPhone(contactPhone)
+        contactPhone: contactPhone === undefined ? undefined : cleanContactPhone(contactPhone),
+        managerName: managerName === undefined ? undefined : cleanManagerName(managerName)
     };
 
     return inTransaction(async client => {
@@ -94,10 +123,12 @@ async function updateHub({ hubId, name, city, address, contactPhone, isActive })
 
         const updated = await hubRepository.updateHub(client, {
             hubId: id,
+            code: changes.code ?? hub.code,
             name: changes.name ?? hub.name,
             city: changes.city ?? hub.city,
             address: changes.address ?? hub.address,
             contactPhone: changes.contactPhone === undefined ? hub.contact_phone : changes.contactPhone,
+            managerName: changes.managerName === undefined ? hub.manager_name : changes.managerName,
             isActive: isActive ?? hub.is_active
         });
 

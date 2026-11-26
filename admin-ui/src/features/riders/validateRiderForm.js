@@ -1,19 +1,10 @@
-// Same rules as the backend's validateCreateRider / validateUpdateRider middleware,
-// so most mistakes are caught before a request is sent.
+// Same rules as the backend's validateUpdateRider middleware, so most mistakes are caught
+// before a request is sent.
 // Returns { field: message } for each invalid field; empty when the form is valid.
-export function validateRiderForm({ rider_id, name, phone }, { isNew }) {
+export function validateRiderForm({ name, phone }) {
     const errors = {};
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
-
-    // The rider ID is fixed once created, so it is only checked for a new rider.
-    if (isNew) {
-        if (!rider_id.trim()) {
-            errors.rider_id = 'Rider ID is required';
-        } else if (rider_id.trim().length > 100) {
-            errors.rider_id = 'Rider ID must be 100 characters or fewer';
-        }
-    }
 
     // \p{N} and \p{L} match digits and letters in any script, so names in Hindi pass too.
     if (!trimmedName) {

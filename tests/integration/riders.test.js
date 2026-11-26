@@ -7,23 +7,22 @@ after(h.stopServer);
 beforeEach(h.resetDb);
 
 describe('Riders', () => {
-    it('creates a rider as Active', async () => {
+    it('cannot be added by hand: riders come from approved applications', async () => {
         const res = await h.api('POST', '/api/riders', {
-            rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543210'
+            rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543210', hubId: h.getDefaultHubId()
         });
 
-        assert.equal(res.status, 201);
-        assert.equal(res.body.rider.status, 'Active');
+        assert.equal(res.status, 404);
     });
 
-    it('rejects a duplicate phone with 409', async () => {
-        const rider = { rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543210' };
-        await h.api('POST', '/api/riders', rider);
+    it('lists each rider with their hub', async () => {
+        await h.createRider('YS-001');
 
-        const res = await h.api('POST', '/api/riders', { ...rider, rider_id: 'YS-002' });
+        const res = await h.api('GET', '/api/riders');
 
-        assert.equal(res.status, 409);
-        assert.equal(res.body.error, 'Phone number already registered');
+        assert.equal(res.body.riders[0].hub_id, h.getDefaultHubId());
+        assert.equal(res.body.riders[0].hub_name, 'Test Hub');
+        assert.equal(res.body.riders[0].is_test, false);
     });
 
     it('returns 404 for an unknown rider', async () => {
@@ -94,15 +93,39 @@ describe('Rider details, updates and lists', () => {
         assert.equal((await h.api('DELETE', '/api/riders/NOPE')).status, 404);
     });
 
-    it('rejects a duplicate rider ID with 409', async () => {
+    it('filters by hub', async () => {
+        const otherHubId = await h.createHub('Other Hub');
         await h.createRider('YS-001');
+        await h.createRider('YS-002', { hubId: otherHubId });
 
-        const res = await h.api('POST', '/api/riders', {
-            rider_id: 'YS-001', name: 'Karan Kadam', phone: '9876543299'
-        });
+        const res = await h.api('GET', `/api/riders?hubId=${otherHubId}`);
+        const all = await h.api('GET', '/api/riders?hubId=');
+        const bad = await h.api('GET', '/api/riders?hubId=abc');
+        const count = await h.api('GET', `/api/riders/summary?hubId=${otherHubId}`);
+        const badCount = await h.api('GET', '/api/riders/summary?hubId=0');
 
-        assert.equal(res.status, 409);
-        assert.equal(res.body.error, 'Rider ID Already Exists');
+        assert.deepEqual(res.body.riders.map(r => [r.rider_id, r.hub_name]), [['YS-002', 'Other Hub']]);
+        assert.equal(all.body.riders.length, 2);
+        assert.equal(bad.status, 400);
+        assert.equal(count.body.summary.Active, 1);
+        assert.equal(badCount.status, 400);
+    });
+
+    it('hides test riders from the list and counts unless asked for', async () => {
+        await h.createRider('YS-001');
+        await h.createRider('YS-T01', { isTest: true });
+
+        const hidden = await h.api('GET', '/api/riders');
+        const shown = await h.api('GET', '/api/riders?includeTest=true');
+        const hiddenCount = await h.api('GET', '/api/riders/summary');
+        const shownCount = await h.api('GET', '/api/riders/summary?includeTest=true');
+        const bad = await h.api('GET', '/api/riders?includeTest=yes');
+
+        assert.deepEqual(hidden.body.riders.map(r => r.rider_id), ['YS-001']);
+        assert.deepEqual(shown.body.riders.map(r => [r.rider_id, r.is_test]).sort(), [['YS-001', false], ['YS-T01', true]]);
+        assert.equal(hiddenCount.body.summary.Active, 1);
+        assert.equal(shownCount.body.summary.Active, 2);
+        assert.equal(bad.status, 400);
     });
 
     it('searches by name, ID or phone, sorts and pages', async () => {

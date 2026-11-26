@@ -8,6 +8,8 @@ function validateRiderQuery(req, res, next) {
     const rawSortBy = req.query.sortBy;
     const rawOrder = req.query.order;
     const rawStatus = req.query.status;
+    const rawHubId = req.query.hubId;
+    const rawIncludeTest = req.query.includeTest;
 
     // Reject repeated or non-string query parameters.
     const queryParams = [
@@ -15,7 +17,9 @@ function validateRiderQuery(req, res, next) {
         rawLimit,
         rawSortBy,
         rawOrder,
-        rawStatus
+        rawStatus,
+        rawHubId,
+        rawIncludeTest
     ];
 
     if (
@@ -90,6 +94,33 @@ function validateRiderQuery(req, res, next) {
         )
     );
 }
+
+    // An empty hubId means all hubs.
+    if (
+        rawHubId !== undefined &&
+        rawHubId !== '' &&
+        !/^[1-9]\d{0,14}$/.test(rawHubId)
+    ) {
+        return next(
+            new AppError(
+                'hubId must be a positive whole number',
+                400
+            )
+        );
+    }
+
+    if (
+        rawIncludeTest !== undefined &&
+        !['true', 'false'].includes(rawIncludeTest)
+    ) {
+        return next(
+            new AppError(
+                'includeTest must be true or false',
+                400
+            )
+        );
+    }
+
     return next();
 }
 
