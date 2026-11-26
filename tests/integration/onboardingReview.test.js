@@ -282,3 +282,22 @@ describe('Who can review', () => {
         assert.equal((await review(applicationId, 'pan', 'Verified', undefined, asLeader)).status, 403);
     });
 });
+
+describe('Rider page Onboarding and Documents tabs', () => {
+    it('links the approved rider to the application, but team leaders cannot open it, even for their own rider', async () => {
+        const { applicationId } = await submittedApplication();
+        const leaderId = await h.createUser({ email: 'tl@test.local', role: 'team_leader' });
+        const asLeader = { Cookie: await h.signIn(leaderId) };
+        await verifyAll(applicationId);
+        const { body: { application } } = await approve(applicationId, { teamLeaderIds: [leaderId] });
+        const fileId = application.documents.aadhaar.files[0].fileId;
+
+        const profile = await h.api('GET', `/api/riders/${application.riderId}/profile`);
+        assert.equal(profile.body.application.applicationId, applicationId);
+        assert.equal((await h.api('GET', `${base(applicationId)}/files/${fileId}`)).status, 200);
+
+        assert.equal((await h.api('GET', `/api/riders/${application.riderId}/profile`, undefined, asLeader)).status, 200);
+        assert.equal((await h.api('GET', base(applicationId), undefined, asLeader)).status, 403);
+        assert.equal((await h.api('GET', `${base(applicationId)}/files/${fileId}`, undefined, asLeader)).status, 403);
+    });
+});

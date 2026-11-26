@@ -23,6 +23,8 @@ import RiderEscalationsTab from '../features/riders/RiderEscalationsTab';
 import EscalateDialog from '../features/riders/EscalateDialog';
 import TeamLeadersPanel from '../features/riders/TeamLeadersPanel';
 import RiderFollowUpsTab from '../features/riders/RiderFollowUpsTab';
+import RiderOnboardingTab from '../features/riders/RiderOnboardingTab';
+import RiderDocumentsTab from '../features/riders/RiderDocumentsTab';
 import FollowUpDialog from '../features/riders/FollowUpDialog';
 import RiderFormDialog from '../features/riders/RiderFormDialog';
 import InactivePeriodsPanel from '../features/riders/InactivePeriodsPanel';
@@ -35,16 +37,22 @@ const TABS = [
     { value: 'escalations', label: 'Escalations', icon: 'shield' },
     { value: 'follow-ups', label: 'Follow-ups', icon: 'edit' }
 ];
+// What the rider sent from the app at joining. Not for team leaders: the API refuses them too.
+const STAFF_TABS = [
+    { value: 'onboarding', label: 'Onboarding', icon: 'userCheck' },
+    { value: 'documents', label: 'Documents', icon: 'file' }
+];
 
 // One rider's page, opened from Details in the riders list. The tab lives in the URL
 // so a refresh or a shared link opens the same tab.
 export default function RiderDetailPage() {
     const { riderId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
-    const requestedTab = searchParams.get('tab');
-    const tab = TABS.some(item => item.value === requestedTab) ? requestedTab : 'overview';
-
     const { isAdmin, isTeamLeader } = useAuth();
+    const tabs = isTeamLeader ? TABS : [...TABS, ...STAFF_TABS];
+    const requestedTab = searchParams.get('tab');
+    const tab = tabs.some(item => item.value === requestedTab) ? requestedTab : 'overview';
+
     // Team leaders reach this page from My Riders, not from Rider Management.
     const backTo = isTeamLeader ? { label: 'My Riders', to: '/my-riders' } : { label: 'Riders', to: '/riders' };
     const { refreshKey } = useWeek();
@@ -214,7 +222,7 @@ export default function RiderDetailPage() {
                         </p>
                     )}
 
-                    <StatusTabs variant="segmented" label="Rider sections" tabs={TABS} value={tab} onChange={openTab} />
+                    <StatusTabs variant="segmented" label="Rider sections" tabs={tabs} value={tab} onChange={openTab} />
 
                     {tab === 'overview' && (
                         <>
@@ -232,6 +240,8 @@ export default function RiderDetailPage() {
                         <RiderEscalationsTab riderId={riderId} reloadKey={reloadKey} onChanged={reload} />
                     )}
                     {tab === 'follow-ups' && <RiderFollowUpsTab riderId={riderId} reloadKey={reloadKey} />}
+                    {tab === 'onboarding' && <RiderOnboardingTab application={profile.data.application} reloadKey={refreshKey} />}
+                    {tab === 'documents' && <RiderDocumentsTab application={profile.data.application} reloadKey={refreshKey} />}
                 </>
             )}
 
