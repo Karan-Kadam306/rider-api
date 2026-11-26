@@ -985,7 +985,6 @@ CREATE TABLE public.rider_applications (
     rider_id character varying(30) UNIQUE REFERENCES public.riders(rider_id),
     is_test boolean DEFAULT false NOT NULL,
     is_reapplication boolean DEFAULT false NOT NULL,
-    assisted_by_user_id bigint REFERENCES public.users(user_id),
     hold_reason character varying(500),
     reject_reason character varying(500),
     submitted_at timestamp with time zone,

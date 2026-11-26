@@ -77,12 +77,10 @@ async function findReviewInfo(client, { applicationId }) {
                 a.fix_steps,
                 a.created_at,
                 a.reviewed_at,
-                reviewer.name AS reviewed_by,
-                assistant.name AS assisted_by
+                reviewer.name AS reviewed_by
          FROM rider_applications a
          LEFT JOIN hubs h ON h.hub_id = a.hub_id
          LEFT JOIN users reviewer ON reviewer.user_id = a.reviewed_by_user_id
-         LEFT JOIN users assistant ON assistant.user_id = a.assisted_by_user_id
          WHERE a.application_id = $1`,
         [applicationId]
     );

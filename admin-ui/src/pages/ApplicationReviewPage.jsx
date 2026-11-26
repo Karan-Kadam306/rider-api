@@ -21,8 +21,10 @@ import Icon from '../components/ui/Icon';
 import StatusBadge from '../components/ui/StatusBadge';
 import { formatDate } from '../utils/formatDate';
 import { formatDateTime } from '../utils/week';
-import { EVENT_LABELS, REVIEW_ITEMS, STEP_LABELS } from '../features/onboarding/reviewLabels';
+import { REVIEW_ITEMS, STEP_LABELS } from '../features/onboarding/reviewLabels';
 import DocumentViewer from '../features/onboarding/DocumentViewer';
+import ChecksPanel from '../features/onboarding/ChecksPanel';
+import TimelinePanel from '../features/onboarding/TimelinePanel';
 import ReasonDialog from '../features/onboarding/ReasonDialog';
 import RequestChangesDialog from '../features/onboarding/RequestChangesDialog';
 import ApproveDialog from '../features/onboarding/ApproveDialog';
@@ -361,7 +363,6 @@ function ApplicantPanel({ application, name }) {
                 <h3 className="panel__title">Applicant</h3>
                 <span className="panel__meta">
                     {application.isReapplication ? 'Applied again' : 'First application'}
-                    {application.assistedBy && ` · filled in by ${application.assistedBy}`}
                 </span>
             </div>
             <dl className="detail-list">
@@ -414,80 +415,6 @@ function ApplicantPanel({ application, name }) {
                     <dd>{application.submittedAt ? formatDateTime(application.submittedAt) : 'Not yet'}</dd>
                 </div>
             </dl>
-        </section>
-    );
-}
-
-// Results of the checks run at submit. They only flag things; the reviewer decides.
-function ChecksPanel({ application, name }) {
-    const { checks, bank } = application;
-    const matches = checks.duplicate?.details.matches ?? [];
-
-    return (
-        <section className="card panel">
-            <div className="panel__header">
-                <h3 className="panel__title">Checks</h3>
-                <span className="panel__meta">Flags only; you decide</span>
-            </div>
-            <dl className="detail-list">
-                <div>
-                    <dt>Duplicates</dt>
-                    <dd>
-                        {checks.duplicate ? <StatusBadge status={checks.duplicate.status} /> : 'Not run'}
-                        {matches.map(match => (
-                            <div key={`${match.field}-${match.applicationNo}`} className="cell-sub">
-                                Same {match.field} as {match.applicationNo} ({match.applicationStatus})
-                                {match.riderId && `, rider ${match.riderId} (${match.riderStatus})`}
-                            </div>
-                        ))}
-                    </dd>
-                </div>
-                <div>
-                    <dt>Bank name</dt>
-                    <dd>
-                        {checks.bank ? <StatusBadge status={checks.bank.status} /> : 'Not run'}
-                        {bank && (
-                            <div className="cell-sub">
-                                Applicant: <strong>{name}</strong> · Bank says: <strong>{bank.nameAtBank ?? '—'}</strong>
-                            </div>
-                        )}
-                    </dd>
-                </div>
-                {['pan', 'dl'].map(kind => (
-                    <div key={kind}>
-                        <dt>{kind === 'pan' ? 'PAN lookup' : 'Licence lookup'}</dt>
-                        <dd>
-                            {checks[kind] ? <StatusBadge status={checks[kind].status} /> : 'Not run'}
-                            {checks[kind]?.details.error && <div className="cell-sub">{checks[kind].details.error}</div>}
-                        </dd>
-                    </div>
-                ))}
-            </dl>
-        </section>
-    );
-}
-
-function TimelinePanel({ timeline }) {
-    return (
-        <section className="card panel">
-            <div className="panel__header">
-                <h3 className="panel__title">Timeline</h3>
-            </div>
-            <ol className="review-timeline">
-                {timeline.map((event, index) => (
-                    <li key={index}>
-                        <div>
-                            {EVENT_LABELS[event.event] ?? event.event}
-                            {event.data?.item && ` · ${ITEM_LABELS[event.data.item] ?? event.data.item}`}
-                            {event.data?.riderId && ` · ${event.data.riderId}`}
-                        </div>
-                        <div className="cell-sub">
-                            {event.by === 'rider' ? 'Rider' : event.by === 'system' ? 'System' : event.by} · {formatDateTime(event.at)}
-                        </div>
-                        {event.note && <div className="cell-sub">“{event.note}”</div>}
-                    </li>
-                ))}
-            </ol>
         </section>
     );
 }

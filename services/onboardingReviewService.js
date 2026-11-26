@@ -188,7 +188,6 @@ async function getApplication(applicationId) {
         hub: info.hub_id && { hubId: info.hub_id, name: info.hub_name },
         isTest: info.is_test,
         isReapplication: info.is_reapplication,
-        assistedBy: info.assisted_by,
         fixSteps: info.fix_steps,
         changeNote: application.change_note,
         holdReason: application.hold_reason,
