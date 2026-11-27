@@ -10,6 +10,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { formatDateTime } from '../../utils/week';
 import ChecksPanel from '../onboarding/ChecksPanel';
 import TimelinePanel from '../onboarding/TimelinePanel';
+import PaymentsPanel from '../onboarding/PaymentsPanel';
 
 export const NO_APPLICATION_MESSAGE = 'This rider was added before the rider app, so there are no onboarding records.';
 
@@ -97,6 +98,8 @@ export default function RiderOnboardingTab({ application: link, reloadKey }) {
 
                 <ChecksPanel application={application} name={name} />
             </div>
+
+            {application.payments && <PaymentsPanel payments={application.payments} />}
 
             <TimelinePanel timeline={application.timeline} />
         </>

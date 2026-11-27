@@ -176,6 +176,33 @@ onboarding users. Riders can no longer be added by hand: approving an applicatio
 - **Files** are only served through `GET /api/onboarding/applications/:id/files/:fileId`
   (`no-store`), and every view is written to `document_access_log`.
 
+## Onboarding payments (deposit and first pack)
+
+After approval the rider pays in the app before getting a bike: the refundable deposit, and for a
+prepaid rider then their first weekly pack. Once everything is paid the application moves from
+`Payment Pending` (Payment tab) to `Bike Pending` (Bike tab).
+
+| Endpoint (under `/api/rider-app`) | What it does |
+|---|---|
+| `GET /payments` | What is paid and due, with amounts, and `nextDue` |
+| `POST /payments/orders` | `{ purpose: 'Deposit' \| 'PrepaidPack' }` with an `Idempotency-Key` header. Starts a payment, open for 30 minutes |
+| `GET /payments/orders/:orderId` | The order's status; the app checks it after paying |
+| `POST /payments/orders/:orderId/mock-capture` | `{ outcome?: 'fail' }`. Mock gateway (with `ENABLE_MOCK_PAY=true`): sends the signed webhook |
+
+- **Amounts** are set by the server when the order is created: the deposit in effect that day, or
+  the chosen pack's price. Anything the app sends is ignored.
+- **Double taps** are safe: the same `Idempotency-Key`, or a tap while an order is open, returns the
+  same order. The deposit must be paid before the pack.
+- **The webhook** (`POST /api/webhooks/payment`, signed like escalation payments) sends
+  `{ event: 'payment.captured' | 'payment.failed', paymentId, orderId, amount, reason? }`. A repeated
+  webhook changes nothing; a wrong amount is refused. A payment that arrives after the order
+  expired is still accepted, because the rider's money was taken.
+- **The deposit** is recorded in `rider_deposits` as `Held` (refunds come with exit requests).
+- **Mark paid** (admins only, `POST /api/onboarding/applications/:id/mark-paid` with
+  `{ purpose, reference, note? }`) is the fallback when the rider paid but the webhook never came.
+  A reference can be used only once. If the webhook then arrives too, it is recorded on the
+  timeline as an extra payment for an admin to refund.
+
 ## Security
 
 - **Sign-in limits:** after 5 failed attempts for one email, or 20 from one IP address, within
@@ -293,7 +320,7 @@ admin-ui/      React admin panel
 | Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password` (change your own) |
 | Users (admin only) | `GET /api/users`, `POST /api/users`, `PATCH /api/users/:userId`, `POST /api/users/:userId/password` |
 | Riders | `GET /api/riders` (filters by `hubId`, hides test riders unless `includeTest=true`), `GET/PUT/DELETE /api/riders/:riderId`, `GET /api/riders/summary` (same filters). Riders are created by approving an application |
-| Onboarding review | `GET /api/onboarding/applications?tab=&hubId=&planType=&includeTest=&search=` (with tab counts), `GET …/applications/counts`, `GET …/applications/:id`, `GET …/applications/:id/files/:fileId`, `PATCH …/applications/:id/items/:item` (`{ status, reason }`), `POST …/applications/:id/hold`, `…/release`, `…/request-changes` (`{ steps, note }`), `…/reject`, `…/approve` (`{ hubId, teamLeaderIds, mappings, note }`), `GET /api/onboarding/approval-options` (admin, staff, onboarding) |
+| Onboarding review | `GET /api/onboarding/applications?tab=&hubId=&planType=&includeTest=&search=` (with tab counts), `GET …/applications/counts`, `GET …/applications/:id`, `GET …/applications/:id/files/:fileId`, `PATCH …/applications/:id/items/:item` (`{ status, reason }`), `POST …/applications/:id/hold`, `…/release`, `…/request-changes` (`{ steps, note }`), `…/reject`, `…/approve` (`{ hubId, teamLeaderIds, mappings, note }`), `…/mark-paid` (admin; `{ purpose, reference, note }`), `GET /api/onboarding/approval-options` (admin, staff, onboarding) |
 | Rider page | `GET /api/riders/:riderId/profile`, `GET /api/riders/:riderId/payouts`, `GET /api/riders/:riderId/assignments` |
 | Escalations | `GET/POST /api/riders/:riderId/escalations` (POST admin; team leaders only a Record), `POST /api/escalations/:escalationId/mark-paid`, `…/waive`, `…/close`, `…/retry-lock` (admin) |
 | Analytics | `GET /api/analytics/team-leaders?from=&to=` (admins and staff: calls, promises kept/broken, dues recovered, riders owing per team leader) |
@@ -301,7 +328,7 @@ admin-ui/      React admin panel
 | Team leaders | `GET /api/users/team-leaders` (admin), `GET/POST /api/riders/:riderId/team-leaders`, `DELETE /api/riders/:riderId/team-leaders/:userId` (POST/DELETE admin), `GET /api/tl/riders`, `GET /api/tl/queue` (team leader) |
 
 A `team_leader` user can call only `GET /api/tl/riders` and `GET /api/tl/queue`, the rider page reads above (profile, payouts, assignments, escalations, follow-ups) and the two writes (log a follow-up, raise a Record) for riders assigned to them; everything else answers 403 (see `middleware/restrictTeamLeader.js`).
-| Payments | `POST /api/webhooks/payment` (signed), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`) |
+| Payments | `POST /api/webhooks/payment` (signed; escalation links and onboarding orders), `GET /api/mock-pay/:token`, `POST /api/mock-pay/:token/swipe` (with `ENABLE_MOCK_PAY=true`); rider app payments are listed under Onboarding payments |
 | Inactive days | `GET/POST /api/riders/:riderId/inactive-periods`, `PATCH …/:periodId/approve`, `DELETE …/:periodId` |
 | Hubs | `GET /api/hubs`, `POST /api/hubs` and `PATCH /api/hubs/:hubId` (admin; a unique `code` of 2–10 letters, digits or dashes, saved in capitals, and an optional `managerName`; a hub with bikes cannot be deactivated) |
 | Pricing | `GET /api/pricing`; admin: `POST /api/pricing/postpaid-rates`, `DELETE …/postpaid-rates/:rateId`, `POST /api/pricing/deposits`, `DELETE …/deposits/:depositId` (only prices not yet started), `POST /api/pricing/packs`, `PATCH …/packs/:packId`. Billing charges each day at the postpaid rate in effect that day; a new rate must start after the last closed or paid-out week |

@@ -20,5 +20,7 @@ router.post('/applications/:applicationId/release', controller.release);
 router.post('/applications/:applicationId/request-changes', controller.requestChanges);
 router.post('/applications/:applicationId/reject', controller.reject);
 router.post('/applications/:applicationId/approve', controller.approve);
+// The fallback when the rider paid but the payment provider's webhook never came: admins only.
+router.post('/applications/:applicationId/mark-paid', requireRole('admin'), controller.markPaid);
 
 module.exports = router;

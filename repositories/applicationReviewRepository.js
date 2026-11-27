@@ -36,10 +36,26 @@ async function listApplications(client, { limit, offset, oldestFirst, ...filters
                 p.surname,
                 a.submitted_at,
                 a.created_at,
+                pack.price::float8 AS pack_price,
+                pay.paid_purposes,
+                pay.last_payment_status,
+                pay.last_payment_at,
+                pay.last_payment_failure,
                 count(*) OVER ()::int AS total
          FROM rider_applications a
          JOIN application_profiles p ON p.application_id = a.application_id
          LEFT JOIN hubs h ON h.hub_id = a.hub_id
+         LEFT JOIN prepaid_packs pack ON pack.pack_id = a.prepaid_pack_id
+         -- What is paid, and the newest payment attempt, for the Payment tab.
+         LEFT JOIN LATERAL (
+             SELECT array_agg(DISTINCT rp.purpose) FILTER (WHERE rp.status = 'Paid') AS paid_purposes,
+                    (array_agg(CASE WHEN rp.status = 'Created' AND rp.expires_at <= now() THEN 'Expired' ELSE rp.status END
+                               ORDER BY rp.created_at DESC, rp.payment_id DESC))[1] AS last_payment_status,
+                    max(rp.created_at) AS last_payment_at,
+                    (array_agg(rp.failure_reason ORDER BY rp.created_at DESC, rp.payment_id DESC))[1] AS last_payment_failure
+             FROM rider_payments rp
+             WHERE rp.application_id = a.application_id
+         ) pay ON true
          WHERE ${where}
          ORDER BY COALESCE(a.submitted_at, a.created_at) ${order}, a.application_id ${order}
          LIMIT $6 OFFSET $7`,

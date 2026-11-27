@@ -1,5 +1,6 @@
 const { pipeline } = require('stream/promises');
 const reviewService = require('../services/onboardingReviewService');
+const riderPaymentService = require('../services/riderPaymentService');
 
 // GET /api/onboarding/applications
 // Query: tab, hubId, planType, includeTest, search, page, limit. Also returns every tab's count.
@@ -160,6 +161,26 @@ async function approve(req, res, next) {
     }
 }
 
+// POST /api/onboarding/applications/:applicationId/mark-paid (admins only)
+// Body: { purpose: 'Deposit' | 'PrepaidPack', reference, note? }. reference is the bank or UPI reference.
+async function markPaid(req, res, next) {
+    try {
+        const { purpose, reference, note } = req.body ?? {};
+        const applicationId = await riderPaymentService.markPaidManually({
+            applicationId: req.params.applicationId,
+            purpose,
+            reference,
+            note,
+            userId: req.user.userId
+        });
+        const application = await reviewService.getApplication(applicationId);
+
+        return res.status(200).json({ message: 'Marked as paid', application });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 // GET /api/onboarding/approval-options — active hubs, team leaders and partners for the approval dialog.
 async function getApprovalOptions(req, res, next) {
     try {
@@ -180,5 +201,6 @@ module.exports = {
     requestChanges,
     reject,
     approve,
+    markPaid,
     getApprovalOptions
 };

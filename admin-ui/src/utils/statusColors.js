@@ -44,6 +44,11 @@ const STATUS_TONES = {
     'Payment Pending': 'info',
     'Bike Pending': 'info',
     Verified: 'success',
+    // Onboarding payments: an order, a payment still due, and the deposit we hold.
+    Created: 'info',
+    Due: 'warning',
+    Expired: 'neutral',
+    Held: 'success',
     // Duplicate and KYC checks.
     Clear: 'success',
     Flagged: 'danger',

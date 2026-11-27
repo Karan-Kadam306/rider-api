@@ -7,6 +7,8 @@ const riderRepository = require('../repositories/riderRepository');
 const partnerRepository = require('../repositories/partnerRepository');
 const hubService = require('./hubService');
 const pricingService = require('./pricingService');
+const riderPaymentService = require('./riderPaymentService');
+const pricingRepository = require('../repositories/pricingRepository');
 const teamLeaderService = require('./teamLeaderService');
 const partnerMappingService = require('./partnerMappingService');
 const fileStore = require('./storage');
@@ -103,7 +105,25 @@ async function lockApplication(client, applicationId, allowed, action) {
     return application;
 }
 
-function toListItem(row) {
+// For the Payment tab: what is still due at today's prices, and how the last attempt went.
+function toPaymentProgress(row, depositAmount) {
+    const paid = row.paid_purposes ?? [];
+    const due = riderPaymentService.purposesFor(row.plan_type).filter(purpose => !paid.includes(purpose));
+    const priceOf = purpose => (purpose === 'Deposit' ? depositAmount : row.pack_price);
+
+    return {
+        paid,
+        due,
+        amountDue: due.reduce((sum, purpose) => sum + (priceOf(purpose) ?? 0), 0),
+        lastAttempt: row.last_payment_status && {
+            status: row.last_payment_status,
+            at: row.last_payment_at,
+            failureReason: row.last_payment_failure
+        }
+    };
+}
+
+function toListItem(row, depositAmount) {
     return {
         applicationId: row.application_id,
         applicationNo: row.application_no,
@@ -116,7 +136,8 @@ function toListItem(row) {
         hubName: row.hub_name,
         isTest: row.is_test,
         submittedAt: row.submitted_at,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        payment: row.status === 'Payment Pending' ? toPaymentProgress(row, depositAmount) : null
     };
 }
 
@@ -145,9 +166,10 @@ async function listApplications({ tab = 'review', page, limit, ...filters }) {
         offset: pagination.offset
     });
     const totalRecords = rows[0]?.total ?? 0;
+    const deposit = rows.some(row => row.status === 'Payment Pending') ? await pricingRepository.findDepositInEffect(pool) : null;
 
     return {
-        applications: rows.map(toListItem),
+        applications: rows.map(row => toListItem(row, deposit?.amount ?? null)),
         pagination: { page: pagination.page, limit: pagination.limit, totalRecords, totalPages: Math.ceil(totalRecords / pagination.limit) }
     };
 }
@@ -178,6 +200,13 @@ async function getApplication(applicationId) {
         reviewRepository.findEvents(pool, { applicationId: id }),
         pricingService.getPricing()
     ]);
+    // Payments start at approval, when the rider is created.
+    const payments = info.rider_id && await riderPaymentService.getApplicationPayments({
+        applicationId: id,
+        planType: application.plan_type,
+        packId: application.pack_id,
+        riderId: info.rider_id
+    });
 
     return {
         applicationId: id,
@@ -242,6 +271,7 @@ async function getApplication(applicationId) {
             version: application.policy_version,
             acceptedAt: application.policy_accepted_at
         },
+        payments: payments || null,
         checks: Object.fromEntries(checks.map(row => [row.kind, { status: row.status, details: row.details, checkedAt: row.created_at }])),
         timeline: events.map(row => ({
             event: row.event_type,

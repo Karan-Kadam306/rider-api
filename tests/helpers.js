@@ -33,6 +33,8 @@ if (!testDbName.endsWith('_test')) {
 const TABLES = [
     'rider_sessions',
     'rider_otps',
+    'rider_deposits',
+    'rider_payments',
     'application_checks',
     'document_access_log',
     'application_events',

@@ -23,6 +23,7 @@ const hubRoutes = require('./routes/hubRoutes');
 const pricingRoutes = require('./routes/pricingRoutes');
 const riderAppAuthRoutes = require('./routes/riderAppAuthRoutes');
 const riderAppOnboardingRoutes = require('./routes/riderAppOnboardingRoutes');
+const riderAppPaymentRoutes = require('./routes/riderAppPaymentRoutes');
 const onboardingRoutes = require('./routes/onboardingRoutes');
 const { requireAuth } = require('./middleware/requireAuth');
 const { requireRider } = require('./middleware/requireRider');
@@ -58,6 +59,7 @@ app.use('/api/mock-pay', mockPayRouter);
 app.use('/api/rider-app/auth', riderAppAuthRoutes);
 app.use('/api/rider-app', requireRider);
 app.use('/api/rider-app', riderAppOnboardingRoutes);
+app.use('/api/rider-app', riderAppPaymentRoutes);
 app.use('/api/rider-app', (req, res, next) => {
     next(new AppError('Route not found', 404));
 });

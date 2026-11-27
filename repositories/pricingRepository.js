@@ -96,6 +96,19 @@ async function findDepositAmountById(client, { depositId }) {
     return result.rows[0] ?? null;
 }
 
+// The deposit amount in effect today: what a rider pays when they start a deposit payment.
+async function findDepositInEffect(client) {
+    const result = await client.query(
+        `SELECT d.deposit_id::int AS deposit_id, d.amount::float8 AS amount
+         FROM deposit_amounts d
+         WHERE d.effective_from <= CURRENT_DATE
+         ORDER BY d.effective_from DESC
+         LIMIT 1`
+    );
+
+    return result.rows[0] ?? null;
+}
+
 async function deleteDepositAmount(client, { depositId }) {
     await client.query('DELETE FROM deposit_amounts WHERE deposit_id = $1', [depositId]);
 }
@@ -168,6 +181,7 @@ module.exports = {
     findDepositAmounts,
     insertDepositAmount,
     findDepositAmountById,
+    findDepositInEffect,
     deleteDepositAmount,
     findPrepaidPacks,
     findPrepaidPackById,
