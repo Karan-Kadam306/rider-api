@@ -57,6 +57,13 @@ export async function approveApplication(applicationId, body) {
     return data.application;
 }
 
+// Admins only: the rider paid but the payment provider never confirmed it.
+// { purpose: 'Deposit' | 'PrepaidPack', reference, note }.
+export async function markPaid(applicationId, body) {
+    const data = await request(`${base(applicationId)}/mark-paid`, { method: 'POST', body });
+    return data.application;
+}
+
 // GET /api/onboarding/approval-options — active hubs, team leaders and partners.
 export function getApprovalOptions({ signal } = {}) {
     return request('/api/onboarding/approval-options', { signal });

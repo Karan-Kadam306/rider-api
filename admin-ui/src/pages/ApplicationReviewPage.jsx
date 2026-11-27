@@ -5,6 +5,7 @@ import {
     approveApplication,
     getApplication,
     holdApplication,
+    markPaid,
     rejectApplication,
     releaseApplication,
     requestChanges,
@@ -21,13 +22,15 @@ import Icon from '../components/ui/Icon';
 import StatusBadge from '../components/ui/StatusBadge';
 import { formatDate } from '../utils/formatDate';
 import { formatDateTime } from '../utils/week';
-import { REVIEW_ITEMS, STEP_LABELS } from '../features/onboarding/reviewLabels';
+import { PAYMENT_LABELS, REVIEW_ITEMS, STEP_LABELS } from '../features/onboarding/reviewLabels';
 import DocumentViewer from '../features/onboarding/DocumentViewer';
 import ChecksPanel from '../features/onboarding/ChecksPanel';
 import TimelinePanel from '../features/onboarding/TimelinePanel';
 import ReasonDialog from '../features/onboarding/ReasonDialog';
 import RequestChangesDialog from '../features/onboarding/RequestChangesDialog';
 import ApproveDialog from '../features/onboarding/ApproveDialog';
+import PaymentsPanel from '../features/onboarding/PaymentsPanel';
+import MarkPaidDialog from '../features/onboarding/MarkPaidDialog';
 
 // Waiting on the reviewer: these can be approved, held or sent back. Same rules as the API.
 const IN_REVIEW = ['Pending Review', 'Resubmitted'];
@@ -59,7 +62,7 @@ function itemDetails(application, item) {
 // held or rejected. Opened from the onboarding tabs of Rider Management.
 export default function ApplicationReviewPage() {
     const { applicationId } = useParams();
-    const { isOnboarding } = useAuth();
+    const { isAdmin, isOnboarding } = useAuth();
     const { refreshKey } = useWeek();
     const showToast = useToast();
 
@@ -69,9 +72,11 @@ export default function ApplicationReviewPage() {
     const application = updated?.base === query.data ? updated.value : query.data;
 
     const [viewing, setViewing] = useState(null);
-    // Which dialog is open: 'reject-item', 'hold', 'reject', 'changes' or 'approve'.
+    // Which dialog is open: 'reject-item', 'hold', 'reject', 'changes', 'approve' or 'mark-paid'.
     const [dialog, setDialog] = useState(null);
     const [rejectingItem, setRejectingItem] = useState(null);
+    // The payment (deposit or first pack) being marked paid.
+    const [payingItem, setPayingItem] = useState(null);
     const [busyItem, setBusyItem] = useState(null);
 
     const show = value => setUpdated({ base: query.data, value });
@@ -117,6 +122,12 @@ export default function ApplicationReviewPage() {
         const approved = await approveApplication(application.applicationId, body);
         show(approved);
         showToast({ message: `Approved as rider ${approved.riderId}` });
+        closeDialog();
+    }
+
+    async function confirmPaid(body) {
+        show(await markPaid(application.applicationId, { purpose: payingItem.purpose, ...body }));
+        showToast({ message: `${PAYMENT_LABELS[payingItem.purpose]} marked as paid` });
         closeDialog();
     }
 
@@ -225,6 +236,19 @@ export default function ApplicationReviewPage() {
                             Waiting for the rider to fix: {application.fixSteps.map(step => STEP_LABELS[step]).join(', ')}
                             {application.changeNote && <> — “{application.changeNote}”</>}
                         </p>
+                    )}
+
+                    {/* From approval on: the deposit (and first pack) the rider pays before the bike. */}
+                    {application.payments && (
+                        <PaymentsPanel
+                            payments={application.payments}
+                            onMarkPaid={isAdmin && status === 'Payment Pending'
+                                ? purpose => {
+                                    setPayingItem(application.payments.items.find(item => item.purpose === purpose));
+                                    setDialog('mark-paid');
+                                }
+                                : undefined}
+                        />
                     )}
 
                     <div className="widget-grid">
@@ -349,6 +373,9 @@ export default function ApplicationReviewPage() {
             )}
             {dialog === 'approve' && (
                 <ApproveDialog application={application} onSubmit={approve} onClose={closeDialog} />
+            )}
+            {dialog === 'mark-paid' && (
+                <MarkPaidDialog item={payingItem} onSubmit={confirmPaid} onClose={closeDialog} />
             )}
         </>
     );

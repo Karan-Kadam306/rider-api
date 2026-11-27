@@ -36,5 +36,16 @@ export const EVENT_LABELS = {
     held: 'Put on hold',
     released: 'Released from hold',
     rejected: 'Rejected the application',
-    approved: 'Approved'
+    approved: 'Approved',
+    payment_started: 'Started a payment',
+    payment_failed: 'Payment failed',
+    deposit_paid: 'Deposit paid',
+    pack_paid: 'First weekly pack paid',
+    extra_payment: 'Extra payment received: check for a refund'
+};
+
+// What the rider pays after approval, before getting a bike.
+export const PAYMENT_LABELS = {
+    Deposit: 'Refundable deposit',
+    PrepaidPack: 'First weekly pack'
 };

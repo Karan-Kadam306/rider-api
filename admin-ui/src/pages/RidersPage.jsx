@@ -191,7 +191,7 @@ export default function RidersPage() {
                         <>
                             {riderTab
                                 ? <RidersTable riders={rows} onTerminate={setTerminating} readOnly={isOnboarding} />
-                                : <ApplicationsTable applications={rows} />}
+                                : <ApplicationsTable applications={rows} tab={tab} />}
                             <Pagination
                                 {...list.data.pagination}
                                 onPageChange={next => updateParams({ page: next > 1 ? next : undefined })}

@@ -70,7 +70,8 @@ async function insertEvent(client, { applicationId, eventType, fromStatus = null
 // Locked while a step is saved or the application is submitted, so two saves cannot both move the step.
 async function findForUpdate(client, { applicationId }) {
     const result = await client.query(
-        `SELECT application_id::int AS application_id, phone, status, current_step, fix_steps, is_test
+        `SELECT application_id::int AS application_id, phone, status, current_step, fix_steps, is_test,
+                plan_type, prepaid_pack_id::int AS prepaid_pack_id, rider_id
          FROM rider_applications
          WHERE application_id = $1
          FOR UPDATE`,
@@ -102,6 +103,15 @@ async function markSubmitted(client, { applicationId, status }) {
         `UPDATE rider_applications SET status = $2, submitted_at = now(), updated_at = now()
          WHERE application_id = $1`,
         [applicationId, status]
+    );
+}
+
+// Every onboarding payment is in: the rider now waits for a bike.
+async function markBikePending(client, { applicationId }) {
+    await client.query(
+        `UPDATE rider_applications SET status = 'Bike Pending', updated_at = now()
+         WHERE application_id = $1`,
+        [applicationId]
     );
 }
 
@@ -228,6 +238,7 @@ module.exports = {
     updateProgress,
     updatePlan,
     markSubmitted,
+    markBikePending,
     updatePersonal,
     updateAddress,
     updateEmergencyContact,

@@ -93,36 +93,6 @@ async function retryLock(req, res, next) {
     }
 }
 
-// POST /api/webhooks/payment
-// Called by the payment provider with a signed JSON body: { paymentId, token, amount }.
-async function paymentWebhookHandler(req, res, next) {
-    try {
-        if (!paymentWebhook.verify(req.body, req.get('X-Payment-Signature'))) {
-            throw new AppError('Invalid signature', 401);
-        }
-
-        let payload;
-
-        try {
-            payload = JSON.parse(req.body.toString('utf8'));
-        } catch {
-            throw new AppError('Request body is not valid JSON', 400);
-        }
-
-        const { paymentId, token, amount } = payload ?? {};
-
-        if (typeof paymentId !== 'string' || typeof token !== 'string' || typeof amount !== 'number') {
-            throw new AppError('paymentId, token and amount are required', 400);
-        }
-
-        const result = await escalationService.applyPayment({ paymentId, token, amount });
-
-        return res.status(200).json(result);
-    } catch (error) {
-        return next(error);
-    }
-}
-
 // GET /api/mock-pay/:token
 // What the mock rider app shows for a payment link.
 async function getMockPayment(req, res, next) {
@@ -175,7 +145,6 @@ module.exports = {
     waive,
     close,
     retryLock,
-    paymentWebhookHandler,
     getMockPayment,
     swipeToPay
 };
